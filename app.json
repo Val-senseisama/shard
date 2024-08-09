@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "Shard",
+    "slug": "Shard",
+    "scheme": "shard",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icons/Fractal-shard-icon-pic.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/images/Fractal-shard.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icons/Fractal-shard-icon-pic.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "web": {
+      "favicon": "./assets/icons/Fractal-shard-icon-pic.png"
+    },
+    "plugins": [
+      "expo-router"
+    ]
+  }
+}
