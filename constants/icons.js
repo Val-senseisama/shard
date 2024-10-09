@@ -22,4 +22,12 @@ import clock from '../assets/icons/clock.png'
 import hamburgerDark from '../assets/icons/hamburger-dark.png'
 import edit from '../assets/icons/Edit.png'
 import pellet from '../assets/icons/pellet.png'
-export default {shard, eye, leftArrow, rightArrow, eyeHide, google, facebook, twitter, profile, mail, hamburger, home, logout, schedule, settings, account, smallShard, addSquare, check, uncheck, clock, hamburgerDark, edit, pellet};
+import add from "../assets/icons/Add.png"
+import trash from "../assets/icons/Trash.png"
+import search from "../assets/icons/search.png"
+
+
+
+
+
+export default {shard, eye, leftArrow, rightArrow, eyeHide, google, facebook, twitter, profile, mail, hamburger, home, logout, schedule, settings, account, smallShard, addSquare, check, uncheck, clock, hamburgerDark, edit, pellet, add, trash, search};

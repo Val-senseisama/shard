@@ -1,7 +1,7 @@
 import { StatusBar } from "expo-status-bar";
 import { Drawer } from "expo-router/drawer";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import CustomDrawerContent from "../../components/CustomDrawerContent"; // Adjust the path as needed
+import CustomDrawerContent from "../../components/CustomDrawerContent"; 
 
 const ScreenLayout = () => {
   return (
@@ -27,10 +27,7 @@ const ScreenLayout = () => {
             }}
           />
 
-          <Drawer.Screen
-            name="create"
-            options={{ headerShown: false }}
-          />
+          <Drawer.Screen name="create" options={{ headerShown: false }} />
 
           <Drawer.Screen
             name="account"
@@ -38,6 +35,8 @@ const ScreenLayout = () => {
               headerShown: false,
             }}
           />
+          {/* <Drawer.Screen name="logout" options={{}} /> */}
+          <Drawer.Screen name="(shard)" options={{ headerShown: false }} />
         </Drawer>
       </GestureHandlerRootView>
 

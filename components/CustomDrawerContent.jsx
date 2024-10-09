@@ -33,7 +33,7 @@ const CustomDrawerContent = (props) => {
     }}>
       <View
       style={{backgroundColor: theme.colors.primary}}
-        className="mt-12 ml-4 mr-4 p-4rounded-2xl flex-row items-center">
+        className="mt-12 ml-4 mr-4 p-4 rounded-2xl flex-row items-center">
         <Image
           source={images.profile}
           className="w-[80px] h-[80px]"

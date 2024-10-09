@@ -28,7 +28,9 @@ const Home = () => {
             <Image source={theme.colors.primary === "#fff" ? icons.hamburger : icons.hamburgerDark} />
           </TouchableOpacity>
           <View className="flex-row items-center">
-            <Image source={images.profile} className="w-[56px] h-[56px] px-4" />
+            <Image source={images.profile} className="w-[56px] h-[56px] px-4"
+            resizeMode='cover'
+            />
             <Text
               style={{ color: theme.colors.text }}
               className="text-2xl font-Imedium mx-4">Welcome John</Text>
@@ -43,7 +45,7 @@ const Home = () => {
           <Image
             source={theme.colors.primary === "#fff" ? images.smallLogo : images.smallLogoDark}
             resizeMode="cover"
-            className="my-4"
+            className="my-3"
           />
           <View
             style={{ backgroundColor: theme.colors.secondary }}
@@ -64,7 +66,8 @@ const Home = () => {
               renderItem={({ item }) => (
                  
                   <ShardCard
-                    shard={item}
+                  shard={{...item, handlePress: () => router.push("/(shard)/")}}
+                  
                   />
                 )}
            />
