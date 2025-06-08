@@ -6,7 +6,16 @@
 
     "baseUrl": ".",
     "paths": {
-      "~/*": ["src/*"]
+      "~/*": ["./*"],
+      "@/*": ["./*"],
+      "components/*": ["./components/*"],
+      "hooks/*": ["./hooks/*"],
+      "utils/*": ["./utils/*"],
+      "assets/*": ["./assets/*"],
+      "styles/*": ["./styles/*"],
+      "types/*": ["./types/*"],
+      "services/*": ["./services/*"],
+      "contexts/*": ["./contexts/*"]
     }
   }
 }
