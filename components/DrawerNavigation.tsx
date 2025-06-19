@@ -107,8 +107,8 @@ const DrawerNavigation = ({ isOpen, onClose, user }: DrawerNavigationProps) => {
       />
       <Animated.View
         className="absolute inset-0 z-50 min-h-screen max-w-[300px]"
-        style={[animatedStyle]}>
-        <View className="absolute bottom-0 left-0 top-0 max-w-[300px] bg-background-paper p-4 dark:bg-background-dark-default">
+        style={[animatedStyle, { borderTopRightRadius: 20, borderBottomRightRadius: 20 }]}>
+        <View className="absolute bottom-0 left-0 top-0 max-w-[300px] rounded-r-3xl bg-background-paper p-4 dark:bg-background-dark-default">
           <View className="mb-8 mt-16 min-w-full flex-row items-center gap-3 rounded-xl bg-background-default px-3 py-4 dark:bg-background-dark-paper">
             <Image
               source={user?.profile ?? images.UserDefault}

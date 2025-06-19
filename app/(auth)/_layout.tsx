@@ -1,11 +1,7 @@
-
-
-import { Redirect, Stack } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-
+import { Redirect, Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 
 const AuthLayout = () => {
-
   return (
     <>
       <Stack>
@@ -17,6 +13,12 @@ const AuthLayout = () => {
         />
         <Stack.Screen
           name="login"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="complete-profile"
           options={{
             headerShown: false,
           }}

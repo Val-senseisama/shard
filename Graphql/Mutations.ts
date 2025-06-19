@@ -14,3 +14,25 @@ export const LOGIN = gql`
     }
   }
 `;
+
+export const COMPLETE_PROFILE = gql`
+  mutation CompleteProfile($username: String!, $gender: Gender!, $profile: String) {
+    completeProfile(username: $username, gender: $gender, profile: $profile) {
+      id
+      username
+      gender
+      profile
+    }
+  }
+`;
+
+// export const COMPLETE_PROFILE = gql`
+//   mutation CompleteProfile($username: String!, $gender: Gender!, $profile: String) {
+//     completeProfile(username: $username, gender: $gender, profile: $profile) {
+//       id
+//       username
+//       gender
+//       profile
+//     }
+//   }
+// `;

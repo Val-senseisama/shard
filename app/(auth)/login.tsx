@@ -26,7 +26,7 @@ const login = () => {
       if (data.login.accessToken) {
         await Session.setCookie('x-access-token', data.login.accessToken);
         await Session.setCookie('x-refresh-token', data.login.refreshToken);
-        router.replace('/Home');
+        router.replace('/complete-profile');
       }
     },
     onError: (error) => {

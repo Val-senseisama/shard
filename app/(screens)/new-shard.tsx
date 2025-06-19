@@ -1,205 +1,304 @@
-import AddImageInput from '@/components/AddImageInput';
-import DrawerNavigation from '@/components/DrawerNavigation';
-import SmallInput from '@/components/SmallInput';
-import images from '@/constants/images';
-import Session from '@/helpers/Session';
-import { AntDesign } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Image,
-  Platform,
-  Pressable,
+  View,
   Text,
   TextInput,
   TouchableOpacity,
+  Image,
+  ScrollView,
+  Alert,
+  Platform,
+  KeyboardAvoidingView,
   useColorScheme,
-  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import Animated, { FadeIn, SlideInRight } from 'react-native-reanimated';
+import { AntDesign, MaterialIcons } from '@expo/vector-icons';
 import AppStore from '~/helpers/AppStore';
-// import DateTimePicker from "@react-native-community/datetimepicker";
-//import DateTimePicker from '@react-native-community/datetimepicker';
-const newShard = () => {
-  const [formData, setFormData] = useState<Record<string, any>>({
-    shardName: '',
-    shardImage: '',
-    shardSummary: '',
-    shardStart: new Date(),
-    shardEnd: new Date(),
-    timeless: false,
-  });
+import images from '@/constants/images';
+import AddImageInput from '@/components/AddImageInput';
 
+interface MiniGoal {
+  id: string;
+  title: string;
+  startDate: Date;
+  endDate: Date;
+}
+
+const NewShard = () => {
   const [user, setUser] = useState<Record<string, any> | null>(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    title: '',
+    image: '',
+    summary: '',
+    goals: [] as MiniGoal[],
+  });
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedGoalIndex, setSelectedGoalIndex] = useState<number | null>(null);
+  const [dateType, setDateType] = useState<'start' | 'end'>('start');
   const colorScheme = useColorScheme();
-  const [isFocused, setIsFocused] = useState(false);
-  const [showStartPicker, setShowStartPicker] = useState(false);
-  const [showEndPicker, setShowEndPicker] = useState(false);
-
-  const handleStartDateChange = (event: any, selectedDate?: Date) => {
-    setShowStartPicker(false);
-    if (selectedDate) setFormData((prev) => ({ ...prev, shardStart: selectedDate }));
-  };
-
-  const handleEndDateChange = (event: any, selectedDate?: Date) => {
-    setShowEndPicker(false);
-    if (selectedDate) setFormData((prev) => ({ ...prev, shardEnd: selectedDate }));
-  };
 
   useEffect(() => {
     const fetchUser = async () => {
       const userData = await AppStore.get('user');
       setUser(userData);
     };
-
     fetchUser();
   }, []);
 
-  return (
-    <SafeAreaView className="min-h-screen min-w-full bg-background-paper dark:bg-background-dark-default">
-      <DrawerNavigation isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} user={user} />
-      <View className="flex  min-w-[100vw] flex-1 pt-3  ">
-        <View className="my-4 flex min-w-full flex-row items-center justify-between py-2">
-          <Pressable
-            onPress={() => setIsDrawerOpen(true)}
-            className="self-center justify-self-start ps-5">
-            <AntDesign
-              name="menu-unfold"
-              size={24}
-              color={colorScheme === 'dark' ? '#ffffff' : '#000000'}
-              className="text-text-primary dark:text-text-dark"
-            />
-          </Pressable>
-          <View className="absolute left-1/2 -translate-x-1/2 transform">
-            <Image
-              source={colorScheme === 'dark' ? images.SmallLogoDark : images.SmallLogoLight}
-              resizeMode="contain"
-              className="my-2 "
-            />
-          </View>
-        </View>
-        <View className="dark:bg-background-dark-paperrounded-tl-[30px] min-w-full flex-1 flex-col items-center rounded-tr-[30px] bg-background-default px-4 py-6">
-          <View className="flex-1 flex-col items-center rounded-[15px] bg-background-paper p-4 dark:bg-background-dark-default">
-            <View className="flex-col items-center rounded-[8px] bg-background-default px-4 py-2 dark:bg-background-dark-paper">
-              <SmallInput
-                title=""
-                placeholder="Shard Title"
-                handleChangeText={(text: string) => {
-                  setFormData((prev) => ({ ...prev, shardName: text }));
-                }}
-                value=""
-                otherStyles="mx-3"
-              />
+  const handleImageSelect = (base64Image: string) => {
+    setFormData((prev) => ({ ...prev, image: base64Image }));
+  };
 
-              <AddImageInput
-                onImage={(uri: string) => {
-                  setFormData((prev) => ({ ...prev, image: uri }));
-                }}
+  const addGoal = () => {
+    const newGoal: MiniGoal = {
+      id: Date.now().toString(),
+      title: '',
+      startDate: new Date(),
+      endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    };
+    setFormData((prev) => ({ ...prev, goals: [...prev.goals, newGoal] }));
+  };
+
+  const removeGoal = (id: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      goals: prev.goals.filter((goal) => goal.id !== id),
+    }));
+  };
+
+  const updateGoal = (id: string, field: keyof MiniGoal, value: any) => {
+    setFormData((prev) => ({
+      ...prev,
+      goals: prev.goals.map((goal) => (goal.id === id ? { ...goal, [field]: value } : goal)),
+    }));
+  };
+
+  const generateAIGoals = () => {
+    const aiGoals: MiniGoal[] = [
+      {
+        id: '1',
+        title: 'Research and Planning',
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+      {
+        id: '2',
+        title: 'Initial Implementation',
+        startDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        endDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+      },
+      {
+        id: '3',
+        title: 'Testing and Refinement',
+        startDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+        endDate: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000),
+      },
+    ];
+    setFormData((prev) => ({ ...prev, goals: aiGoals }));
+  };
+
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate && selectedGoalIndex !== null) {
+      updateGoal(
+        formData.goals[selectedGoalIndex].id,
+        dateType === 'start' ? 'startDate' : 'endDate',
+        selectedDate
+      );
+    }
+  };
+
+  const handleSave = () => {
+    if (!formData.title || !formData.summary || formData.goals.length === 0) {
+      Alert.alert('Error', 'Please fill in all required fields and add at least one goal');
+      return;
+    }
+    // TODO: Save to backend
+    console.log('Saving shard:', formData);
+    router.replace('/add-partners');
+  };
+
+  return (
+    <SafeAreaView className="flex-1 bg-background-paper dark:bg-background-dark-default">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        className="flex-1">
+        {/* Header */}
+        <View className="flex-row items-center justify-between p-4">
+          <TouchableOpacity onPress={() => router.back()}>
+            <AntDesign
+              name="arrowleft"
+              size={24}
+              color={colorScheme === 'dark' ? '#fff' : '#000'}
+            />
+          </TouchableOpacity>
+          <Image
+            source={colorScheme === 'dark' ? images.SmallLogoDark : images.SmallLogoLight}
+            className="h-8 w-24"
+            resizeMode="contain"
+          />
+          <View style={{ width: 24 }} />
+        </View>
+
+        <ScrollView className="flex-1 px-4">
+          <Animated.View entering={FadeIn} className="space-y-6">
+            {/* Image Section */}
+            <View className="items-center">
+              <AddImageInput onImage={handleImageSelect} />
+            </View>
+
+            {/* Title Section */}
+            <View className="mb-2 space-y-2">
+              <Text className="my-2 text-lg font-bold text-text-primary dark:text-text-dark">
+                Shard Title
+              </Text>
+              <TextInput
+                value={formData.title}
+                onChangeText={(text) => setFormData((prev) => ({ ...prev, title: text }))}
+                placeholder="Enter your shard title"
+                className="rounded-xl bg-background-default p-4 text-text-primary dark:bg-background-dark-paper dark:text-text-dark"
+                placeholderTextColor="#666"
               />
             </View>
-            <View className=" mt-4 flex-col items-center rounded-[8px] bg-background-default p-4 dark:bg-background-dark-paper">
-              <View className={`space-y-2 `}>
-                <Text className="my-2 text-center font-imedium text-lg text-text-primary dark:text-text-dark">
-                  SHARD SUMMARY
+
+            {/* Summary Section */}
+            <View className="my-2 space-y-2">
+              <Text className="my-2 text-lg font-bold text-text-primary dark:text-text-dark">
+                Summary
+              </Text>
+              <TextInput
+                value={formData.summary}
+                onChangeText={(text) => setFormData((prev) => ({ ...prev, summary: text }))}
+                placeholder="Describe your shard..."
+                multiline
+                numberOfLines={4}
+                className="h-24 rounded-xl bg-background-default p-4 text-text-primary dark:bg-background-dark-paper dark:text-text-dark"
+                placeholderTextColor="#666"
+                textAlignVertical="top"
+              />
+            </View>
+
+            {/* Goals Section */}
+            <View className="my-2 space-y-4">
+              <View className="flex-row items-center justify-between">
+                <Text
+                  className="text-lg font-bold text-text-primary dark:text-text-dark"
+                  style={{
+                    fontSize: 18,
+                    lineHeight: 28,
+                    fontFamily: 'Inter-Bold',
+                  }}>
+                  Mini Goals
                 </Text>
-                <View className="flex w-full flex-row items-center border-b border-text-grey-100 dark:border-text-dark">
-                  <TextInput
-                    value={formData.shardSummary}
-                    onChangeText={(text: string) => {
-                      setFormData((prev) => ({ ...prev, shardSummary: text }));
-                    }}
-                    multiline={true}
-                    numberOfLines={4}
-                    placeholder={'Add a summary'}
-                    className="min-h-[200px] flex-1 rounded-lg bg-background-default px-4 py-3 text-text-primary dark:bg-background-dark-paper dark:text-text-dark "
-                    placeholderTextColor="#666666"
-                    onFocus={() => setIsFocused(true)}
-                    onBlur={() => setIsFocused(false)}
+                <View className="flex-row gap-2 space-x-2">
+                  <TouchableOpacity
+                    onPress={addGoal}
+                    className="rounded-lg bg-primary-start px-4 py-2.5"
                     style={{
-                      borderWidth: isFocused ? 1 : 1,
-                      borderColor: isFocused ? '#2743FD' : '#B9B9B9',
-                      textAlignVertical: 'top',
-                    }}
-                  />
+                      backgroundColor: '#4135F3',
+                      paddingVertical: 8,
+                    }}>
+                    <Text className="text-white">Add Goal</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={generateAIGoals}
+                    className="rounded-lg  px-4 py-2"
+                    style={{
+                      // backgroundColor: '#4135F3',
+                      paddingVertical: 8,
+                    }}>
+                    <Text
+                      className="font-isemibold text-primary-end"
+                      style={{
+                        color: '#7168F6',
+                      }}>
+                      AI Generate
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               </View>
+
+              {formData.goals.map((goal, index) => (
+                <Animated.View
+                  key={goal.id}
+                  entering={SlideInRight}
+                  className="my-2 rounded-xl bg-background-default p-4 dark:bg-background-dark-paper">
+                  <View className="flex-row items-center justify-between">
+                    <TextInput
+                      value={goal.title}
+                      onChangeText={(text) => updateGoal(goal.id, 'title', text)}
+                      placeholder="Goal title"
+                      className="flex-1 text-text-primary dark:text-text-dark"
+                    />
+                    <TouchableOpacity
+                      onPress={() => removeGoal(goal.id)}
+                      className="ml-2 rounded-full bg-red-50 p-2 dark:bg-red-900/20">
+                      <MaterialIcons name="delete" size={20} color="#ef4444" />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View className="mt-4 flex-row space-x-2">
+                    <TouchableOpacity
+                      onPress={() => {
+                        setSelectedGoalIndex(index);
+                        setDateType('start');
+                        setShowDatePicker(true);
+                      }}
+                      className="flex-1 rounded-lg bg-background-paper p-3 dark:bg-background-dark-default">
+                      <Text className="text-sm text-text-primary dark:text-text-dark">
+                        Start: {goal.startDate.toDateString()}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setSelectedGoalIndex(index);
+                        setDateType('end');
+                        setShowDatePicker(true);
+                      }}
+                      className="flex-1 rounded-lg bg-background-paper p-3 dark:bg-background-dark-default">
+                      <Text className="text-sm text-text-primary dark:text-text-dark">
+                        End: {goal.endDate.toDateString()}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </Animated.View>
+              ))}
             </View>
+          </Animated.View>
+        </ScrollView>
 
-            <View className=" mt-4 min-w-full flex-col items-center rounded-[8px] bg-background-default p-4 dark:bg-background-dark-paper">
-              <Text className="mt-2 text-center font-imedium text-lg text-text-primary dark:text-text-dark">
-                SHARD TIMELINE
-              </Text>
-
-              <View className="flex min-w-full flex-row items-center justify-around gap-2">
-                {/* Start Date Picker */}
-                <TouchableOpacity
-                  onPress={() => setShowStartPicker(true)}
-                  className="min-w-[120px] items-center border-b border-text-grey-100 py-5">
-                  <Text className="font-iregular text-sm text-text-primary dark:text-text-dark">
-                    {formData.shardStart.toDateString()}
-                  </Text>
-                </TouchableOpacity>
-                {/* {showStartPicker && (
-        <DateTimePicker
-          value={formData.shardStart}
-          mode="date"
-          display={Platform.OS === "ios" ? "inline" : "default"}
-          onChange={handleStartDateChange}
-        />
-      )} */}
-
-                <Text className="font-imedium text-lg text-text-primary dark:text-text-dark">
-                  To
-                </Text>
-
-                {/* End Date Picker */}
-                <TouchableOpacity
-                  onPress={() => setShowEndPicker(true)}
-                  className="min-w-[120px] items-center border-b border-text-grey-100 py-5">
-                  <Text className="font-iregular text-sm text-text-primary dark:text-text-dark">
-                    {formData.shardEnd.toDateString()}
-                  </Text>
-                </TouchableOpacity>
-                {/* {showEndPicker && (
-        <DateTimePicker
-          value={formData.shardEnd}
-          mode="date"
-          display={Platform.OS === "ios" ? "inline" : "default"}
-          onChange={handleEndDateChange}
-        />
-      )} */}
-              </View>
-              <View className="my-2 w-full flex-row items-center">
-                <TouchableOpacity
-                  onPress={() =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      accepted: !prev.accepted,
-                    }))
-                  }
-                  className="mr-2 ms-4 h-5 w-5 items-center justify-center rounded border border-text-grey-100"
-                  style={{
-                    backgroundColor: formData.timeless ? '#4135F3' : 'transparent',
-                  }}>
-                  {formData.timeless && <Text style={{ color: 'white', fontSize: 12 }}>✓</Text>}
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      timeless: !prev.timeless,
-                    }))
-                  }
-                  className="flex-1">
-                  <Text className="text-base text-text-light dark:text-text-dark">Timeless</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
+        {/* Save Button */}
+        <View className="p-4">
+          <TouchableOpacity
+            onPress={handleSave}
+            className="rounded-xl bg-primary-start p-4"
+            style={{
+              backgroundColor: '#4135F3',
+            }}>
+            <Text className="text-center text-lg font-bold text-white">Create Shard</Text>
+          </TouchableOpacity>
         </View>
-      </View>
+      </KeyboardAvoidingView>
+
+      {showDatePicker && (
+        <DateTimePicker
+          value={
+            selectedGoalIndex !== null
+              ? dateType === 'start'
+                ? formData.goals[selectedGoalIndex].startDate
+                : formData.goals[selectedGoalIndex].endDate
+              : new Date()
+          }
+          mode="date"
+          display={Platform.OS === 'ios' ? 'inline' : 'default'}
+          onChange={handleDateChange}
+        />
+      )}
     </SafeAreaView>
   );
 };
 
-export default newShard;
+export default NewShard;

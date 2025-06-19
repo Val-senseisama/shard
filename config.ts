@@ -1,3 +1,3 @@
 export const CONFIG = {
-  GRAPHQL_ENDPOINT: 'https://truly-utah-receptors-blvd.trycloudflare.com/graphql',
+  GRAPHQL_ENDPOINT: 'https://apps-fold-statements-lan.trycloudflare.com/graphql',
 };

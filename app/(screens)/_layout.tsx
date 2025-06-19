@@ -8,18 +8,23 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
 
   return (
-   <>
-   <Stack screenOptions={{
-      headerShown: false,
-      animation:'slide_from_right',
-      
-    }}>
-    <Stack.Screen name="Home" />
-    <Stack.Screen name="new-shard" />
-    <Stack.Screen name="schedule" />
-    <Stack.Screen name="settings" />
-    <Stack.Screen name="account" />
-    </Stack>
-   </>
+    <>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          animation: 'slide_from_right',
+        }}>
+        <Stack.Screen name="Home" />
+        <Stack.Screen name="new-shard" />
+        <Stack.Screen name="add-partners" />
+        <Stack.Screen name="schedule" />
+        <Stack.Screen name="settings" />
+        <Stack.Screen name="account" />
+        <Stack.Screen name="shard/[id]" />
+        <Stack.Screen name="shard/[id]/edit" />
+        <Stack.Screen name="shard/[id]/notifications" />
+        <Stack.Screen name="shard/[id]/chat" />
+      </Stack>
+    </>
   );
 }

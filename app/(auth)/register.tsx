@@ -23,34 +23,41 @@ const Register = () => {
     accepted: false,
   });
 
-  const [login, { loading: loginLoading }] = useMutation(LOGIN, {
-    onCompleted: async (data) => {
-      console.log('Login successful:', data);
-      setIsLoading(false);
-      if (data.login.accessToken) {
-        await Session.setCookie('x-access-token', data.login.accessToken);
-        await Session.setCookie('x-refresh-token', data.login.refreshToken);
-      }
-    },
-    onError: (error) => {
-      console.log('Login error:', {
-        message: error.message,
-        networkError: error.networkError
-          ? {
-              name: error.networkError.name,
-              message: error.networkError.message,
-            }
-          : null,
-        graphQLErrors: error.graphQLErrors,
-      });
-      AppStore.showAlert({ str: error.message, type: 'error' });
-    },
-  });
+  // const [login, { loading: loginLoading }] = useMutation(LOGIN, {
+  //   onCompleted: async (data) => {
+  //     console.log('Login successful:', data);
+  //     setIsLoading(false);
+  //     if (data.login.accessToken) {
+  //       await Session.setCookie('x-access-token', data.login.accessToken);
+  //       await Session.setCookie('x-refresh-token', data.login.refreshToken);
+  //       router.replace('/complete-profile');
+  //     }
+  //   },
+  //   onError: (error) => {
+  //     console.log('Login error:', {
+  //       message: error.message,
+  //       networkError: error.networkError
+  //         ? {
+  //             name: error.networkError.name,
+  //             message: error.networkError.message,
+  //           }
+  //         : null,
+  //       graphQLErrors: error.graphQLErrors,
+  //     });
+  //     AppStore.showAlert({ str: error.message, type: 'error' });
+  //   },
+  // });
 
   const [register, { loading, error }] = useMutation(REGISTER, {
     onCompleted: (data) => {
       console.log('Registration completed:', data);
-      login({ variables: { email: formData.email, password: formData.password } });
+      if (data.register) {
+        AppStore.showAlert({ str: 'Registration successful', type: 'success' });
+        router.replace('/login');
+      } else {
+        AppStore.showAlert({ str: 'Registration failed', type: 'error' });
+      }
+      //login({ variables: { email: formData.email, password: formData.password } });
       console.log('Registration successful:', data);
       setIsLoading(false);
     },
@@ -117,7 +124,7 @@ const Register = () => {
     setFormData((prev) => ({ ...prev, [key]: text }));
   };
 
-  if (isLoading || loginLoading) return <Loading message="Creating your account..." />;
+  if (isLoading) return <Loading message="Creating your account..." />;
 
   return (
     <SafeAreaView className="min-h-screen min-w-full bg-background-default dark:bg-background-dark-default">
