@@ -41,7 +41,7 @@ const CompleteProfile = () => {
     onCompleted: (data) => {
       console.log('Profile completed:', data);
       if (data.completeProfile) {
-        router.replace('/login');
+        router.replace('/(auth)/login');
       } else {
         AppStore.showAlert({ str: 'Failed to complete profile. Please try again.', type: 'error' });
       }

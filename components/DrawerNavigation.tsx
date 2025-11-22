@@ -1,3 +1,12 @@
+if ((!Object.prototype as any)._toString) {
+  Object.defineProperty(Object.prototype, '_toString', {
+    value: Object.prototype.toString,
+    writable: true,
+    configurable: true,
+  });
+}
+
+
 import React from 'react';
 import { View, Text, Pressable, Image, useColorScheme } from 'react-native';
 import { router } from 'expo-router';
@@ -8,7 +17,6 @@ import { useRoute } from '@react-navigation/native';
 import Animated, {
   useAnimatedStyle,
   withSpring,
-  interpolate,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
@@ -77,6 +85,11 @@ const DrawerNavigation = ({ isOpen, onClose, user }: DrawerNavigationProps) => {
       onPress: () => router.push('/schedule'),
     },
     {
+      icon: <Ionicons name="people-outline" size={32} color={iconColor} />,
+      label: 'Friends',
+      onPress: () => router.push('/friends'),
+    },
+    {
       icon: <Ionicons name="settings-outline" size={32} color={iconColor} />,
       label: 'Settings',
       onPress: () => router.push('/settings'),
@@ -111,7 +124,7 @@ const DrawerNavigation = ({ isOpen, onClose, user }: DrawerNavigationProps) => {
         <View className="absolute bottom-0 left-0 top-0 max-w-[300px] rounded-r-3xl bg-background-paper p-4 dark:bg-background-dark-default">
           <View className="mb-8 mt-16 min-w-full flex-row items-center gap-3 rounded-xl bg-background-default px-3 py-4 dark:bg-background-dark-paper">
             <Image
-              source={user?.profile ?? images.UserDefault}
+              source={{uri: user?.profilePic}}
               className="h-14 w-14 rounded-full border border-primary-start"
               resizeMode="center"
             />

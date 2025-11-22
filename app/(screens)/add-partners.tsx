@@ -131,7 +131,7 @@ const AddPartners = () => {
     // TODO: Save selected users to the shard
     console.log('Selected users:', selectedUsers);
     // Navigate to the new shard detail page with a mock ID for now
-    router.replace('/shard/123');
+    router.replace('/(screens)/shard/123');
   }, [selectedUsers]);
 
   return (

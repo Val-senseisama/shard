@@ -5,9 +5,10 @@ import { captureRef } from 'react-native-view-shot';
 import Session from '@/helpers/Session';
 import icons from '@/constants/icons';
 import * as FileSystem from 'expo-file-system';
-import AppStore from '~/helpers/AppStore';
+import { useAppStore } from '~/store/app.store';
 
 const AddImageInput = ({ onImage }: { onImage: (uri: string) => void }) => {
+  const { addAlert } = useAppStore()
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [isModalVisible, setModalVisible] = useState(false);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
@@ -17,7 +18,7 @@ const AddImageInput = ({ onImage }: { onImage: (uri: string) => void }) => {
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permissionResult.status !== 'granted') {
-      AppStore.showAlert({
+      addAlert({
         str: 'Permission required, You need to allow access to your gallery.',
         type: 'error',
       });
@@ -53,20 +54,13 @@ const AddImageInput = ({ onImage }: { onImage: (uri: string) => void }) => {
       });
 
       console.log('Cropped image URI:', croppedUri);
-      // Convert the file to base64
-      const base64String = await FileSystem.readAsStringAsync(croppedUri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      console.log('Base64 Image:', base64String.substring(0, 100) + '...'); // Log first 100 chars
-
-      setImageUri(`data:image/jpeg;base64,${base64String}`);
-      onImage(base64String);
-      // setImageUri(croppedUri);
+      // Set the image URI and notify parent component
+      setImageUri(croppedUri);
+      onImage(croppedUri);
       setModalVisible(false);
     } catch (error) {
       console.error('Error capturing image:', error);
-      AppStore.showAlert({
+      addAlert({
         str: 'Failed to crop image. Please try again.',
         type: 'error',
       });
@@ -77,7 +71,7 @@ const AddImageInput = ({ onImage }: { onImage: (uri: string) => void }) => {
     <View className="mt-5 items-center">
       {/* Profile Image / Placeholder */}
       <TouchableOpacity onPress={pickImage}>
-        <View className="h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-primary-start">
+        <View className="h-24 w-24 items-center justify-center overflow-hidden rounded-md border border-primary-start">
           {imageUri ? (
             <Image source={{ uri: imageUri }} className="h-full w-full" />
           ) : (
@@ -93,7 +87,7 @@ const AddImageInput = ({ onImage }: { onImage: (uri: string) => void }) => {
         </TouchableOpacity>
       )}
       <Text className="my-2 text-center font-ithin text-xs text-text-light dark:text-text-dark">
-        Add an image, accepted formats are png and jpg
+        Add an image
       </Text>
       {/* Crop Modal */}
       <Modal visible={isModalVisible} animationType="slide" transparent>

@@ -1,6 +1,16 @@
+
+
 import images from '@/constants/images';
 import { Image, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+// index.js or App.tsx (top of file)
+if ((!Object.prototype as any)._toString) {
+  Object.defineProperty(Object.prototype, '_toString', {
+    value: Object.prototype.toString,
+    writable: true,
+    configurable: true,
+  });
+}
 
 const index = () => {
   return (

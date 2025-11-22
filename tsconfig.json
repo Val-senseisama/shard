@@ -15,7 +15,8 @@
       "styles/*": ["./styles/*"],
       "types/*": ["./types/*"],
       "services/*": ["./services/*"],
-      "contexts/*": ["./contexts/*"]
+      "contexts/*": ["./contexts/*"],
+      "store/*": ["./store/*"],
     }
   }
 }

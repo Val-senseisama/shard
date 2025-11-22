@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "882989295593",
+    "project_id": "shard-59913",
+    "storage_bucket": "shard-59913.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:882989295593:android:b9bb1d8901b34ebb444d78",
+        "android_client_info": {
+          "package_name": "com.xavitech.shard"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "882989295593-4s2lpll1llcqeu3e82pc3skpsj8q14nv.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.xavitech.shard",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "882989295593-6bebonafmcrn6lve6o0dcslq9a8bpmhr.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyABBaFCjEsmcWrRCfC8utaZS5rltemAeUs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "882989295593-6bebonafmcrn6lve6o0dcslq9a8bpmhr.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

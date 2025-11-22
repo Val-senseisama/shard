@@ -2,9 +2,9 @@ import React from 'react'
 import { Image, ImageSourcePropType, Platform, Text, TouchableOpacity, View } from 'react-native'
 import "../global.css"
 
-const IconButton = ({src, otherStyles, text}: {src: ImageSourcePropType, otherStyles?: string, text?: string}) => {
+const IconButton = ({src, otherStyles, text, onPress}: {src: ImageSourcePropType, otherStyles?: string, text?: string, onPress?: () => void}) => {
   return (
-    <TouchableOpacity >
+    <TouchableOpacity onPress={onPress}>
       <View
         style={[
           { 

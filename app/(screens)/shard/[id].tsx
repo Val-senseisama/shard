@@ -380,7 +380,7 @@ const ShardDetail = () => {
         />
         <View className="flex-row gap-2" style={{ flexDirection: 'row', gap: 8 }}>
           <TouchableOpacity
-            onPress={() => router.push(`/shard/${id}/edit`)}
+            onPress={() => router.push(`/(screens)/shard/${id}/edit`)}
             className="rounded-full bg-background-default p-2 dark:bg-background-dark-paper"
             style={{
               borderRadius: 9999,
@@ -390,7 +390,7 @@ const ShardDetail = () => {
             <MaterialIcons name="edit" size={20} color={colorScheme === 'dark' ? '#fff' : '#000'} />
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => router.push(`/shard/${id}/notifications`)}
+            onPress={() => router.push(`/(screens)/shard/${id}/notifications`)}
             className="rounded-full bg-background-default p-2 dark:bg-background-dark-paper"
             style={{
               borderRadius: 9999,
@@ -404,7 +404,7 @@ const ShardDetail = () => {
             />
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => router.push(`/shard/${id}/chat`)}
+            onPress={() => router.push(`/(screens)/shard/${id}/chat`)}
             className="rounded-full bg-background-default p-2 dark:bg-background-dark-paper"
             style={{
               borderRadius: 9999,

@@ -7,7 +7,7 @@ const UserProvider = () => {
     fetchPolicy: 'network-only',
     onCompleted: async (data) => {
       console.log('data', data);
-      await AppStore.set('user', data.currentUser);
+      await AppStore.set('user', data.currentUser.user);
     },
     onError: (error) => {
       console.log(error);

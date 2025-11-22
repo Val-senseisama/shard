@@ -26,6 +26,7 @@ import CrystalShape from '@/components/ToastCrystal';
 import UserProvider from '@/components/UserProvider';
 import AppStore from '~/helpers/AppStore';
 import { CURRENT_USER } from '~/Graphql/Queries';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -63,10 +64,10 @@ export default function RootLayout() {
   useEffect(() => {
     if (isReady && fontsLoaded && !error) {
       if (isUserLoggedIn) {
-        router.replace('/Home');
+        router.replace('/(screens)/Home');
       } else {
         Session.clearAllCookies();
-        router.replace('/login');
+        router.replace('/(auth)/welcome');
       }
       SplashScreen.hideAsync();
     }
@@ -201,6 +202,7 @@ export default function RootLayout() {
 
   return (
     <ApolloProvider client={client}>
+      <GestureHandlerRootView>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
         <UserProvider />
@@ -215,6 +217,7 @@ export default function RootLayout() {
         </Stack>
         <Toast config={toastConfig} />
       </ThemeProvider>
+      </GestureHandlerRootView>
     </ApolloProvider>
   );
 }

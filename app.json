@@ -13,10 +13,12 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-web-browser",
+      "@react-native-google-signin/google-signin"
     ],
     "orientation": "portrait",
-    "icon": "./assets/images/Fractal-shard.png",
+    "icon": "./assets/app-icons/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/images/Fractal-shard.png",
@@ -25,14 +27,25 @@
     },
     "assetBundlePatterns": [
       "**/*"
-    ],
+    ],   
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.xavitech.shard"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/Fractal-shard.png",
         "backgroundColor": "#ffffff"
+      },
+      "package": "com.xavitech.shard",
+    
+      "googleServicesFile": "./helpers/google-services.json"
+    
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "531fcf58-99c3-489a-8d13-6f738e65b42d"
       }
     }
   }

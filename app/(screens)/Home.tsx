@@ -15,7 +15,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AntDesign from '@expo/vector-icons/AntDesign';
-import CreateShardButton from '@/components/CreateShardButton';
+ import CreateShardButton from '@/components/CreateShardButton';
+import CreateShardFAB from '@/components/CreateShardFAB';
 import DrawerNavigation from '@/components/DrawerNavigation';
 import AppStore from '~/helpers/AppStore';
 import ShardCard from '@/components/ShardCard';
@@ -27,23 +28,30 @@ import Animated, {
   Extrapolate,
 } from 'react-native-reanimated';
 import { router } from 'expo-router';
+import { useUserStore } from '~/store/user.store';
+import { useShardStore } from '~/store/shard.store';
 const Home = () => {
-  const [user, setUser] = useState<Record<string, any> | null>(null);
+  const user = useUserStore((state) => state.user);
+  const { setShards, setSelectedShard } = useShardStore();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const colorScheme = useColorScheme();
   const scrollY = useSharedValue(0);
   const shardListRef = useRef<FlatList>(null);
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      const userData = await AppStore.get('user');
-      setUser(userData);
-    };
+  // useEffect(() => {
+  //   const fetchUser = async () => {
+  //     const userData = await AppStore.get('user');
+      
+  //     setUser(userData);
+  //   };
 
-    fetchUser();
-  }, []);
+  //   fetchUser().then(() => {
+  //     console.log('User fetched successfully');
+  //   });
+  // }, []);
   const [shards] = useState([
     {
+      id: '1',
       title: 'Personal Growth',
       completionRate: 75,
       image:
@@ -51,6 +59,7 @@ const Home = () => {
       summary: 'Track daily habits and personal development goals',
     },
     {
+      id: '2',
       title: 'Fitness Journey',
       completionRate: 60,
       image:
@@ -58,6 +67,7 @@ const Home = () => {
       summary: 'Workout routines and nutrition planning',
     },
     {
+      id: '3',
       title: 'Project Alpha',
       completionRate: 30,
       image:
@@ -65,6 +75,7 @@ const Home = () => {
       summary: 'Software development milestones and tasks',
     },
     {
+      id: '4',
       title: 'Learning Spanish',
       completionRate: 45,
       image:
@@ -72,6 +83,7 @@ const Home = () => {
       summary: 'Language learning progress and vocabulary',
     },
     {
+      id: '5',
       title: 'Home Renovation',
       completionRate: 15,
       image:
@@ -79,6 +91,7 @@ const Home = () => {
       summary: 'Room by room renovation planning and tracking',
     },
     {
+      id: '6',
       title: 'Crypto goals: Investor Mind',
       completionRate: 15,
       image:
@@ -86,6 +99,7 @@ const Home = () => {
       summary: 'To build a better Val, follow Idele',
     },
     {
+      id: '7',
       title: 'Photography Portfolio',
       completionRate: 80,
       image:
@@ -93,6 +107,7 @@ const Home = () => {
       summary: 'Showcase your best shots and creative projects',
     },
     {
+      id: '8',
       title: 'Travel Bucket List',
       completionRate: 50,
       image:
@@ -100,6 +115,7 @@ const Home = () => {
       summary: 'Destinations to visit and experiences to try',
     },
     {
+      id: '9',
       title: 'Reading Challenge',
       completionRate: 35,
       image:
@@ -107,6 +123,7 @@ const Home = () => {
       summary: 'Track your yearly reading goals and favorite books',
     },
     {
+      id: '10',
       title: 'Music Practice',
       completionRate: 55,
       image:
@@ -114,6 +131,7 @@ const Home = () => {
       summary: 'Daily instrument practice and progress',
     },
     {
+      id: '11',
       title: 'Mindfulness & Meditation',
       completionRate: 40,
       image:
@@ -121,6 +139,7 @@ const Home = () => {
       summary: 'Sessions and techniques for a calmer mind',
     },
     {
+      id: '12',
       title: 'Cooking Experiments',
       completionRate: 20,
       image:
@@ -128,6 +147,7 @@ const Home = () => {
       summary: 'Try new recipes and track your culinary adventures',
     },
     {
+      id: '13',
       title: 'Gardening Journal',
       completionRate: 10,
       image:
@@ -135,6 +155,11 @@ const Home = () => {
       summary: 'Plant care, growth, and garden planning',
     },
   ]);
+
+  // Initialize shard store
+  React.useEffect(() => {
+    setShards(shards);
+  }, []);
 
   const AVATAR_MAX_SIZE = 56;
   const AVATAR_MIN_SIZE = 32;
@@ -216,12 +241,15 @@ const Home = () => {
     },
   });
 
+  
+
   return (
-    <SafeAreaView className=" flex-1 bg-background-paper p-0 dark:bg-background-dark-default">
+    <View className="flex-1">
+    <SafeAreaView className="flex-1 bg-background-paper p-0 dark:bg-background-dark-default">
       <DrawerNavigation isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} user={user} />
 
       <Animated.View
-        className="relative flex flex-row items-center justify-between px-3"
+        className="relative flex flex-row items-center justify-between px-3 bg-background-default dark:bg-background-dark-default" 
         style={[
           // {
           //   paddingBottom: 24,
@@ -247,15 +275,18 @@ const Home = () => {
           <Image
             source={colorScheme === 'dark' ? images.SmallLogoDark : images.SmallLogoLight}
             resizeMode="contain"
-            className="my-2 h-8"
+            className="mb-2 h-8"
           />
         </Animated.View>
-        <Pressable onPress={() => setIsDrawerOpen(true)}>
+        <Pressable onPress={() => setIsDrawerOpen(true)}
+          hitSlop={20}
+          >
           <AntDesign
             name="menu-unfold"
             size={20}
             color={colorScheme === 'dark' ? '#ffffff' : '#000000'}
             className="text-text-primary dark:text-text-dark"
+            
           />
         </Pressable>
         <Animated.View
@@ -272,7 +303,7 @@ const Home = () => {
           ]}
           className="flex flex-row items-center gap-2 pt-2">
           <Image
-            source={user?.profile ?? images.UserDefault}
+            source={{uri: user?.profilePic}}
             className="h-14 w-14 rounded-full border border-primary-start"
             resizeMode="center"
           />
@@ -286,24 +317,27 @@ const Home = () => {
             </Text>
           )}
         </Animated.View>
-        <FontAwesome
-          name="bell-o"
-          size={20}
-          color={colorScheme === 'dark' ? '#ffffff' : '#000000'}
-          className="ms-auto text-text-primary dark:text-text-dark"
-        />
+        <TouchableOpacity onPress={() => router.push('/notifications')}>
+          <FontAwesome
+            name="bell-o"
+            size={20}
+            color={colorScheme === 'dark' ? '#ffffff' : '#000000'}
+            className="ms-auto text-text-primary dark:text-text-dark"
+          />
+        </TouchableOpacity>
       </Animated.View>
       <Animated.View
+      className={" bg-background-default px-2 pb-3 dark:bg-background-dark-default"}
         style={[
           {
             position: 'absolute',
             left: 0,
             right: 0,
-            top: Platform.OS === 'ios' ? 130 : 130,
+            top: Platform.OS === 'ios' ? 130 : 110,
             zIndex: 1,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: 'transparent',
+            
           },
           imageAnimatedOtherStyle,
         ]}
@@ -321,7 +355,7 @@ const Home = () => {
           },
           spacerAnimatedStyle,
         ]}
-        className="bg-background-default"
+        className="bg-background-default dark:bg-background-dark-default"
       />
       <View className="flex-1 flex-col items-center  bg-background-default px-2 py-3 dark:bg-background-dark-paper">
         <View
@@ -335,21 +369,28 @@ const Home = () => {
           <Animated.FlatList
             data={shards}
             keyExtractor={(item) => item.title}
-            ListHeaderComponent={() => (
-              <View
-                className="w-full"
-                style={{
-                  minHeight: 75,
-                }}>
-                <CreateShardButton />
-              </View>
-            )}
+            // ListHeaderComponent={() => (
+            //   <View
+            //     className="w-full"
+            //     style={{
+            //       minHeight: 75,
+            //     }}>
+            //     {/* <CreateShardButton /> */}
+            //   </View>
+            // )}
             renderItem={({ item }) => (
               <ShardCard
                 title={item.title}
                 summary={item.summary}
                 image={item.image}
                 completionRate={item.completionRate}
+                onPress={() => {
+                  setSelectedShard(item);
+                  router.push({
+                    pathname: '/shard-info',
+                    params: { shardId: item.id },
+                  });
+                }}
               />
             )}
             onScroll={onScroll}
@@ -366,6 +407,8 @@ const Home = () => {
         </View>
       </View>
     </SafeAreaView>
+    <CreateShardFAB />
+    </View>
   );
 };
 

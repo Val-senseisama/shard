@@ -1,17 +1,20 @@
 import React from 'react';
-import { View, Text, Image } from 'react-native';
+import { View, Text, Image, TouchableOpacity } from 'react-native';
 
 interface ShardCardProps {
   title: string;
   summary: string;
   image: string;
   completionRate: number;
+  onPress?: () => void;
 }
 
-const ShardCard: React.FC<ShardCardProps> = ({ title, summary, image, completionRate }) => {
+const ShardCard: React.FC<ShardCardProps> = ({ title, summary, image, completionRate, onPress }) => {
   return (
-    <View
-      className="my-2 flex-row items-center rounded-2xl bg-white p-4 dark:bg-background-dark-paper"
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.7}
+      className="my-2 flex-row items-center rounded-2xl bg-white p-4 dark:bg-background-dark-paper min-w-full"
       style={{
         shadowColor: '#000',
         shadowOpacity: 0.05,
@@ -48,7 +51,7 @@ const ShardCard: React.FC<ShardCardProps> = ({ title, summary, image, completion
           <Text className="ml-2 font-ibold text-xs text-[#6366f1]">{completionRate}%</Text>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 
