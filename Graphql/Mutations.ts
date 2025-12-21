@@ -102,3 +102,130 @@ export const MARK_ALL_NOTIFICATIONS_READ = gql`
     }
   }
 `;
+
+export const UPDATE_NOTIFICATION_PREFERENCES = gql`
+  mutation UpdateNotificationPreferences($input: NotificationPreferencesInput!) {
+    updateNotificationPreferences(input: $input) {
+      success
+      message
+      preferences {
+        friendRequests
+        messages
+        shardInvites
+        shardUpdates
+        questDeadlines
+        achievements
+        quietHoursEnabled
+        quietHoursStart
+        quietHoursEnd
+        pushEnabled
+        emailEnabled
+      }
+    }
+  }
+`;
+
+export const SEND_MESSAGE = gql`
+  mutation SendMessage($chatId: ID!, $content: String!, $type: String, $replyTo: ID, $attachments: [AttachmentInput!]) {
+    sendMessage(chatId: $chatId, content: $content, type: $type, replyTo: $replyTo, attachments: $attachments) {
+      success
+      message
+      message {
+        id
+        content
+        type
+        sender
+        createdAt
+      }
+    }
+  }
+`;
+
+export const MARK_MESSAGES_READ = gql`
+  mutation MarkMessagesRead($chatId: ID!, $messageIds: [ID!]!) {
+    markMessagesRead(chatId: $chatId, messageIds: $messageIds) {
+      success
+      message
+    }
+  }
+`;
+
+export const CREATE_OR_GET_DIRECT_CHAT = gql`
+  mutation CreateOrGetDirectChat($friendId: ID!) {
+    createOrGetDirectChat(friendId: $friendId) {
+      success
+      message
+      chatId
+    }
+  }
+`;
+
+export const GENERATE_WEEKLY_TASKS = gql`
+  mutation GenerateWeeklyTasks($miniGoalId: ID!, $weekNumber: Int!) {
+    generateWeeklyTasks(miniGoalId: $miniGoalId, weekNumber: $weekNumber) {
+      success
+      message
+      tasks {
+        title
+        dueDate
+        completed
+      }
+      aiCallsRemaining
+      needsUpgrade
+    }
+  }
+`;
+
+export const COMPLETE_TASK = gql`
+  mutation CompleteTask($shardId: ID!, $miniGoalId: ID!, $taskIndex: Int!) {
+    completeTask(shardId: $shardId, miniGoalId: $miniGoalId, taskIndex: $taskIndex) {
+      success
+      message
+      xpEarned
+      xpResult {
+        newXP
+        newLevel
+        leveledUp
+      }
+      achievements
+    }
+  }
+`;
+
+export const CREATE_SHARD_CHAT = gql`
+  mutation CreateOrGetShardChat($shardId: ID!) {
+    createOrGetShardChat(shardId: $shardId) {
+      success
+      message
+      chatId
+    }
+  }
+`;
+
+export const UPDATE_SHARD = gql`
+  mutation UpdateShard($id: ID!, $input: UpdateShardInput!) {
+    updateShard(id: $id, input: $input) {
+      success
+      message
+      shard {
+        id
+        title
+        description
+        image
+        status
+        timeline {
+          startDate
+          endDate
+        }
+        participants {
+          user {
+            id
+            username
+            profilePic
+          }
+          role
+        }
+      }
+    }
+  }
+`;

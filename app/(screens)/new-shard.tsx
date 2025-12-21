@@ -178,31 +178,65 @@ const NewShard = () => {
 
   const uploadImageToCloudinary = async (localUri: string) => {
     try {
+      console.log('Starting image upload...');
       const { data } = await fetchSignedUrl();
       const uploadInfo = data?.getSignedUploadUrl;
-      if (!uploadInfo?.success) {
+      
+      console.log('Upload info:', uploadInfo);
+      
+      if (!uploadInfo?.success || !uploadInfo?.params) {
         throw new Error('Failed to get signed upload URL');
       }
+      
       const { uploadUrl, params } = uploadInfo;
       const fileName = localUri.split('/').pop() || 'upload.jpg';
+      
       const form = new FormData();
-      form.append('file', { uri: localUri, name: fileName, type: 'image/jpeg' } as any);
-      // Append Cloudinary params
-      Object.entries(params).forEach(([key, value]) => {
-        form.append(key, value as any);
-      });
+      
+      // Add the file first
+      form.append('file', {
+        uri: localUri,
+        name: fileName,
+        type: 'image/jpeg',
+      } as any);
+      
+      // Add Cloudinary required parameters
+      form.append('api_key', params.apiKey);
+      form.append('timestamp', params.timestamp.toString());
+      form.append('signature', params.signature);
+      form.append('public_id', params.publicId);
+      form.append('folder', params.folder);
+      
+    
+      
       const response = await fetch(uploadUrl, {
         method: 'POST',
         body: form,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       });
+      
       const result = await response.json();
+      console.log('Upload result:', result);
+      
       if (result.secure_url) {
         setUploadedImageUrl(result.secure_url);
+        addAlert({ str: 'Image uploaded successfully!', type: 'success' });
         return result.secure_url;
       }
-      throw new Error('Upload failed');
-    } catch (e) {
+      
+      if (result.error) {
+        throw new Error(result.error.message || 'Upload failed');
+      }
+      
+      throw new Error('Upload failed - no secure_url in response');
+    } catch (e: any) {
       console.error('Image upload error:', e);
+      addAlert({ 
+        str: `Image upload failed: ${e.message || 'Unknown error'}`, 
+        type: 'error' 
+      });
       return null;
     }
   };
@@ -234,7 +268,7 @@ const NewShard = () => {
         if (data.createShard.shard?.aiCallsRemaining !== undefined) {
           setAiCallsRemaining(data.createShard.shard.aiCallsRemaining);
         }
-        router.replace('/(tabs)');
+        router.push('/Home');
       } else if (data?.createShard?.needsUpgrade) {
         addAlert({ str: data.createShard.message, type: 'warning' });
       } else {
@@ -275,7 +309,7 @@ const NewShard = () => {
 
       if (data?.createShardManual?.success) {
         addAlert({ str: data.createShardManual.message, type: 'success' });
-        router.replace('/(tabs)');
+        router.push('/Home');
       } else {
         addAlert({ str: data?.createShardManual?.message || 'Failed to create quest', type: 'error' });
       }

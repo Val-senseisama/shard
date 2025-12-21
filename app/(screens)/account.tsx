@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   Image,
   ScrollView,
   useColorScheme,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -19,12 +20,56 @@ import Animated, {
 } from 'react-native-reanimated';
 import DrawerNavigation from '~/components/DrawerNavigation';
 import { useUserStore } from '~/store/user.store';
+import { useAppStore } from '~/store/app.store';
+import { useQuery, useMutation } from '@apollo/client';
+import { GET_NOTIFICATION_PREFERENCES } from '~/Graphql/Queries';
+import { UPDATE_NOTIFICATION_PREFERENCES } from '~/Graphql/Mutations';
+
+interface SettingsItem {
+  icon: string;
+  label: string;
+  action: () => void;
+  toggle?: boolean;
+  value?: boolean;
+  onToggle?: (value: boolean) => void | Promise<void>;
+}
 
 const Account = () => {
   const colorScheme = useColorScheme();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const user = useUserStore((state) => state.user);
+  const { isDarkMode, toggleDarkMode } = useAppStore();
   const scrollY = useSharedValue(0);
+
+  // Notification preferences state
+  const [notifPreferences, setNotifPreferences] = useState({
+    pushEnabled: true,
+    emailEnabled: false,
+  });
+
+  // Fetch notification preferences
+  const { data: prefsData } = useQuery(GET_NOTIFICATION_PREFERENCES);
+  const [updatePreferences] = useMutation(UPDATE_NOTIFICATION_PREFERENCES);
+
+  useEffect(() => {
+    if (prefsData?.getNotificationPreferences?.preferences) {
+      setNotifPreferences(prefsData.getNotificationPreferences.preferences);
+    }
+  }, [prefsData]);
+
+  const handleNotificationToggle = async (value: boolean) => {
+    const newPrefs = { ...notifPreferences, pushEnabled: value };
+    setNotifPreferences(newPrefs);
+    try {
+      await updatePreferences({
+        variables: {
+          input: newPrefs,
+        },
+      });
+    } catch (error) {
+      console.error('Failed to update notification preferences:', error);
+    }
+  };
 
   const AVATAR_MAX_SIZE = 80;
   const AVATAR_MIN_SIZE = 40;
@@ -73,22 +118,36 @@ const Account = () => {
     { name: 'Creativity', value: user?.creativity || 5, icon: 'color-palette-outline', color: '#f59e0b' },
   ];
 
+
   // Settings sections
-  const settingsSections = [
+  const settingsSections: { title: string; items: SettingsItem[] }[] = [
     {
       title: 'Account',
       items: [
         { icon: 'person-outline', label: 'Edit Profile', action: () => router.push('/edit-profile') },
         { icon: 'lock-closed-outline', label: 'Change Password', action: () => router.push('/change-password') },
-        { icon: 'mail-outline', label: 'Email Settings', action: () => {} },
+        { icon: 'star-outline', label: 'Subscribe to Pro', action: () => {} },
       ],
     },
     {
       title: 'Preferences',
       items: [
-        { icon: 'notifications-outline', label: 'Notifications', action: () => {} },
-        { icon: 'moon-outline', label: 'Dark Mode', action: () => {}, toggle: true },
-        { icon: 'language-outline', label: 'Language', action: () => {} },
+        { 
+          icon: 'notifications-outline', 
+          label: 'Notifications', 
+          action: () => {},
+          toggle: true,
+          value: notifPreferences.pushEnabled,
+          onToggle: handleNotificationToggle,
+        },
+        { 
+          icon: 'moon-outline', 
+          label: 'Dark Mode', 
+          action: () => {},
+          toggle: true,
+          value: isDarkMode,
+          onToggle: toggleDarkMode,
+        },
       ],
     },
     {
@@ -226,7 +285,8 @@ const Account = () => {
                 {section.items.map((item, index) => (
                   <TouchableOpacity
                     key={item.label}
-                    onPress={item.action}
+                    onPress={item.toggle ? undefined : item.action}
+                    disabled={item.toggle}
                     className={`flex-row items-center justify-between p-4 ${
                       index !== section.items.length - 1 ? 'border-b border-gray-200 dark:border-gray-700' : ''
                     }`}>
@@ -240,11 +300,20 @@ const Account = () => {
                         {item.label}
                       </Text>
                     </View>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={20}
-                      color={colorScheme === 'dark' ? '#4b5563' : '#9ca3af'}
-                    />
+                    {item.toggle ? (
+                      <Switch
+                        value={item.value}
+                        onValueChange={item.onToggle}
+                        trackColor={{ false: '#d1d5db', true: '#8b5cf6' }}
+                        thumbColor={item.value ? '#fff' : '#f4f3f4'}
+                      />
+                    ) : (
+                      <Ionicons
+                        name="chevron-forward"
+                        size={20}
+                        color={colorScheme === 'dark' ? '#4b5563' : '#9ca3af'}
+                      />
+                    )}
                   </TouchableOpacity>
                 ))}
               </View>

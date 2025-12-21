@@ -65,6 +65,55 @@ export const GET_SIGNED_UPLOAD_URL = gql`
     }
   `;
 
+export const GET_SHARD = gql`
+  query GetShard($id: ID!) {
+    getShard(id: $id) {
+      success
+      shard {
+        id
+        title
+        description
+        image
+        status
+        progress {
+          completion
+          xpEarned
+          level
+        }
+        timeline {
+          startDate
+          endDate
+        }
+        participants {
+          user
+          role
+        }
+        participantsCount
+        rewards {
+          type
+          value
+        }
+        owner {
+          id
+          username
+        }
+        minigoals {
+          id
+          title
+          description
+          progress
+          completed
+          tasks {
+            title
+            dueDate
+            completed
+          }
+        }
+      }
+    }
+  }
+`;
+
 export const GET_SHARD_SCHEDULE = gql`
   query GetShardSchedule($shardId: ID!) {
     getShardSchedule(shardId: $shardId) {
@@ -133,11 +182,134 @@ export const GET_NOTIFICATIONS = gql`
   }
 `;
 
+
 export const GET_UNREAD_NOTIFICATION_COUNT = gql`
   query GetUnreadNotificationCount {
     getUnreadNotificationCount {
       success
       count
+    }
+  }
+`;
+
+export const GET_NOTIFICATION_PREFERENCES = gql`
+  query GetNotificationPreferences {
+    getNotificationPreferences {
+      success
+      preferences {
+        friendRequests
+        messages
+        shardInvites
+        shardUpdates
+        questDeadlines
+        achievements
+        quietHoursEnabled
+        quietHoursStart
+        quietHoursEnd
+        pushEnabled
+        emailEnabled
+      }
+    }
+  }
+`;
+
+export const GET_CHAT = gql`
+  query GetChat($chatId: ID!) {
+    getChat(chatId: $chatId) {
+      success
+      message
+      chat {
+        id
+        type
+        name
+        participants {
+          id
+          username
+          profilePic
+        }
+        shard {
+          id
+          title
+        }
+        createdAt
+      }
+    }
+  }
+`;
+
+export const GET_CHAT_MESSAGES = gql`
+  query GetChatMessages($chatId: ID!, $limit: Int, $skip: Int) {
+    getChatMessages(chatId: $chatId, limit: $limit, skip: $skip) {
+      success
+      message
+      messages {
+        id
+        content
+        type
+        sender {
+          id
+          username
+          profilePic
+        }
+        readBy
+        createdAt
+      }
+    }
+  }
+`;
+
+export const MY_CHATS = gql`
+  query MyChats {
+    myChats {
+      success
+      chats {
+        id
+        type
+        participants {
+          id
+          username
+          profilePic
+        }
+        createdAt
+        updatedAt
+      }
+    }
+  }
+`;
+
+export const MY_SHARDS = gql`
+  query MyShards {
+    myShards {
+      success
+      shards {
+        id
+        title
+        description
+        image
+        status
+        progress {
+          completion
+          xpEarned
+          level
+        }
+      }
+    }
+  }
+`;
+
+export const GET_SHARD_ANALYTICS = gql`
+  query GetShardAnalytics($shardId: ID!) {
+    getShardAnalytics(shardId: $shardId) {
+      success
+      message
+      weeklyCompletion
+      dailyProgress {
+        date
+        tasksCompleted
+        tasksTotal
+      }
+      totalTasks
+      completedTasks
     }
   }
 `;

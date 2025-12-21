@@ -47,8 +47,11 @@
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.11.1",
     "react-native-snap-carousel": "^3.9.1",
+    "react-native-svg": "15.11.2",
     "react-native-toast-message": "^2.3.0",
     "react-native-view-shot": "4.0.3",
+    "socket.io-client": "^4.8.1",
+    "zod": "^4.2.1",
     "zustand": "^5.0.8"
   },
   "devDependencies": {

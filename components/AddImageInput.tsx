@@ -1,4 +1,4 @@
-import React, { SetStateAction, useRef, useState } from 'react';
+import React, { SetStateAction, useRef, useState, useEffect } from 'react';
 import { Image, Modal, Pressable, Text, TouchableOpacity, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { captureRef } from 'react-native-view-shot';
@@ -7,35 +7,62 @@ import icons from '@/constants/icons';
 import * as FileSystem from 'expo-file-system';
 import { useAppStore } from '~/store/app.store';
 
-const AddImageInput = ({ onImage }: { onImage: (uri: string) => void }) => {
-  const { addAlert } = useAppStore()
-  const [imageUri, setImageUri] = useState<string | null>(null);
+const AddImageInput = ({
+  onImage,
+  initialImage,
+}: {
+  onImage: (uri: string) => void;
+  initialImage?: string | null;
+}) => {
+  const { addAlert } = useAppStore();
+  const [imageUri, setImageUri] = useState<string | null>(initialImage || null);
   const [isModalVisible, setModalVisible] = useState(false);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const imageRef = useRef(null);
 
+  // Update imageUri when initialImage prop changes
+  useEffect(() => {
+    if (initialImage) {
+      setImageUri(initialImage);
+    }
+  }, [initialImage]);
+
   // Function to pick an image
   const pickImage = async () => {
+    // Request permission
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    console.log('Permission result:', permissionResult);
+
     if (permissionResult.status !== 'granted') {
       addAlert({
-        str: 'Permission required, You need to allow access to your gallery.',
+        str: 'Permission required. You need to allow access to your gallery.',
         type: 'error',
       });
       return;
     }
 
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
+    try {
+      let result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'], // Updated from deprecated MediaTypeOptions
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 1,
+      });
 
-    if (!result.canceled) {
-      setImageUri(result.assets[0].uri);
-      setIsImageLoaded(false);
-      setModalVisible(true);
+      console.log('Image picker result:', result);
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setImageUri(result.assets[0].uri);
+        setIsImageLoaded(false);
+        setModalVisible(true);
+      }
+    } catch (error) {
+      console.error('Image picker error:', error);
+      addAlert({
+        str: 'Failed to open image picker. Please try again.',
+        type: 'error',
+      });
     }
   };
 
@@ -98,7 +125,7 @@ const AddImageInput = ({ onImage }: { onImage: (uri: string) => void }) => {
                 <View ref={imageRef} collapsable={false} className="h-full w-full">
                   <Image
                     source={{ uri: imageUri }}
-                    className="h-full w-full rounded-full"
+                    className="h-full w-full rounded-lg"
                     onLoad={() => setIsImageLoaded(true)}
                   />
                 </View>

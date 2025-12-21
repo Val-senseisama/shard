@@ -18,9 +18,13 @@ export default function TabLayout() {
         <Stack.Screen name="new-shard" />
         <Stack.Screen name="add-partners" />
         <Stack.Screen name="schedule" />
-        <Stack.Screen name="settings" />
         <Stack.Screen name="account" />
-        <Stack.Screen name="shard/[id]" />
+        <Stack.Screen name="notifications" />
+        <Stack.Screen name="friends" />
+        <Stack.Screen name="add-friend" />
+        <Stack.Screen name="friend-profile" />
+        <Stack.Screen name="shard-info" />
+        <Stack.Screen name="shard/[id]/index" />
         <Stack.Screen name="shard/[id]/edit" />
         <Stack.Screen name="shard/[id]/notifications" />
         <Stack.Screen name="shard/[id]/chat" />

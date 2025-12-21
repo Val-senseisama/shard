@@ -1,13 +1,13 @@
 import { CURRENT_USER } from '@/Graphql/Queries';
 import { useQuery } from '@apollo/client';
-import AppStore from '~/helpers/AppStore';
+import { useUserStore } from '@/store/user.store';
 
 const UserProvider = () => {
+  const setUser = useUserStore((state) => state.setUser);
   useQuery(CURRENT_USER, {
     fetchPolicy: 'network-only',
     onCompleted: async (data) => {
-      console.log('data', data);
-      await AppStore.set('user', data.currentUser.user);
+      setUser(data.currentUser.user);
     },
     onError: (error) => {
       console.log(error);

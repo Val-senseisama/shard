@@ -21,26 +21,34 @@
     "icon": "./assets/app-icons/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/images/Fractal-shard.png",
+      "image": "./assets/app-icons/icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "assetBundlePatterns": [
       "**/*"
-    ],   
+    ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.xavitech.shard"
+      "bundleIdentifier": "com.xavitech.shard",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Shard needs access to your photo library to let you choose images for your shards and profile.",
+        "NSCameraUsageDescription": "Shard needs access to your camera to let you take photos for your shards and profile."
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/Fractal-shard.png",
+        "foregroundImage": "./assets/app-icons/icon.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.xavitech.shard",
-    
+      "permissions": [
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "CAMERA",
+        "READ_MEDIA_IMAGES"
+      ],
       "googleServicesFile": "./helpers/google-services.json"
-    
     },
     "extra": {
       "router": {},

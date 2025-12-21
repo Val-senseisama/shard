@@ -89,11 +89,7 @@ const DrawerNavigation = ({ isOpen, onClose, user }: DrawerNavigationProps) => {
       label: 'Friends',
       onPress: () => router.push('/friends'),
     },
-    {
-      icon: <Ionicons name="settings-outline" size={32} color={iconColor} />,
-      label: 'Settings',
-      onPress: () => router.push('/settings'),
-    },
+    
     {
       icon: <MaterialIcons name="add-chart" size={32} color={iconColor} />,
       label: 'New Shard',

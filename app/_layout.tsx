@@ -24,9 +24,9 @@ import Toast from 'react-native-toast-message';
 import { Text, View } from 'react-native';
 import CrystalShape from '@/components/ToastCrystal';
 import UserProvider from '@/components/UserProvider';
-import AppStore from '~/helpers/AppStore';
-import { CURRENT_USER } from '~/Graphql/Queries';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useAppStore } from '~/store/app.store';
+import { useColorScheme as useNativeWindColorScheme } from 'nativewind';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -35,6 +35,9 @@ export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
   const [isUserLoggedIn, setIsUserLoggedIn] = useState<boolean>(false);
   const colorScheme = useColorScheme();
+  const { setColorScheme } = useNativeWindColorScheme();
+  const isDarkMode = useAppStore((state) => state.isDarkMode);
+  
   const [fontsLoaded, error] = useFonts({
     'Inter-Thin': require('@/assets/fonts/Inter_18pt-Light.ttf'),
     'Inter-Light': require('@/assets/fonts/Inter_18pt-Light.ttf'),
@@ -45,6 +48,11 @@ export default function RootLayout() {
     'Inter-Bold': require('@/assets/fonts/Inter_24pt-Bold.ttf'),
     'Inter-ExtraBold': require('@/assets/fonts/Inter_24pt-ExtraBold.ttf'),
   });
+
+  // Apply dark mode from app store
+  useEffect(() => {
+    setColorScheme(isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode, setColorScheme]);
 
   useEffect(() => {
     const prepare = async () => {
