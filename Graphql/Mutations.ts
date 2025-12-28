@@ -1,27 +1,37 @@
 import { gql } from '@apollo/client';
 
+// Auth mutations
 export const REGISTER = gql`
-  mutation Register($email: String!, $password: String!) {
-    register(email: $email, password: $password)
+  mutation Register($input: SignUpInput!) {
+    signup(input: $input) {
+      success
+      message
+      user {
+        id
+        email
+        username
+        profilePic
+        role
+        authProvider
+      }
+    }
   }
 `;
 
 export const LOGIN = gql`
   mutation Login($email: String!, $password: String!) {
     login(email: $email, password: $password) {
+      success
+      message
       accessToken
       refreshToken
-    }
-  }
-`;
-
-export const COMPLETE_PROFILE = gql`
-  mutation CompleteProfile($username: String!, $gender: Gender!, $profile: String) {
-    completeProfile(username: $username, gender: $gender, profile: $profile) {
-      id
-      username
-      gender
-      profile
+      user {
+        id
+        email
+        username
+        role
+        emailVerified
+      }
     }
   }
 `;
@@ -46,6 +56,58 @@ export const GOOGLE_SIGN_IN = gql`
     }
   }
 `;
+
+// User preferences
+export const UPDATE_PREFERENCES = gql`
+  mutation UpdatePreferences($input: PreferencesInput!) {
+    updatePreferences(input: $input) {
+      success
+      message
+    }
+  }
+`;
+
+export const UPDATE_PROFILE = gql`
+  mutation UpdateProfile($input: UpdateProfileInput!) {
+    updateProfile(input: $input) {
+      success
+      message
+      username
+      bio
+      profilePic
+    }
+  }
+`;
+
+
+// Task management
+export const DELETE_TASK = gql`
+  mutation DeleteTask($miniGoalId: ID!, $taskTitle: String!) {
+    deleteTask(miniGoalId: $miniGoalId, taskTitle: $taskTitle) {
+      success
+      message
+    }
+  }
+`;
+
+export const RESTORE_TASK = gql`
+  mutation RestoreTask($miniGoalId: ID!, $taskTitle: String!) {
+    restoreTask(miniGoalId: $miniGoalId, taskTitle: $taskTitle) {
+      success
+      message
+    }
+  }
+`;
+
+export const CHANGE_PASSWORD = gql`
+  mutation ChangePassword($currentPassword: String!, $newPassword: String!) {
+    changePassword(currentPassword: $currentPassword, newPassword: $newPassword) {
+      success
+      message
+    }
+  }
+`;
+
 
 export const CREATE_SHARD = gql`
   mutation CreateShard($goal: String!, $deadline: String, $image: String, $participants: [ParticipantInput!]) {
@@ -130,11 +192,15 @@ export const SEND_MESSAGE = gql`
     sendMessage(chatId: $chatId, content: $content, type: $type, replyTo: $replyTo, attachments: $attachments) {
       success
       message
-      message {
+      messageData {
         id
         content
         type
-        sender
+        sender {
+          id
+          username
+          profilePic
+        }
         createdAt
       }
     }
@@ -226,6 +292,24 @@ export const UPDATE_SHARD = gql`
           role
         }
       }
+    }
+  }
+`;
+
+export const DELETE_SHARD = gql`
+  mutation DeleteShard($id: ID!) {
+    deleteShard(id: $id) {
+      success
+      message
+    }
+  }
+`;
+
+export const REMOVE_SHARD_PARTICIPANT = gql`
+  mutation RemoveShardParticipant($shardId: ID!, $userId: ID!) {
+    removeShardParticipant(shardId: $shardId, userId: $userId) {
+      success
+      message
     }
   }
 `;

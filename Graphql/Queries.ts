@@ -21,6 +21,12 @@ export const CURRENT_USER = gql`
         charisma
         endurance
         creativity
+        preferences {
+          workloadLevel
+          workingDays
+        }
+        currentStreak
+        longestStreak
       }
     }
   }
@@ -75,6 +81,7 @@ export const GET_SHARD = gql`
         description
         image
         status
+        chatId
         progress {
           completion
           xpEarned
@@ -246,6 +253,7 @@ export const GET_CHAT_MESSAGES = gql`
         id
         content
         type
+        mediaUrl
         sender {
           id
           username

@@ -12,7 +12,10 @@ export default function TabLayout() {
       <Stack
         screenOptions={{
           headerShown: false,
-          animation: 'slide_from_right',
+          animation: 'ios_from_right', // Hardware accelerated, smoother than simple_push
+          presentation: 'card',
+          gestureEnabled: true,
+          animationDuration: 300, // Faster transitions
         }}>
         <Stack.Screen name="Home" />
         <Stack.Screen name="new-shard" />
@@ -28,6 +31,51 @@ export default function TabLayout() {
         <Stack.Screen name="shard/[id]/edit" />
         <Stack.Screen name="shard/[id]/notifications" />
         <Stack.Screen name="shard/[id]/chat" />
+        <Stack.Screen
+          name="change-password"
+          options={{
+            presentation: 'transparentModal',
+            animation: 'slide_from_bottom',
+            headerShown: false,
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
+        />
+        <Stack.Screen
+          name="workload-settings"
+          options={{
+            presentation: 'transparentModal',
+            animation: 'slide_from_bottom',
+            headerShown: false,
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
+        />
+        <Stack.Screen
+          name="help-support"
+          options={{
+            presentation: 'transparentModal',
+            animation: 'slide_from_bottom',
+            headerShown: false,
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
+        />
+        <Stack.Screen
+          name="terms-of-service"
+          options={{
+            presentation: 'transparentModal',
+            animation: 'slide_from_bottom',
+            headerShown: false,
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
+        />
+        <Stack.Screen
+          name="privacy-policy"
+          options={{
+            presentation: 'transparentModal',
+            animation: 'slide_from_bottom',
+            headerShown: false,
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
+        />
       </Stack>
     </>
   );

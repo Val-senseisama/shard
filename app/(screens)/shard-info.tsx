@@ -9,6 +9,7 @@ import {
   FlatList,
   Dimensions,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -75,13 +76,15 @@ const ShardInfo = () => {
   } = useQuery(GET_SHARD, {
     variables: { id: shardId },
     skip: !shardId,
-    fetchPolicy: 'network-only', // Always fetch fresh data to avoid cache issues
+    fetchPolicy: 'cache-and-network', // Show cache immediately, update in background
+    returnPartialData: true, // Don't block on incomplete data
+    notifyOnNetworkStatusChange: true,
   });
 
   // Update shard state whenever shardData changes (including on refetch)
   useEffect(() => {
     if (shardData?.getShard?.shard) {
-      console.log('📊 [shard-info] Updating shard state from query data');
+      console.log('📊 [shard-info] Updating shard state from query data', shardData.getShard.shard);
       setShard(shardData.getShard.shard);
     }
   }, [shardData]);
@@ -94,6 +97,7 @@ const ShardInfo = () => {
   } = useQuery(GET_SHARD_SCHEDULE, {
     variables: { shardId },
     skip: !shardId || activeTab !== 'schedule',
+    fetchPolicy: 'cache-first', // Use cache for instant display
     onCompleted: (data) => {
       const tasks =
         data.getShardSchedule?.tasksByDate?.[selectedDate.toISOString().split('T')[0]] || [];
@@ -190,9 +194,9 @@ const ShardInfo = () => {
     loading: analyticsLoading,
     refetch: refetchAnalytics,
   } = useQuery(GET_SHARD_ANALYTICS, {
-    variables: { shardId },
+    variables: { shardId, timeframe },
     skip: !shardId || activeTab !== 'progress',
-    fetchPolicy: 'cache-and-network',
+    fetchPolicy: 'cache-first', // Use cache for instant display
   });
 
   // Weekly Task Generation
@@ -213,16 +217,55 @@ const ShardInfo = () => {
         return;
       }
 
-      // Calculate week number relative to shard start
+      // Calculate week number and date range
       const startDate = new Date(shard.timeline.startDate);
       const diffTime = selectedDate.getTime() - startDate.getTime();
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
       const weekNumber = Math.floor(diffDays / 7) + 1;
 
+      // Calculate week start/end for duplicate check
+      const weekStartDay = weekNumber * 7 - 6;
+      const weekStart = new Date(startDate);
+      weekStart.setDate(startDate.getDate() + weekStartDay - 1);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+
+      // Check for existing tasks in this week (frontend check)
+      const existingTasksThisWeek = tasksForSelectedDate.filter((task: any) => {
+        const taskDate = new Date(task.dueDate);
+        return taskDate >= weekStart && taskDate <= weekEnd;
+      });
+
+      let action = 'append'; // Default action
+
+      // Show confirmation if tasks already exist
+      if (existingTasksThisWeek.length > 0) {
+        // Use Alert.alert for React Native or create custom dialog
+        const confirmed = await new Promise<string>((resolve) => {
+          Alert.alert(
+            'Tasks Already Exist',
+            `This week has ${existingTasksThisWeek.length} tasks. What would you like to do?`,
+            [
+              { text: 'Cancel', onPress: () => resolve('cancel'), style: 'cancel' },
+              { text: 'Add More', onPress: () => resolve('append') },
+              { text: 'Replace All', onPress: () => resolve('replace'), style: 'destructive' },
+            ]
+          );
+        });
+
+        if (confirmed === 'cancel') {
+          setIsGenerating(false);
+          return;
+        }
+
+        action = confirmed;
+      }
+
       const { data } = await generateWeeklyTasks({
         variables: {
           miniGoalId: activeMiniGoal.id,
           weekNumber: weekNumber,
+          action, // Pass user's choice to backend
         },
       });
 
@@ -564,7 +607,10 @@ const ShardInfo = () => {
                   {/* Action Icons */}
                   <View className="flex-row items-center justify-center gap-3">
                     <TouchableOpacity
-                      onPress={() => router.push(`/shard/${shard.id}/chat`)}
+                      onPress={() => {
+                        const chatIdentifier = shard.chatId || shard.id;
+                        router.push(`/shard/${chatIdentifier}/chat`);
+                      }}
                       className="items-center justify-center rounded-full p-2"
                       style={{ backgroundColor: colorScheme === 'dark' ? '#374151' : '#e5e7eb' }}>
                       <Ionicons
@@ -586,15 +632,14 @@ const ShardInfo = () => {
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      onPress={handleChatPress}
-                      disabled={creatingChat}
-                      className="items-center justify-center rounded-full p-2"
-                      style={{ backgroundColor: colorScheme === 'dark' ? '#374151' : '#e5e7eb' }}>
-                      <Ionicons
-                        name="chatbubble-outline"
-                        size={18}
-                        color={colorScheme === 'dark' ? '#fff' : '#000'}
-                      />
+                      className="flex-1 flex-row items-center justify-center gap-2 rounded-lg bg-purple-600 px-4 py-3"
+                      onPress={() => {
+                        // Use chatId if available, otherwise fall back to shard ID (for backward compatibility)
+                        const chatIdentifier = shard.chatId || shard.id;
+                        router.push(`/shard/${chatIdentifier}/chat`);
+                      }}>
+                      <Ionicons name="chatbubble-outline" size={20} color="white" />
+                      <Text className="font-semibold text-white">Chat</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity

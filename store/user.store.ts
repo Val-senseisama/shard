@@ -18,6 +18,14 @@ export interface User {
   charisma?: number;
   endurance?: number;
   creativity?: number;
+  currentStreak?: number;
+  longestStreak?: number;
+  preferences?: {
+    workloadLevel: string;
+    maxTasksPerDay: number;
+    workingDays: number[];
+    preferredTaskDuration: string;
+  };
   __typename?: string;
 }
 

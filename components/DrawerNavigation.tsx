@@ -6,7 +6,6 @@ if ((!Object.prototype as any)._toString) {
   });
 }
 
-
 import React from 'react';
 import { View, Text, Pressable, Image, useColorScheme } from 'react-native';
 import { router } from 'expo-router';
@@ -20,12 +19,119 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 
 interface DrawerNavigationProps {
   isOpen: boolean;
   onClose: () => void;
   user: Record<string, any> | null;
 }
+
+// Animated menu item component
+const AnimatedMenuItem = ({
+  item,
+  isActive,
+  onPress,
+}: {
+  item: any;
+  isActive: boolean;
+  onPress: () => void;
+}) => {
+  const colorScheme = useColorScheme();
+  const scale = useSharedValue(1);
+  const rippleScale = useSharedValue(0);
+  const rippleOpacity = useSharedValue(0);
+  const bgOpacity = useSharedValue(0);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const rippleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: rippleScale.value }],
+    opacity: rippleOpacity.value,
+  }));
+
+  const bgStyle = useAnimatedStyle(() => ({
+    opacity: bgOpacity.value,
+  }));
+
+  const handlePressIn = () => {
+    // Scale down + haptic
+    Haptics?.impactAsync?.(Haptics?.ImpactFeedbackStyle?.Light);
+    scale.value = withSpring(0.95, { damping: 15 });
+    bgOpacity.value = withTiming(1, { duration: 100 });
+
+    // Ripple effect
+    rippleScale.value = 0;
+    rippleOpacity.value = 0.3;
+    rippleScale.value = withTiming(2, { duration: 600 });
+    rippleOpacity.value = withTiming(0, { duration: 600 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 12 });
+    bgOpacity.value = withTiming(0, { duration: 200 });
+  };
+
+  return (
+    <Pressable
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onPress={onPress}
+      className="relative my-3 overflow-hidden rounded-lg">
+      {/* Ripple effect */}
+      <Animated.View
+        style={[
+          rippleStyle,
+          {
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            width: 100,
+            height: 100,
+            marginLeft: -50,
+            marginTop: -50,
+            borderRadius: 50,
+            backgroundColor: colorScheme === 'dark' ? '#667EEA' : '#4135F3',
+          },
+        ]}
+      />
+
+      {/* Background pulse */}
+      <Animated.View
+        style={[
+          bgStyle,
+          {
+            position: 'absolute',
+            inset: 0,
+            backgroundColor:
+              colorScheme === 'dark' ? 'rgba(102, 126, 234, 0.1)' : 'rgba(65, 53, 243, 0.05)',
+            borderRadius: 8,
+          },
+        ]}
+      />
+
+      {/* Active indicator */}
+      {isActive && (
+        <View
+          className="absolute bottom-0 left-0 top-0 w-2 rounded-r-full"
+          style={{ backgroundColor: '#667EEA' }}
+        />
+      )}
+
+      {/* Content */}
+      <Animated.View
+        style={animatedStyle}
+        className={`flex-row items-center gap-3 px-5 py-3 ${isActive ? 'pl-6' : ''}`}>
+        {item.icon}
+        <Text className="font-imedium text-base text-text-primary dark:text-text-dark">
+          {item.label}
+        </Text>
+      </Animated.View>
+    </Pressable>
+  );
+};
 
 const DrawerNavigation = ({ isOpen, onClose, user }: DrawerNavigationProps) => {
   const colorScheme = useColorScheme();
@@ -89,11 +195,16 @@ const DrawerNavigation = ({ isOpen, onClose, user }: DrawerNavigationProps) => {
       label: 'Friends',
       onPress: () => router.push('/friends'),
     },
-    
+
     {
       icon: <MaterialIcons name="add-chart" size={32} color={iconColor} />,
       label: 'New Shard',
       onPress: () => router.push('/new-shard'),
+    },
+    {
+      icon: <MaterialIcons name="assignment-late" size={32} color={iconColor} />,
+      label: 'Backlog',
+      onPress: () => router.push('/backlog'),
     },
     {
       icon: <AntDesign name="user" size={32} color={iconColor} />,
@@ -120,7 +231,7 @@ const DrawerNavigation = ({ isOpen, onClose, user }: DrawerNavigationProps) => {
         <View className="absolute bottom-0 left-0 top-0 max-w-[300px] rounded-r-3xl bg-background-paper p-4 dark:bg-background-dark-default">
           <View className="mb-8 mt-16 min-w-full flex-row items-center gap-3 rounded-xl bg-background-default px-3 py-4 dark:bg-background-dark-paper">
             <Image
-              source={{uri: user?.profilePic}}
+              source={{ uri: user?.profilePic }}
               className="h-14 w-14 rounded-full border border-primary-start"
               resizeMode="center"
             />
@@ -143,18 +254,15 @@ const DrawerNavigation = ({ isOpen, onClose, user }: DrawerNavigationProps) => {
 
           <View className="flex-1">
             {menuItems.map((item, index) => (
-              <Pressable
+              <AnimatedMenuItem
                 key={index}
-                className={`my-3 flex-row items-center gap-3 rounded-lg bg-background-default px-5 py-3 hover:bg-background-default dark:bg-background-dark-paper dark:hover:bg-background-dark-paper ${isActive(item.label) && 'border-l-8 border-l-primary-start'}`}
+                item={item}
+                isActive={isActive(item.label)}
                 onPress={() => {
                   item.onPress();
                   onClose();
-                }}>
-                {item.icon}
-                <Text className="font-imedium text-base text-text-primary dark:text-text-dark">
-                  {item.label}
-                </Text>
-              </Pressable>
+                }}
+              />
             ))}
             <View className="mb-8 flex-1 flex-col items-center justify-end gap-2">
               <Image

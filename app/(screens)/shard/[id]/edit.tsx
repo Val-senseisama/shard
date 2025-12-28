@@ -18,7 +18,7 @@ import AddImageInput from '~/components/AddImageInput';
 import { useAppStore } from '~/store/app.store';
 import { useQuery, useMutation, useLazyQuery } from '@apollo/client';
 import { GET_SHARD, GET_SIGNED_UPLOAD_URL, GET_FRIENDS } from '~/Graphql/Queries';
-import { UPDATE_SHARD } from '~/Graphql/Mutations';
+import { UPDATE_SHARD, DELETE_SHARD } from '~/Graphql/Mutations';
 import { useFriendsStore } from '~/store/friends.store';
 
 interface SelectedFriend {
@@ -178,6 +178,8 @@ const EditShard = () => {
     }
   };
 
+  const [deleteShardMutation, { loading: deleting }] = useMutation(DELETE_SHARD);
+
   const handleDelete = () => {
     Alert.alert(
       'Delete Shard',
@@ -187,9 +189,33 @@ const EditShard = () => {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            // TODO: Implement delete mutation
-            addAlert({ str: 'Delete functionality coming soon', type: 'info' });
+          onPress: async () => {
+            try {
+              const { data } = await deleteShardMutation({
+                variables: { id },
+              });
+
+              if (data?.deleteShard?.success) {
+                // Remove from local store
+                const updatedShards = shards.filter((s) => s.id !== id);
+                setShards(updatedShards);
+
+                addAlert({ str: 'Shard deleted successfully', type: 'success' });
+
+                // Navigate back to home/shards list
+                // We need to pop twice: once from edit screen, once from detail screen
+                router.dismissAll();
+                router.replace('/(screens)/shard');
+              } else {
+                addAlert({
+                  str: data?.deleteShard?.message || 'Failed to delete shard',
+                  type: 'error',
+                });
+              }
+            } catch (error) {
+              console.error('Delete error:', error);
+              addAlert({ str: 'Failed to delete shard', type: 'error' });
+            }
           },
         },
       ]

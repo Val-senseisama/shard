@@ -39,15 +39,10 @@ const SuggestionCard = ({ user, onAddPress }: SuggestionCardProps) => {
     <Animated.View
       entering={FadeInDown.delay(100)}
       className="mb-3 flex-row items-center rounded-xl bg-background-default p-4 dark:bg-background-dark-paper">
-      <Image
-        source={{ uri: user.profilePic }}
-        className="h-12 w-12 rounded-full bg-gray-200"
-      />
+      <Image source={{ uri: user.profilePic }} className="h-12 w-12 rounded-full bg-gray-200" />
       <View className="ml-3 flex-1">
-        <Text className="font-bold text-text-primary dark:text-text-dark">
-          {user.username}
-        </Text>
-        <Text className="text-xs text-text-secondary dark:text-text-dark-secondary">
+        <Text className="font-bold text-text-primary dark:text-text-dark">{user.username}</Text>
+        <Text className="dark:text-text-dark-secondary text-xs text-text-secondary">
           {user.mutualFriends ? `${user.mutualFriends} mutual friends` : user.email}
         </Text>
       </View>
@@ -56,9 +51,7 @@ const SuggestionCard = ({ user, onAddPress }: SuggestionCardProps) => {
         disabled={requested}
         className="rounded-lg px-4 py-2"
         style={{ backgroundColor: requested ? '#9ca3af' : '#7c3aed' }}>
-        <Text className="text-sm font-semibold text-white">
-          {requested ? 'Requested' : 'Add'}
-        </Text>
+        <Text className="text-sm font-semibold text-white">{requested ? 'Requested' : 'Add'}</Text>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -114,11 +107,7 @@ const AddFriend = () => {
       {/* Header */}
       <View className="mb-4 flex-row items-center justify-between px-4 py-3">
         <TouchableOpacity onPress={() => router.back()} hitSlop={20}>
-          <AntDesign
-            name="arrowleft"
-            size={24}
-            color={colorScheme === 'dark' ? '#fff' : '#000'}
-          />
+          <AntDesign name="arrowleft" size={24} color={colorScheme === 'dark' ? '#fff' : '#000'} />
         </TouchableOpacity>
         <Text className="text-2xl font-bold text-text-primary dark:text-text-dark">
           Add Friends
@@ -152,54 +141,20 @@ const AddFriend = () => {
             </TouchableOpacity>
           </View>
         </View>
-
-        {/* QR Code Section */}
-        <View className="mb-6">
-          <Text className="mb-3 text-sm font-semibold text-text-primary dark:text-text-dark">
-            Quick Add
-          </Text>
-          <TouchableOpacity
-            onPress={handleQRCode}
-            className="flex-row items-center rounded-xl bg-background-default p-4 dark:bg-background-dark-paper">
-            <View
-              className="mr-3 items-center justify-center rounded-full p-3"
-              style={{ backgroundColor: '#7c3aed' }}>
-              <MaterialCommunityIcons name="qrcode-scan" size={24} color="#fff" />
-            </View>
-            <View className="flex-1">
-              <Text className="font-semibold text-text-primary dark:text-text-dark">
-                Scan QR Code
-              </Text>
-              <Text className="text-xs text-text-secondary dark:text-text-dark-secondary">
-                Scan a friend's QR code or share yours
-              </Text>
-            </View>
-            <AntDesign
-              name="right"
-              size={16}
-              color={colorScheme === 'dark' ? '#9ca3af' : '#6b7280'}
-            />
-          </TouchableOpacity>
-        </View>
-
         {/* Suggestions Section */}
         <View className="mb-6">
           <View className="mb-3 flex-row items-center justify-between">
             <Text className="text-sm font-semibold text-text-primary dark:text-text-dark">
               Suggested for You
             </Text>
-            <Text className="text-xs text-text-secondary dark:text-text-dark-secondary">
+            <Text className="dark:text-text-dark-secondary text-xs text-text-secondary">
               Based on mutual friends & shards
             </Text>
           </View>
 
           {suggestions.length > 0 ? (
             suggestions.map((user) => (
-              <SuggestionCard
-                key={user.id}
-                user={user}
-                onAddPress={handleAddFriend}
-              />
+              <SuggestionCard key={user.id} user={user} onAddPress={handleAddFriend} />
             ))
           ) : (
             <View className="items-center justify-center rounded-xl bg-background-default py-12 dark:bg-background-dark-paper">
@@ -208,13 +163,12 @@ const AddFriend = () => {
                 size={48}
                 color={colorScheme === 'dark' ? '#4b5563' : '#9ca3af'}
               />
-              <Text className="mt-3 text-center text-sm text-text-secondary dark:text-text-dark-secondary">
+              <Text className="dark:text-text-dark-secondary mt-3 text-center text-sm text-text-secondary">
                 No suggestions available
               </Text>
             </View>
           )}
         </View>
-
         {/* Search Results */}
         {searchResults.length > 0 && (
           <View className="mb-6">
@@ -222,11 +176,7 @@ const AddFriend = () => {
               Search Results
             </Text>
             {searchResults.map((user) => (
-              <SuggestionCard
-                key={user.id}
-                user={user}
-                onAddPress={handleAddFriend}
-              />
+              <SuggestionCard key={user.id} user={user} onAddPress={handleAddFriend} />
             ))}
           </View>
         )}

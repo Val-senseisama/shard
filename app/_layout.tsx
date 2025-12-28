@@ -23,10 +23,13 @@ import { isLoggedIn } from '@/helpers/isLoggedIn';
 import Toast from 'react-native-toast-message';
 import { Text, View } from 'react-native';
 import CrystalShape from '@/components/ToastCrystal';
+import UndoToast from '@/components/UndoToast';
 import UserProvider from '@/components/UserProvider';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAppStore } from '~/store/app.store';
 import { useColorScheme as useNativeWindColorScheme } from 'nativewind';
+import notificationService from '~/services/notificationService';
+import * as Notifications from 'expo-notifications';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -37,7 +40,7 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   const { setColorScheme } = useNativeWindColorScheme();
   const isDarkMode = useAppStore((state) => state.isDarkMode);
-  
+
   const [fontsLoaded, error] = useFonts({
     'Inter-Thin': require('@/assets/fonts/Inter_18pt-Light.ttf'),
     'Inter-Light': require('@/assets/fonts/Inter_18pt-Light.ttf'),
@@ -53,6 +56,57 @@ export default function RootLayout() {
   useEffect(() => {
     setColorScheme(isDarkMode ? 'dark' : 'light');
   }, [isDarkMode, setColorScheme]);
+
+  // Initialize push notifications
+  useEffect(() => {
+    let mounted = true;
+
+    const initNotifications = async () => {
+      try {
+        // Initialize notification service
+        await notificationService.initialize();
+
+        // Get push token
+        const token = await notificationService.registerForPushNotifications();
+        if (token) {
+          console.log('Push token registered:', token);
+          // TODO: Send token to backend
+          // await sendPushTokenToBackend(token);
+        }
+      } catch (error) {
+        console.error('Error initializing notifications:', error);
+      }
+    };
+
+    // Handle notification tap navigation
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data;
+
+      if (data?.shardId) {
+        router.push({
+          pathname: '/shard-info',
+          params: { shardId: data.shardId as string },
+        });
+      } else if (data?.chatId) {
+        router.push({
+          pathname: '/(screens)/shard/[id]/chat',
+          params: { id: data.chatId as string },
+        });
+      } else if (data?.screen) {
+        router.push(data.screen as any);
+      }
+    });
+
+    if (isUserLoggedIn) {
+      initNotifications();
+    }
+
+    return () => {
+      mounted = false;
+      notificationService.cleanup();
+      subscription.remove();
+    };
+  }, [isUserLoggedIn]);
 
   useEffect(() => {
     const prepare = async () => {
@@ -206,25 +260,31 @@ export default function RootLayout() {
         <Text className="text-white">{text1}</Text>
       </View>
     ),
+    undo: (props: any) => <UndoToast {...props} />,
   };
 
   return (
     <ApolloProvider client={client}>
       <GestureHandlerRootView>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-        <UserProvider />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            animation: 'slide_from_right',
-          }}>
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="(screens)" options={{ headerShown: false }} />
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        </Stack>
-        <Toast config={toastConfig} />
-      </ThemeProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+          <UserProvider />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              animation: 'ios_from_right', // Hardware accelerated
+              animationDuration: 250, // Faster (default is 350ms)
+              presentation: 'card',
+              gestureEnabled: true,
+              animationTypeForReplace: 'push', // Smooth replace animations
+              keyboardHandlingEnabled: true,
+            }}>
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="(screens)" options={{ headerShown: false }} />
+            <Stack.Screen name="(auth)" options={{ headerShown: false, animation: 'fade' }} />
+          </Stack>
+          <Toast config={toastConfig} />
+        </ThemeProvider>
       </GestureHandlerRootView>
     </ApolloProvider>
   );

@@ -18,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useQuery, useMutation } from '@apollo/client';
 import { CHECK_USERNAME } from '~/Graphql/Queries';
-import { COMPLETE_PROFILE } from '~/Graphql/Mutations';
+import { UPDATE_PROFILE } from '~/Graphql/Mutations';
 import AppStore from '~/helpers/AppStore';
 
 const CompleteProfile = () => {
@@ -37,7 +37,7 @@ const CompleteProfile = () => {
     skip: true,
   });
 
-  const [completeProfile, { loading }] = useMutation(COMPLETE_PROFILE, {
+  const [completeProfile, { loading }] = useMutation(UPDATE_PROFILE, {
     onCompleted: (data) => {
       console.log('Profile completed:', data);
       if (data.completeProfile) {

@@ -34,15 +34,26 @@ import { router } from 'expo-router';
 import { useUserStore } from '~/store/user.store';
 import { useShardStore } from '~/store/shard.store';
 import { useQuery } from '@apollo/client';
-import { MY_SHARDS } from '~/Graphql/Queries';
+import StreakIndicator from '@/components/StreakIndicator';
+import { CURRENT_USER, MY_SHARDS } from '~/Graphql/Queries';
 
 const Home = () => {
   const user = useUserStore((state) => state.user);
+  const setUser = useUserStore((state) => state.setUser);
   const { setShards, setSelectedShard } = useShardStore();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const colorScheme = useColorScheme();
   const scrollY = useSharedValue(0);
   const shardListRef = useRef<FlatList>(null);
+
+  // Fetch current user data (including streak)
+  useQuery(CURRENT_USER, {
+    onCompleted: (data) => {
+      if (data?.currentUser?.user) {
+        setUser(data.currentUser.user);
+      }
+    },
+  });
 
   // Fetch shards from server
   const { data, loading, error, refetch } = useQuery(MY_SHARDS, {
@@ -50,14 +61,6 @@ const Home = () => {
   });
 
   const shards = data?.myShards?.shards || [];
-  console.log(shards[0]);
-
-  // Initialize shard store with fetched data
-  React.useEffect(() => {
-    if (shards.length > 0) {
-      setShards(shards);
-    }
-  }, [shards]);
 
   const AVATAR_MAX_SIZE = 56;
   const AVATAR_MIN_SIZE = 32;
@@ -85,6 +88,7 @@ const Home = () => {
     );
     return { opacity: Math.max(0, Math.min(1, opacity)) };
   });
+
   // Animated styles for status bar
   const imageAnimatedOtherStyle = useAnimatedStyle(() => {
     const translateY = interpolate(
@@ -150,13 +154,8 @@ const Home = () => {
 
         <Animated.View
           className="relative flex flex-row items-center justify-between bg-background-default px-3 dark:bg-background-dark-default"
-          style={[
-            // {
-            //   paddingBottom: 24,
-            //   paddingTop: 16,
-            // },
-            paddingAnimatedStyle,
-          ]}>
+          style={[paddingAnimatedStyle]}>
+          {/* ... (Logo and Menu button) */}
           <Animated.View
             style={[
               {
@@ -203,18 +202,31 @@ const Home = () => {
               <HeaderSkeleton />
             ) : (
               <>
-                <Image
-                  source={{ uri: user?.profilePic }}
-                  className="h-14 w-14 rounded-full border border-primary-start"
-                  resizeMode="cover"
-                />
-                <Text className="font-ibold text-base text-text-primary dark:text-text-dark">
-                  Welcome {user.username}
-                </Text>
+                <View className="relative">
+                  <Image
+                    source={{ uri: user?.profilePic }}
+                    className="h-14 w-14 rounded-full border border-primary-start"
+                    resizeMode="cover"
+                  />
+                  <View className="absolute -right-4 -top-2 scale-75 transform">
+                    <View className="rounded-full bg-background-paper px-2 py-1 shadow-sm dark:bg-background-dark-paper">
+                      <StreakIndicator
+                        currentStreak={user?.currentStreak || 0}
+                        longestStreak={user?.longestStreak || 0}
+                        compact={true}
+                      />
+                    </View>
+                  </View>
+                </View>
+                <View>
+                  <Text className="font-ibold text-base text-text-primary dark:text-text-dark">
+                    Welcome {user.username}
+                  </Text>
+                </View>
               </>
             )}
           </Animated.View>
-          <TouchableOpacity onPress={() => router.push('/notifications')}>
+          <TouchableOpacity onPress={() => router.push('/notifications')} hitSlop={20}>
             <FontAwesome
               name="bell-o"
               size={20}
@@ -247,9 +259,8 @@ const Home = () => {
         <Animated.View
           style={[
             {
-              height: spacerAnimatedStyle.height,
+              height: 20, // Fixed height spacer instead of animated
             },
-            spacerAnimatedStyle,
           ]}
           className="bg-background-default dark:bg-background-dark-default"
         />
