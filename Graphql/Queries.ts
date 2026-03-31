@@ -12,6 +12,7 @@ export const CURRENT_USER = gql`
         bio
         profilePic
         role
+        subscriptionTier
         emailVerified
         xp
         level
@@ -34,7 +35,24 @@ export const CURRENT_USER = gql`
 
 export const CHECK_USERNAME = gql`
   query CheckUsername($username: String!) {
-    checkUsername(username: $username)
+    checkUsername(username: $username) {
+      success
+      available
+    }
+  }
+`;
+
+export const SEARCH_USERS = gql`
+  query SearchUsers($query: String!, $type: String) {
+    searchUsers(query: $query, type: $type) {
+      success
+      users {
+        id
+        username
+        profilePic
+        mutualFriends
+      }
+    }
   }
 `;
 
@@ -47,29 +65,61 @@ export const GET_FRIENDS = gql`
         username
         profilePic
         email
+        isOnline
+        lastActive
       }
     }
   }
 `;
 
-
-export const GET_SIGNED_UPLOAD_URL = gql`
-    query GetSignedUploadUrl {
-      getSignedUploadUrl {
-        success
-        message
-        uploadUrl
-        params {
-          apiKey
-          timestamp
-          publicId
-          signature
-          folder
-          cloudName
-        }
+export const GET_PENDING_REQUESTS = gql`
+  query GetPendingRequests {
+    getPendingRequests {
+      success
+      incoming {
+        id
+        username
+        profilePic
+      }
+      outgoing {
+        id
+        username
+        profilePic
       }
     }
-  `;
+  }
+`;
+
+export const GET_FRIEND_SUGGESTIONS = gql`
+  query GetFriendSuggestions {
+    getFriendSuggestions {
+      success
+      suggestions {
+        id
+        username
+        profilePic
+      }
+    }
+  }
+`;
+
+export const GET_SIGNED_UPLOAD_URL = gql`
+  query GetSignedUploadUrl {
+    getSignedUploadUrl {
+      success
+      message
+      uploadUrl
+      params {
+        apiKey
+        timestamp
+        publicId
+        signature
+        folder
+        cloudName
+      }
+    }
+  }
+`;
 
 export const GET_SHARD = gql`
   query GetShard($id: ID!) {
@@ -82,6 +132,9 @@ export const GET_SHARD = gql`
         image
         status
         chatId
+        isPrivate
+        isAnonymous
+        version
         progress {
           completion
           xpEarned
@@ -93,6 +146,8 @@ export const GET_SHARD = gql`
         }
         participants {
           user
+          username
+          profilePic
           role
         }
         participantsCount
@@ -110,6 +165,7 @@ export const GET_SHARD = gql`
           description
           progress
           completed
+          version
           tasks {
             title
             dueDate
@@ -188,7 +244,6 @@ export const GET_NOTIFICATIONS = gql`
     }
   }
 `;
-
 
 export const GET_UNREAD_NOTIFICATION_COUNT = gql`
   query GetUnreadNotificationCount {
@@ -318,6 +373,103 @@ export const GET_SHARD_ANALYTICS = gql`
       }
       totalTasks
       completedTasks
+    }
+  }
+`;
+
+export const GET_PRODUCTIVITY_DATA = gql`
+  query GetProductivityData {
+    getProductivityData {
+      success
+      message
+      weeklyData {
+        date
+        tasksCompleted
+        xpEarned
+        shardsActive
+      }
+      monthlyData {
+        date
+        tasksCompleted
+        xpEarned
+        shardsActive
+      }
+      insights
+      struggleAreas
+      averageCompletionRate
+    }
+  }
+`;
+
+export const MY_SIDE_QUESTS = gql`
+  query MySideQuests {
+    mySideQuests {
+      success
+      sideQuests {
+        id
+        title
+        description
+        difficulty
+        xpReward
+        category
+        createdAt
+      }
+    }
+  }
+`;
+
+export const CAN_GENERATE_SIDE_QUEST = gql`
+  query CanGenerateSideQuest {
+    canGenerateSideQuest {
+      success
+      canGenerate
+      reasons {
+        tooManyShards
+        hasRecentSideQuest
+        activeShardsCount
+      }
+    }
+  }
+`;
+
+export const GET_XP = gql`
+  query GetXP {
+    getXP {
+      success
+      xp
+      level
+      xpNeeded
+      achievements
+      pendingAchievements
+    }
+  }
+`;
+
+export const GET_STREAKS = gql`
+  query GetStreaks {
+    getStreaks {
+      success
+      streaks {
+        type
+        currentStreak
+        longestStreak
+        lastActivityDate
+      }
+    }
+  }
+`;
+
+export const GET_MY_STATS = gql`
+  query GetMyStats {
+    getMyStats {
+      success
+      stats {
+        activeShards
+        completedShards
+        activeMinigoals
+        completedMinigoals
+        completionRate
+      }
     }
   }
 `;

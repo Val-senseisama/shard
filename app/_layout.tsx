@@ -25,6 +25,7 @@ import { Text, View } from 'react-native';
 import CrystalShape from '@/components/ToastCrystal';
 import UndoToast from '@/components/UndoToast';
 import UserProvider from '@/components/UserProvider';
+import PushTokenRegistration from '@/components/PushTokenRegistration';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAppStore } from '~/store/app.store';
 import { useColorScheme as useNativeWindColorScheme } from 'nativewind';
@@ -69,9 +70,8 @@ export default function RootLayout() {
         // Get push token
         const token = await notificationService.registerForPushNotifications();
         if (token) {
-          console.log('Push token registered:', token);
-          // TODO: Send token to backend
-          // await sendPushTokenToBackend(token);
+          console.log('📱 Push token obtained:', token.substring(0, 30) + '...');
+          // Token will be registered with backend by PushTokenRegistration component
         }
       } catch (error) {
         console.error('Error initializing notifications:', error);
@@ -83,10 +83,7 @@ export default function RootLayout() {
       const data = response.notification.request.content.data;
 
       if (data?.shardId) {
-        router.push({
-          pathname: '/shard-info',
-          params: { shardId: data.shardId as string },
-        });
+        router.push(`/(screens)/shard/${data.shardId as string}`);
       } else if (data?.chatId) {
         router.push({
           pathname: '/(screens)/shard/[id]/chat',
@@ -126,7 +123,7 @@ export default function RootLayout() {
   useEffect(() => {
     if (isReady && fontsLoaded && !error) {
       if (isUserLoggedIn) {
-        router.replace('/(screens)/Home');
+        router.replace('/(screens)/(tabs)/Home');
       } else {
         Session.clearAllCookies();
         router.replace('/(auth)/welcome');
@@ -269,6 +266,7 @@ export default function RootLayout() {
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
           <UserProvider />
+          <PushTokenRegistration />
           <Stack
             screenOptions={{
               headerShown: false,

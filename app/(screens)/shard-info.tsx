@@ -18,7 +18,7 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useShardStore } from '~/store/shard.store';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_SHARD, GET_SHARD_SCHEDULE, GET_SHARD_ANALYTICS } from '~/Graphql/Queries';
-import { GENERATE_WEEKLY_TASKS, COMPLETE_TASK, CREATE_SHARD_CHAT } from '~/Graphql/Mutations';
+import { SCHEDULE_TASKS, COMPLETE_TASK, CREATE_SHARD_CHAT } from '~/Graphql/Mutations';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { useAppStore } from '~/store/app.store';
 import ShardHeaderSkeleton from '@/components/ShardHeaderSkeleton';
@@ -194,94 +194,37 @@ const ShardInfo = () => {
     loading: analyticsLoading,
     refetch: refetchAnalytics,
   } = useQuery(GET_SHARD_ANALYTICS, {
-    variables: { shardId, timeframe },
+    variables: { shardId },
     skip: !shardId || activeTab !== 'progress',
     fetchPolicy: 'cache-first', // Use cache for instant display
   });
 
-  // Weekly Task Generation
-  const [generateWeeklyTasks] = useMutation(GENERATE_WEEKLY_TASKS);
+  // Reschedule tasks
+  const [scheduleTasks] = useMutation(SCHEDULE_TASKS);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleGenerateTasks = async () => {
-    if (!shard || !shard.minigoals) return;
+    if (!shard) return;
 
     setIsGenerating(true);
     try {
-      // Find first incomplete mini-goal
-      const activeMiniGoal = shard.minigoals.find((mg: any) => !mg.completed);
-
-      if (!activeMiniGoal) {
-        addAlert({ str: 'All mini-goals are completed!', type: 'info' });
-        setIsGenerating(false);
-        return;
-      }
-
-      // Calculate week number and date range
-      const startDate = new Date(shard.timeline.startDate);
-      const diffTime = selectedDate.getTime() - startDate.getTime();
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-      const weekNumber = Math.floor(diffDays / 7) + 1;
-
-      // Calculate week start/end for duplicate check
-      const weekStartDay = weekNumber * 7 - 6;
-      const weekStart = new Date(startDate);
-      weekStart.setDate(startDate.getDate() + weekStartDay - 1);
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6);
-
-      // Check for existing tasks in this week (frontend check)
-      const existingTasksThisWeek = tasksForSelectedDate.filter((task: any) => {
-        const taskDate = new Date(task.dueDate);
-        return taskDate >= weekStart && taskDate <= weekEnd;
+      const { data } = await scheduleTasks({
+        variables: { shardId },
       });
 
-      let action = 'append'; // Default action
-
-      // Show confirmation if tasks already exist
-      if (existingTasksThisWeek.length > 0) {
-        // Use Alert.alert for React Native or create custom dialog
-        const confirmed = await new Promise<string>((resolve) => {
-          Alert.alert(
-            'Tasks Already Exist',
-            `This week has ${existingTasksThisWeek.length} tasks. What would you like to do?`,
-            [
-              { text: 'Cancel', onPress: () => resolve('cancel'), style: 'cancel' },
-              { text: 'Add More', onPress: () => resolve('append') },
-              { text: 'Replace All', onPress: () => resolve('replace'), style: 'destructive' },
-            ]
-          );
-        });
-
-        if (confirmed === 'cancel') {
-          setIsGenerating(false);
-          return;
-        }
-
-        action = confirmed;
-      }
-
-      const { data } = await generateWeeklyTasks({
-        variables: {
-          miniGoalId: activeMiniGoal.id,
-          weekNumber: weekNumber,
-          action, // Pass user's choice to backend
-        },
-      });
-
-      if (data?.generateWeeklyTasks?.success) {
+      if (data?.scheduleTasks?.success) {
         refetchSchedule();
         refetchShard();
-        addAlert({ str: 'Weekly plan generated successfully!', type: 'success' });
+        addAlert({ str: data.scheduleTasks.message, type: 'success' });
       } else {
         addAlert({
-          str: data?.generateWeeklyTasks?.message || 'Failed to generate plan.',
+          str: data?.scheduleTasks?.message || 'Failed to reschedule tasks.',
           type: 'error',
         });
       }
     } catch (error) {
-      console.error('Generation error:', error);
-      addAlert({ str: 'An error occurred while generating tasks.', type: 'error' });
+      console.error('Schedule error:', error);
+      addAlert({ str: 'An error occurred while scheduling tasks.', type: 'error' });
     } finally {
       setIsGenerating(false);
     }
@@ -632,14 +575,19 @@ const ShardInfo = () => {
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      className="flex-1 flex-row items-center justify-center gap-2 rounded-lg bg-purple-600 px-4 py-3"
+                      className="items-center justify-center rounded-full p-2"
+                      style={{ backgroundColor: colorScheme === 'dark' ? '#374151' : '#e5e7eb' }}
                       onPress={() => {
                         // Use chatId if available, otherwise fall back to shard ID (for backward compatibility)
                         const chatIdentifier = shard.chatId || shard.id;
                         router.push(`/shard/${chatIdentifier}/chat`);
                       }}>
-                      <Ionicons name="chatbubble-outline" size={20} color="white" />
-                      <Text className="font-semibold text-white">Chat</Text>
+                      <Ionicons
+                        name="chatbubble-outline"
+                        size={20}
+                        color={colorScheme === 'dark' ? '#fff' : '#000'}
+                      />
+                      {/* <Text className="font-semibold text-white">Chat</Text> */}
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -681,7 +629,7 @@ const ShardInfo = () => {
             </View>
 
             {/* Shard Summary */}
-            {shardData.summary && (
+            {shard?.description && (
               <View className="mb-6">
                 <Text className="mb-2 text-sm font-bold uppercase text-text-primary dark:text-text-dark">
                   Shard Summary
@@ -689,7 +637,7 @@ const ShardInfo = () => {
                 <Text
                   className="dark:text-text-dark-secondary text-sm leading-6 text-text-secondary"
                   numberOfLines={expandedSummary ? undefined : 3}>
-                  {shardData.summary}
+                  {shard.description}
                 </Text>
                 <TouchableOpacity onPress={() => setExpandedSummary(!expandedSummary)}>
                   <Text className="mt-2 text-sm font-semibold" style={{ color: '#a855f7' }}>
@@ -1070,7 +1018,7 @@ const ShardInfo = () => {
                       Scroll through the calendar to find days with purple dots 🟣
                     </Text>
 
-                    {/* Generate Tasks Button */}
+                    {/* Reschedule Tasks Button */}
                     <TouchableOpacity
                       onPress={handleGenerateTasks}
                       disabled={isGenerating}
@@ -1079,10 +1027,10 @@ const ShardInfo = () => {
                       {isGenerating ? (
                         <ActivityIndicator size="small" color="#fff" className="mr-2" />
                       ) : (
-                        <Ionicons name="sparkles" size={20} color="#fff" className="mr-2" />
+                        <Ionicons name="calendar-outline" size={20} color="#fff" className="mr-2" />
                       )}
                       <Text className="font-semibold text-white">
-                        {isGenerating ? 'Generating Plan...' : 'Generate Weekly Plan'}
+                        {isGenerating ? 'Scheduling...' : 'Reschedule Tasks'}
                       </Text>
                     </TouchableOpacity>
                     <Text className="dark:text-text-dark-secondary mt-2 text-xs text-text-secondary">

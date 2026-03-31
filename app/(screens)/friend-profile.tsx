@@ -1,318 +1,283 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Image,
-  ScrollView,
-  useColorScheme,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, Image, ScrollView, useColorScheme } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { AntDesign, Ionicons, MaterialIcons } from '@expo/vector-icons';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-
-type QuestTabType = 'collaborations' | 'accountability' | 'completed';
-
-interface Badge {
-  id: string;
-  name: string;
-  icon: string;
-  color: string;
-}
-
-interface SharedQuest {
-  id: string;
-  title: string;
-  image: string;
-  completionRate: number;
-  role: 'collaborator' | 'accountability_partner';
-}
+import { Ionicons } from '@expo/vector-icons';
+import { useMutation } from '@apollo/client';
+import { UNFRIEND, BLOCK_USER, CREATE_OR_GET_DIRECT_CHAT } from '~/Graphql/Mutations';
+import { useFriendsStore } from '~/store/friends.store';
+import { avatarUri } from '~/helpers/avatarUri';
+import AnimatedPressable from '~/components/AnimatedPressable';
+import ConfirmModal from '~/components/ConfirmModal';
+import Toast from 'react-native-toast-message';
 
 const FriendProfile = () => {
-  const colorScheme = useColorScheme();
+  const isDark = useColorScheme() === 'dark';
   const params = useLocalSearchParams();
-  const [activeTab, setActiveTab] = useState<QuestTabType>('collaborations');
+  const { friends, setFriends } = useFriendsStore();
 
-  // Mock friend data - in real app, fetch based on params.friendId
-  const friend = {
-    id: params.friendId as string || '1',
-    username: 'john_doe',
-    displayName: 'John Doe',
-    profilePic: 'https://i.pravatar.cc/150?img=11',
-    userId: '@johndoe',
-  };
+  const friendId = params.friendId as string;
+  const username = params.username as string;
+  const profilePic = params.profilePic as string;
+  const email = params.email as string;
+  const isOnline = params.isOnline === '1';
 
-  // Mock badges
-  const badges: Badge[] = [
-    { id: '1', name: 'Early Bird', icon: '🌅', color: '#f59e0b' },
-    { id: '2', name: 'Streak Master', icon: '🔥', color: '#ef4444' },
-    { id: '3', name: 'Team Player', icon: '🤝', color: '#3b82f6' },
-    { id: '4', name: 'Goal Crusher', icon: '💪', color: '#8b5cf6' },
-  ];
+  const [removeModalVisible, setRemoveModalVisible] = useState(false);
+  const [blockModalVisible, setBlockModalVisible] = useState(false);
 
-  // Mock shared quests
-  const collaborations: SharedQuest[] = [
-    {
-      id: '1',
-      title: 'Learn React Native',
-      image: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=500',
-      completionRate: 65,
-      role: 'collaborator',
-    },
-    {
-      id: '2',
-      title: 'Fitness Challenge',
-      image: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=500',
-      completionRate: 45,
-      role: 'collaborator',
-    },
-  ];
+  const [unfriend] = useMutation(UNFRIEND);
+  const [blockUser] = useMutation(BLOCK_USER);
+  const [createOrGetDirectChat] = useMutation(CREATE_OR_GET_DIRECT_CHAT);
 
-  const accountability: SharedQuest[] = [
-    {
-      id: '3',
-      title: 'Morning Routine',
-      image: 'https://images.unsplash.com/photo-1464983953574-0892a716854b?w=500',
-      completionRate: 80,
-      role: 'accountability_partner',
-    },
-  ];
-
-  const completed: SharedQuest[] = [
-    {
-      id: '4',
-      title: 'Read 10 Books',
-      image: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=500',
-      completionRate: 100,
-      role: 'collaborator',
-    },
-  ];
-
-  const getQuestsForTab = () => {
-    switch (activeTab) {
-      case 'collaborations':
-        return collaborations;
-      case 'accountability':
-        return accountability;
-      case 'completed':
-        return completed;
-      default:
-        return [];
+  const handleMessage = async () => {
+    try {
+      const { data } = await createOrGetDirectChat({ variables: { friendId } });
+      if (data?.createOrGetDirectChat?.success && data.createOrGetDirectChat.chatId) {
+        router.dismiss();
+        setTimeout(() => {
+          router.push(`/(screens)/shard/${data.createOrGetDirectChat.chatId}/chat`);
+        }, 300);
+      } else {
+        Toast.show({ type: 'error', text1: 'Failed to open chat' });
+      }
+    } catch {
+      Toast.show({ type: 'error', text1: 'Failed to open chat' });
     }
   };
 
   const handleAddToShard = () => {
-    // Navigate to new-shard with friend pre-selected
-    router.push({
-      pathname: '/new-shard',
-      params: { preSelectedFriend: friend.id },
-    });
+    router.dismiss();
+    setTimeout(() => {
+      router.push({ pathname: '/new-shard', params: { preSelectedFriend: friendId } });
+    }, 300);
   };
 
-  const handleRemoveFriend = () => {
-    // TODO: Show confirmation dialog
-    console.log('Remove friend:', friend.id);
+  const handleConfirmRemove = async () => {
+    setRemoveModalVisible(false);
+    try {
+      const { data } = await unfriend({ variables: { friendId } });
+      if (data?.unfriend?.success) {
+        Toast.show({ type: 'success', text1: 'Friend removed' });
+        setFriends(friends.filter((f) => f.id !== friendId));
+        router.dismiss();
+      } else {
+        Toast.show({ type: 'error', text1: data?.unfriend?.message || 'Failed' });
+      }
+    } catch {
+      Toast.show({ type: 'error', text1: 'Failed to remove friend' });
+    }
   };
 
-  const handleMessage = () => {
-    // TODO: Navigate to messaging (future feature)
-    console.log('Message friend:', friend.id);
+  const handleConfirmBlock = async () => {
+    setBlockModalVisible(false);
+    try {
+      const { data } = await blockUser({ variables: { userId: friendId } });
+      if (data?.blockUser?.success) {
+        Toast.show({ type: 'success', text1: 'User blocked' });
+        setFriends(friends.filter((f) => f.id !== friendId));
+        router.dismiss();
+      } else {
+        Toast.show({ type: 'error', text1: data?.blockUser?.message || 'Failed' });
+      }
+    } catch {
+      Toast.show({ type: 'error', text1: 'Failed to block user' });
+    }
   };
 
-  const quests = getQuestsForTab();
+  const cardBorder = isDark ? 'rgba(72,72,71,0.15)' : 'rgba(0,0,0,0.06)';
+  const subtleText = isDark ? '#767575' : '#9ca3af';
+
+  const actions = [
+    { icon: 'chatbubble-outline', label: 'Message', color: '#8b5cf6', onPress: handleMessage },
+    { icon: 'add-circle-outline', label: 'Add to Shard', color: '#8b5cf6', onPress: handleAddToShard },
+    { icon: 'person-remove-outline', label: 'Remove Friend', color: '#ef4444', onPress: () => setRemoveModalVisible(true) },
+  ];
 
   return (
-    <SafeAreaView className="flex-1 bg-background-paper dark:bg-background-dark-default">
-      {/* Header */}
-      <View className="flex-row items-center justify-between px-4 py-3">
-        <TouchableOpacity onPress={() => router.back()} hitSlop={20}>
-          <AntDesign
-            name="arrowleft"
-            size={24}
-            color={colorScheme === 'dark' ? '#fff' : '#000'}
-          />
-        </TouchableOpacity>
-        <Text className="text-xl font-bold text-text-primary dark:text-text-dark">
-          Profile
-        </Text>
-        <View style={{ width: 24 }} />
+    <View className="flex-1" style={{ backgroundColor: isDark ? '#0e0e0e' : '#fff' }}>
+      {/* Grabber */}
+      <View className="items-center pt-2 pb-1">
+        <View
+          style={{
+            width: 36,
+            height: 5,
+            borderRadius: 3,
+            backgroundColor: isDark ? '#484847' : '#d1d5db',
+          }}
+        />
       </View>
 
-      <ScrollView className="flex-1">
+      <ScrollView showsVerticalScrollIndicator={false} bounces={false} contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Profile Header */}
-        <Animated.View entering={FadeIn} className="items-center px-4 py-6">
-          <Image
-            source={{ uri: friend.profilePic }}
-            className="h-24 w-24 rounded-full border-4 border-purple-600 bg-gray-200"
-          />
-          <Text className="mt-4 text-2xl font-bold text-text-primary dark:text-text-dark">
-            {friend.displayName}
+        <View className="items-center px-6 pt-4 pb-5">
+          <View style={{ position: 'relative' }}>
+            <Image
+              source={{ uri: avatarUri(profilePic, username) }}
+              style={{
+                width: 80,
+                height: 80,
+                borderRadius: 40,
+                borderWidth: 3,
+                borderColor: '#8b5cf6',
+              }}
+            />
+            <View
+              style={{
+                position: 'absolute',
+                bottom: 2,
+                right: 2,
+                width: 16,
+                height: 16,
+                borderRadius: 8,
+                backgroundColor: isOnline ? '#10b981' : '#9ca3af',
+                borderWidth: 3,
+                borderColor: isDark ? '#0e0e0e' : '#fff',
+              }}
+            />
+          </View>
+          <Text
+            style={{
+              fontSize: 20,
+              fontWeight: '700',
+              color: isDark ? '#fff' : '#1a1a1a',
+              marginTop: 12,
+            }}>
+            {username}
           </Text>
-          <Text className="mt-1 text-sm text-text-secondary dark:text-text-dark-secondary">
-            {friend.userId}
-          </Text>
-        </Animated.View>
-
-        {/* Badges Section */}
-        <View className="mb-6 px-4">
-          <Text className="mb-3 text-sm font-semibold text-text-primary dark:text-text-dark">
-            Badges Earned
-          </Text>
-          <View className="flex-row flex-wrap gap-3">
-            {badges.map((badge) => (
-              <Animated.View
-                key={badge.id}
-                entering={FadeInDown.delay(100)}
-                className="items-center rounded-xl bg-background-default p-3 dark:bg-background-dark-paper"
-                style={{ width: '22%' }}>
-                <Text style={{ fontSize: 32 }}>{badge.icon}</Text>
-                <Text
-                  className="mt-1 text-center text-xs font-semibold"
-                  style={{ color: badge.color }}>
-                  {badge.name}
-                </Text>
-              </Animated.View>
-            ))}
+          {email ? (
+            <Text style={{ fontSize: 12, color: subtleText, marginTop: 4 }}>{email}</Text>
+          ) : null}
+          <View
+            className="mt-2 flex-row items-center gap-1 rounded-full px-3 py-1"
+            style={{ backgroundColor: isOnline ? 'rgba(16,185,129,0.1)' : 'rgba(156,163,175,0.1)' }}>
+            <View
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: 3,
+                backgroundColor: isOnline ? '#10b981' : '#9ca3af',
+              }}
+            />
+            <Text style={{ fontSize: 11, fontWeight: '600', color: isOnline ? '#10b981' : subtleText }}>
+              {isOnline ? 'Online' : 'Offline'}
+            </Text>
           </View>
         </View>
 
-        {/* Shared Quests Section */}
-        <View className="mb-6 px-4">
-          <Text className="mb-3 text-sm font-semibold text-text-primary dark:text-text-dark">
-            Shared Quests
-          </Text>
-
-          {/* Quest Tabs */}
-          <View className="mb-4 flex-row gap-2">
-            <TouchableOpacity
-              onPress={() => setActiveTab('collaborations')}
-              className="flex-1 items-center rounded-lg py-2"
-              style={{
-                backgroundColor: activeTab === 'collaborations' ? '#7c3aed' : 'transparent',
-                borderWidth: 1,
-                borderColor: '#7c3aed',
-              }}>
-              <Text
-                className="text-xs font-semibold"
-                style={{ color: activeTab === 'collaborations' ? '#ffffff' : '#7c3aed' }}>
-                Collaborations
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setActiveTab('accountability')}
-              className="flex-1 items-center rounded-lg py-2"
-              style={{
-                backgroundColor: activeTab === 'accountability' ? '#7c3aed' : 'transparent',
-                borderWidth: 1,
-                borderColor: '#7c3aed',
-              }}>
-              <Text
-                className="text-xs font-semibold"
-                style={{ color: activeTab === 'accountability' ? '#ffffff' : '#7c3aed' }}>
-                Accountability
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setActiveTab('completed')}
-              className="flex-1 items-center rounded-lg py-2"
-              style={{
-                backgroundColor: activeTab === 'completed' ? '#7c3aed' : 'transparent',
-                borderWidth: 1,
-                borderColor: '#7c3aed',
-              }}>
-              <Text
-                className="text-xs font-semibold"
-                style={{ color: activeTab === 'completed' ? '#ffffff' : '#7c3aed' }}>
-                Completed
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Quest List */}
-          {quests.length > 0 ? (
-            quests.map((quest) => (
-              <Animated.View
-                key={quest.id}
-                entering={FadeInDown.delay(100)}
-                className="mb-3 overflow-hidden rounded-xl bg-background-default dark:bg-background-dark-paper">
-                <Image
-                  source={{ uri: quest.image }}
-                  className="h-32 w-full bg-gray-200"
-                  resizeMode="cover"
-                />
-                <View className="p-4">
-                  <Text className="font-bold text-text-primary dark:text-text-dark">
-                    {quest.title}
-                  </Text>
-                  <View className="mt-2 flex-row items-center justify-between">
-                    <View className="flex-1">
-                      <View className="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-                        <View
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${quest.completionRate}%`,
-                            backgroundColor: '#7c3aed',
-                          }}
-                        />
-                      </View>
-                    </View>
-                    <Text className="ml-3 text-xs font-semibold text-text-secondary dark:text-text-dark-secondary">
-                      {quest.completionRate}%
-                    </Text>
-                  </View>
-                  <Text className="mt-2 text-xs capitalize text-text-secondary dark:text-text-dark-secondary">
-                    Role: {quest.role.replace('_', ' ')}
-                  </Text>
-                </View>
-              </Animated.View>
-            ))
-          ) : (
-            <View className="items-center justify-center rounded-xl bg-background-default py-12 dark:bg-background-dark-paper">
-              <Ionicons
-                name="folder-open-outline"
-                size={48}
-                color={colorScheme === 'dark' ? '#4b5563' : '#9ca3af'}
-              />
-              <Text className="mt-3 text-center text-sm text-text-secondary dark:text-text-dark-secondary">
-                No {activeTab} quests
+        {/* Quick Actions Row */}
+        <View className="flex-row justify-center gap-5 px-6 pb-5">
+          <AnimatedPressable onPress={handleMessage} scaleDown={0.92}>
+            <View className="items-center">
+              <View
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
+                  backgroundColor: 'rgba(139,92,246,0.12)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                <Ionicons name="chatbubble-outline" size={22} color="#8b5cf6" />
+              </View>
+              <Text style={{ fontSize: 10, fontWeight: '600', color: subtleText, marginTop: 6 }}>
+                Message
               </Text>
             </View>
-          )}
+          </AnimatedPressable>
+
+          <AnimatedPressable onPress={handleAddToShard} scaleDown={0.92}>
+            <View className="items-center">
+              <View
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
+                  backgroundColor: 'rgba(139,92,246,0.12)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                <Ionicons name="add-circle-outline" size={22} color="#8b5cf6" />
+              </View>
+              <Text style={{ fontSize: 10, fontWeight: '600', color: subtleText, marginTop: 6 }}>
+                Add to Shard
+              </Text>
+            </View>
+          </AnimatedPressable>
         </View>
 
-        {/* Action Buttons */}
-        <View className="mb-6 gap-3 px-4">
-          <TouchableOpacity
-            onPress={handleAddToShard}
-            className="flex-row items-center justify-center rounded-xl py-4"
-            style={{ backgroundColor: '#7c3aed' }}>
-            <Ionicons name="add-circle-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
-            <Text className="text-base font-semibold text-white">Add to Shard</Text>
-          </TouchableOpacity>
+        {/* Divider */}
+        <View style={{ height: 1, backgroundColor: cardBorder, marginHorizontal: 24 }} />
 
-          <TouchableOpacity
-            onPress={handleMessage}
-            className="flex-row items-center justify-center rounded-xl border-2 py-4"
-            style={{ borderColor: '#7c3aed' }}>
-            <Ionicons name="chatbubble-outline" size={20} color="#7c3aed" style={{ marginRight: 8 }} />
-            <Text className="text-base font-semibold" style={{ color: '#7c3aed' }}>
-              Message
-            </Text>
-          </TouchableOpacity>
+        {/* Action List */}
+        <View className="px-4 pt-3 pb-2">
+          {actions.map((action, index) => (
+            <AnimatedPressable key={action.label} onPress={action.onPress} scaleDown={0.98}>
+              <View
+                className="flex-row items-center gap-3 rounded-xl px-4 py-3.5"
+                style={
+                  index < actions.length - 1
+                    ? { borderBottomWidth: 1, borderBottomColor: cardBorder }
+                    : undefined
+                }>
+                <Ionicons name={action.icon as any} size={20} color={action.color} />
+                <Text
+                  style={{
+                    fontSize: 15,
+                    fontWeight: '500',
+                    color: action.color === '#ef4444' ? '#ef4444' : isDark ? '#fff' : '#1a1a1a',
+                    flex: 1,
+                  }}>
+                  {action.label}
+                </Text>
+                <Ionicons name="chevron-forward" size={16} color={isDark ? '#484847' : '#d1d5db'} />
+              </View>
+            </AnimatedPressable>
+          ))}
+        </View>
 
-          <TouchableOpacity
-            onPress={handleRemoveFriend}
-            className="flex-row items-center justify-center rounded-xl border-2 py-4"
-            style={{ borderColor: '#ef4444' }}>
-            <Ionicons name="person-remove-outline" size={20} color="#ef4444" style={{ marginRight: 8 }} />
-            <Text className="text-base font-semibold text-red-500">Remove Friend</Text>
-          </TouchableOpacity>
+        {/* Block button at bottom */}
+        <View className="px-6 pt-4">
+          <AnimatedPressable onPress={() => setBlockModalVisible(true)} scaleDown={0.97}>
+            <View
+              style={{
+                borderRadius: 14,
+                paddingVertical: 13,
+                alignItems: 'center',
+                backgroundColor: isDark ? 'rgba(239,68,68,0.1)' : 'rgba(239,68,68,0.06)',
+                borderWidth: 1,
+                borderColor: isDark ? 'rgba(239,68,68,0.2)' : 'rgba(239,68,68,0.1)',
+              }}>
+              <View className="flex-row items-center gap-2">
+                <Ionicons name="ban-outline" size={16} color="#ef4444" />
+                <Text style={{ fontSize: 14, fontWeight: '600', color: '#ef4444' }}>Block User</Text>
+              </View>
+            </View>
+          </AnimatedPressable>
         </View>
       </ScrollView>
-    </SafeAreaView>
+
+      {/* Confirm Modals */}
+      <ConfirmModal
+        visible={removeModalVisible}
+        onClose={() => setRemoveModalVisible(false)}
+        onConfirm={handleConfirmRemove}
+        title="Remove Friend?"
+        message={`Are you sure you want to remove ${username} from your friends?`}
+        confirmLabel="Remove Friend"
+        icon="person-remove-outline"
+        destructive
+      />
+      <ConfirmModal
+        visible={blockModalVisible}
+        onClose={() => setBlockModalVisible(false)}
+        onConfirm={handleConfirmBlock}
+        title="Block User?"
+        message={`${username} won't be able to see your profile or send you requests.`}
+        confirmLabel="Block User"
+        icon="ban-outline"
+        confirmColor="#991b1b"
+        destructive
+      />
+    </View>
   );
 };
 

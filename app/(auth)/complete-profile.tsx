@@ -40,7 +40,7 @@ const CompleteProfile = () => {
   const [completeProfile, { loading }] = useMutation(UPDATE_PROFILE, {
     onCompleted: (data) => {
       console.log('Profile completed:', data);
-      if (data.completeProfile) {
+      if (data.updateProfile?.success) {
         router.replace('/(auth)/login');
       } else {
         AppStore.showAlert({ str: 'Failed to complete profile. Please try again.', type: 'error' });
@@ -66,7 +66,7 @@ const CompleteProfile = () => {
       setIsCheckingUsername(true);
       try {
         const { data } = await checkUsername();
-        if (!data.checkUsername) {
+        if (!data.checkUsername?.available) {
           Alert.alert('Error', 'This username is already taken');
           setFormData((prev) => ({ ...prev, username: '' }));
         }
@@ -91,12 +91,12 @@ const CompleteProfile = () => {
     try {
       await completeProfile({
         variables: {
-          username: formData.username,
-          gender: formData.gender.toUpperCase(),
-          profile: formData.profileImage || undefined,
+          input: {
+            username: formData.username,
+            profilePic: formData.profileImage || undefined,
+          },
         },
       });
-      router.replace('/login');
     } catch (error) {
       console.error('Error completing profile:', error);
       Alert.alert('Error', 'Failed to complete profile. Please try again.');

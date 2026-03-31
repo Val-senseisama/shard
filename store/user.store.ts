@@ -6,6 +6,7 @@ export interface User {
   username: string;
   profilePic: string;
   role: "user" | "admin";
+  subscriptionTier?: 'free' | 'pro' | 'enterprise';
   emailVerified: boolean;
   authProvider: "google" | "password";
   isNewUser: boolean;

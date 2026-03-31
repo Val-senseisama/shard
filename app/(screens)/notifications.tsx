@@ -25,6 +25,8 @@ import Animated, {
   withDelay,
 } from 'react-native-reanimated';
 import { formatDistanceToNow, isToday, isYesterday, isThisWeek } from 'date-fns';
+import { t, ACCENT } from '~/components/shard/constants';
+import AnimatedPressable from '~/components/AnimatedPressable';
 
 const { width } = Dimensions.get('window');
 
@@ -40,7 +42,8 @@ interface Notification {
 
 type FilterType = 'all' | 'shards' | 'friends' | 'system';
 
-const NotificationSkeleton = () => {
+const NotificationSkeleton = ({ isDark }: { isDark: boolean }) => {
+  const theme = t(isDark);
   const opacity = useSharedValue(0.3);
 
   useEffect(() => {
@@ -55,20 +58,53 @@ const NotificationSkeleton = () => {
     opacity: opacity.value,
   }));
 
+  const skeletonColor = isDark ? '#2a2a2a' : '#e5e7eb';
+
   return (
-    <View className="mb-2 flex-row items-center rounded-xl bg-background-default p-4 dark:bg-background-dark-paper">
+    <View
+      style={{
+        marginBottom: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderRadius: 12,
+        backgroundColor: theme.card,
+        padding: 16,
+      }}>
       <Animated.View
-        style={animatedStyle}
-        className="mr-4 h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700"
+        style={[
+          animatedStyle,
+          {
+            marginRight: 16,
+            height: 40,
+            width: 40,
+            borderRadius: 20,
+            backgroundColor: skeletonColor,
+          },
+        ]}
       />
-      <View className="flex-1">
+      <View style={{ flex: 1 }}>
         <Animated.View
-          style={animatedStyle}
-          className="mb-2 h-4 w-3/4 rounded bg-gray-200 dark:bg-gray-700"
+          style={[
+            animatedStyle,
+            {
+              marginBottom: 8,
+              height: 16,
+              width: '75%',
+              borderRadius: 4,
+              backgroundColor: skeletonColor,
+            },
+          ]}
         />
         <Animated.View
-          style={animatedStyle}
-          className="h-3 w-1/4 rounded bg-gray-200 dark:bg-gray-700"
+          style={[
+            animatedStyle,
+            {
+              height: 12,
+              width: '25%',
+              borderRadius: 4,
+              backgroundColor: skeletonColor,
+            },
+          ]}
         />
       </View>
     </View>
@@ -78,6 +114,8 @@ const NotificationSkeleton = () => {
 const Notifications = () => {
   const { shardId } = useLocalSearchParams<{ shardId: string }>();
   const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const theme = t(isDark);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<FilterType>('all');
 
@@ -172,10 +210,7 @@ const Notifications = () => {
 
     // Navigate based on notification type
     if (notification.shardId) {
-      router.push({
-        pathname: '/shard-info',
-        params: { shardId: notification.shardId },
-      });
+      router.push(`/(screens)/shard/${notification.shardId}`);
     }
   };
 
@@ -189,42 +224,70 @@ const Notifications = () => {
   const renderNotification = ({ item, index }: { item: Notification; index: number }) => (
     <Animated.View
       entering={FadeInDown.delay(index * 30)}
-      className={`mb-2 flex-row items-center rounded-xl p-4 ${
+      style={[
+        {
+          marginBottom: 8,
+          flexDirection: 'row',
+          alignItems: 'center',
+          borderRadius: 12,
+          padding: 16,
+        },
         item.read
-          ? 'bg-background-default dark:bg-background-dark-paper'
-          : 'border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-      }`}>
+          ? { backgroundColor: theme.card }
+          : {
+              backgroundColor: isDark ? 'rgba(124,58,237,0.12)' : 'rgba(124,58,237,0.06)',
+              borderLeftWidth: 4,
+              borderLeftColor: ACCENT,
+            },
+      ]}>
       <View
-        className={`mr-4 h-10 w-10 items-center justify-center rounded-full ${
-          item.read ? 'bg-gray-200 dark:bg-gray-700' : 'bg-blue-100 dark:bg-blue-800'
-        }`}>
+        style={{
+          marginRight: 16,
+          height: 40,
+          width: 40,
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: 20,
+          backgroundColor: item.read
+            ? isDark ? '#374151' : '#e5e7eb'
+            : isDark ? 'rgba(124,58,237,0.2)' : 'rgba(124,58,237,0.1)',
+        }}>
         <Ionicons
           name={getNotificationIcon(item)}
           size={20}
-          color={item.read ? (colorScheme === 'dark' ? '#9ca3af' : '#6b7280') : '#3b82f6'}
+          color={item.read ? theme.textSecondary : ACCENT}
         />
       </View>
-      <TouchableOpacity className="flex-1" onPress={() => handleNotificationPress(item)}>
+      <TouchableOpacity style={{ flex: 1 }} onPress={() => handleNotificationPress(item)}>
         <Text
-          className={`text-base ${
-            item.read
-              ? 'text-text-primary dark:text-text-dark'
-              : 'font-semibold text-text-primary dark:text-text-dark'
-          }`}>
+          style={{
+            fontSize: 16,
+            color: theme.text,
+            fontWeight: item.read ? '400' : '600',
+          }}>
           {item.message}
         </Text>
-        <Text className="dark:text-text-dark-secondary mt-1 text-xs text-text-secondary">
+        <Text
+          style={{
+            marginTop: 4,
+            fontSize: 12,
+            color: theme.textSecondary,
+          }}>
           {formatDistanceToNow(new Date(parseInt(item.createdAt)), { addSuffix: true })}
         </Text>
       </TouchableOpacity>
-      {!item.read && <View className="ml-2 h-2 w-2 rounded-full bg-blue-500" />}
+      {!item.read && (
+        <View
+          style={{
+            marginLeft: 8,
+            height: 8,
+            width: 8,
+            borderRadius: 4,
+            backgroundColor: ACCENT,
+          }}
+        />
+      )}
     </Animated.View>
-  );
-
-  const renderSectionHeader = ({ section }: { section: { title: string } }) => (
-    <View className="mb-2 mt-4">
-      <Text className="text-sm font-bold text-gray-500 dark:text-gray-400">{section.title}</Text>
-    </View>
   );
 
   const FilterButton = ({
@@ -235,52 +298,81 @@ const Notifications = () => {
     type: FilterType;
     label: string;
     icon: string;
-  }) => (
-    <TouchableOpacity
-      onPress={() => setFilter(type)}
-      className={`mr-2 flex-row items-center gap-2 rounded-full px-4 py-2 ${
-        filter === type
-          ? 'bg-blue-500'
-          : 'border border-gray-300 bg-background-default dark:border-gray-700 dark:bg-background-dark-paper'
-      }`}>
-      <Ionicons
-        name={icon as any}
-        size={16}
-        color={filter === type ? '#fff' : colorScheme === 'dark' ? '#9ca3af' : '#6b7280'}
-      />
-      <Text
-        className={`text-sm font-medium ${
-          filter === type ? 'text-white' : 'text-text-primary dark:text-text-dark'
-        }`}>
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
+  }) => {
+    const isSelected = filter === type;
+    return (
+      <TouchableOpacity
+        onPress={() => setFilter(type)}
+        style={[
+          {
+            marginRight: 8,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+            borderRadius: 20,
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+          },
+          isSelected
+            ? { backgroundColor: ACCENT }
+            : {
+                backgroundColor: theme.card,
+                borderWidth: 1,
+                borderColor: theme.border,
+              },
+        ]}>
+        <Ionicons
+          name={icon as any}
+          size={16}
+          color={isSelected ? '#fff' : theme.textSecondary}
+        />
+        <Text
+          style={{
+            fontSize: 14,
+            fontWeight: '500',
+            color: isSelected ? '#fff' : theme.text,
+          }}>
+          {label}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
 
   return (
-    <SafeAreaView className="flex-1 bg-background-paper dark:bg-background-dark-default">
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       {/* Header */}
-      <View className="mb-2 flex-row items-center justify-between px-4 py-3">
-        <TouchableOpacity onPress={() => router.back()} hitSlop={20}>
-          <Ionicons name="arrow-back" size={24} color={colorScheme === 'dark' ? '#fff' : '#000'} />
-        </TouchableOpacity>
-        <View className="flex-1 items-center">
-          <Text className="text-lg font-bold text-text-primary dark:text-text-dark">
+      <View
+        style={{
+          marginBottom: 8,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          backgroundColor: theme.bg,
+        }}>
+        <AnimatedPressable onPress={() => router.back()} hitSlop={20}>
+          <Ionicons name="arrow-back" size={24} color={theme.text} />
+        </AnimatedPressable>
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', color: theme.text }}>
             {shardId ? 'Shard Notifications' : 'Notifications'}
           </Text>
-          {unreadCount > 0 && <Text className="text-xs text-blue-500">{unreadCount} unread</Text>}
+          {unreadCount > 0 && (
+            <Text style={{ fontSize: 12, color: ACCENT }}>{unreadCount} unread</Text>
+          )}
         </View>
-        <TouchableOpacity onPress={handleMarkAllRead} hitSlop={20} disabled={unreadCount === 0}>
+        <AnimatedPressable onPress={handleMarkAllRead} hitSlop={20} disabled={unreadCount === 0}>
           <Ionicons
             name="checkmark-done-outline"
             size={24}
-            color={unreadCount === 0 ? '#9ca3af' : colorScheme === 'dark' ? '#fff' : '#000'}
+            color={unreadCount === 0 ? theme.textSecondary : ACCENT}
           />
-        </TouchableOpacity>
+        </AnimatedPressable>
       </View>
 
       {/* Filter Pills */}
-      <View className="mb-3 px-4">
+      <View style={{ marginBottom: 12, paddingHorizontal: 16 }}>
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -296,17 +388,33 @@ const Notifications = () => {
       </View>
 
       {loading && !refreshing ? (
-        <View className="px-4 pt-4">
-          <View className="mb-4">
-            <View className="mb-2 h-4 w-20 rounded bg-gray-200 dark:bg-gray-700" />
+        <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+          <View style={{ marginBottom: 16 }}>
+            <View
+              style={{
+                marginBottom: 8,
+                height: 16,
+                width: 80,
+                borderRadius: 4,
+                backgroundColor: isDark ? '#2a2a2a' : '#e5e7eb',
+              }}
+            />
             {[1, 2, 3].map((i) => (
-              <NotificationSkeleton key={`skeleton-today-${i}`} />
+              <NotificationSkeleton key={`skeleton-today-${i}`} isDark={isDark} />
             ))}
           </View>
           <View>
-            <View className="mb-2 h-4 w-24 rounded bg-gray-200 dark:bg-gray-700" />
+            <View
+              style={{
+                marginBottom: 8,
+                height: 16,
+                width: 96,
+                borderRadius: 4,
+                backgroundColor: isDark ? '#2a2a2a' : '#e5e7eb',
+              }}
+            />
             {[1, 2, 3, 4].map((i) => (
-              <NotificationSkeleton key={`skeleton-yesterday-${i}`} />
+              <NotificationSkeleton key={`skeleton-yesterday-${i}`} isDark={isDark} />
             ))}
           </View>
         </View>
@@ -319,8 +427,13 @@ const Notifications = () => {
           renderItem={({ item, index }) => {
             if ((item as any).isHeader) {
               return (
-                <View className="mb-2 mt-4 px-4">
-                  <Text className="text-sm font-bold text-gray-500 dark:text-gray-400">
+                <View style={{ marginBottom: 8, marginTop: 16, paddingHorizontal: 16 }}>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 'bold',
+                      color: theme.textSecondary,
+                    }}>
                     {(item as any).title}
                   </Text>
                 </View>
@@ -334,13 +447,19 @@ const Notifications = () => {
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
-            <View className="mt-20 items-center justify-center">
+            <View style={{ marginTop: 80, alignItems: 'center', justifyContent: 'center' }}>
               <Ionicons
                 name="notifications-off-outline"
                 size={64}
-                color={colorScheme === 'dark' ? '#4b5563' : '#9ca3af'}
+                color={isDark ? '#374151' : '#d1d5db'}
               />
-              <Text className="dark:text-text-dark-secondary mt-4 text-lg font-medium text-text-secondary">
+              <Text
+                style={{
+                  marginTop: 16,
+                  fontSize: 18,
+                  fontWeight: '500',
+                  color: theme.textSecondary,
+                }}>
                 No notifications yet
               </Text>
             </View>

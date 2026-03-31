@@ -132,7 +132,7 @@ const Backlog = () => {
               return (
                 <TouchableOpacity
                   onPress={() =>
-                    router.push({ pathname: '/shard-info', params: { shardId: item.shardId } })
+                    router.push(`/(screens)/shard/${item.shardId}`)
                   }
                   className="mb-3 flex-row items-center justify-between rounded-xl bg-background-paper p-4 shadow-sm dark:bg-background-dark-paper">
                   <View className="flex-1">

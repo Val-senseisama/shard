@@ -68,7 +68,7 @@ const EditShard = () => {
       setUploadedImageUrl(shard.image || null);
       setSelectedParticipants(
         shard.participants?.map((p: any) => ({
-          userId: p.user.id,
+          userId: typeof p.user === 'object' ? p.user.id : p.user,
           role: p.role,
         })) || []
       );
@@ -145,7 +145,7 @@ const EditShard = () => {
             title: title.trim(),
             description: description.trim(),
             image: finalImageUrl,
-            participants: selectedParticipants,
+            participants: selectedParticipants.map((p) => ({ user: p.userId, role: p.role })),
           },
         },
       });

@@ -26,6 +26,7 @@ const Register = () => {
   const [isLoading, setIsLoading] = useState<Boolean>(false);
   const [formData, setFormData] = useState<Record<string, any>>({
     email: '',
+    username: '',
     password: '',
     accepted: false,
   });
@@ -172,11 +173,11 @@ const Register = () => {
   const [register, { loading, error }] = useMutation(REGISTER, {
     onCompleted: (data) => {
       console.log('Registration completed:', data);
-      if (data.register) {
+      if (data.signup?.success) {
        addAlert({ str: 'Registration successful', type: 'success' });
         router.replace('/(auth)/login');
       } else {
-       addAlert({ str: 'Registration failed', type: 'error' });
+       addAlert({ str: data.signup?.message || 'Registration failed', type: 'error' });
       }
       //login({ variables: { email: formData.email, password: formData.password } });
       console.log('Registration successful:', data);
@@ -204,7 +205,7 @@ const Register = () => {
     try {
       setIsLoading(true);
 
-      if (!formData.email || !formData.password) {
+      if (!formData.email || !formData.username || !formData.password) {
         addAlert({ str: 'Please fill in all fields', type: 'error' });
         setIsLoading(false);
         return;
@@ -223,8 +224,11 @@ const Register = () => {
       }
       const { data } = await register({
         variables: {
-          email: formData.email,
-          password: formData.password,
+          input: {
+            email: formData.email,
+            username: formData.username,
+            password: formData.password,
+          },
         },
       });
       console.log('Registration data:', data);
@@ -268,6 +272,13 @@ const Register = () => {
               value={formData.email}
               placeholder=""
               handleChangeText={(text: string) => handleTextChange(text, 'email')}
+              otherStyles="w-full"
+            />
+            <SmallInput
+              title="Username"
+              value={formData.username}
+              placeholder=""
+              handleChangeText={(text: string) => handleTextChange(text, 'username')}
               otherStyles="w-full"
             />
             <SmallInput

@@ -1,14 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   ScrollView,
   useColorScheme,
   ActivityIndicator,
-  Platform,
-  KeyboardAvoidingView,
-  TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -17,19 +13,37 @@ import { useQuery, useMutation } from '@apollo/client';
 import { CURRENT_USER } from '~/Graphql/Queries';
 import { UPDATE_PREFERENCES } from '~/Graphql/Mutations';
 import { useAppStore } from '~/store/app.store';
+import AnimatedPressable from '~/components/AnimatedPressable';
+import { ACCENT, t } from '~/components/shard/constants';
+
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DAY_TO_INDEX: Record<string, number> = {
+  Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7,
+};
+const INDEX_TO_DAY = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+const WORKLOADS = [
+  { id: 'Light',      icon: 'leaf-outline',    description: 'Relaxed pace, fewer tasks per day.' },
+  { id: 'Medium',     icon: 'bicycle-outline', description: 'Balanced workload for steady progress.' },
+  { id: 'Aggressive', icon: 'flame-outline',   description: 'High intensity, maximum tasks per day.' },
+] as const;
 
 const WorkloadSettings = () => {
   const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const theme = t(isDark);
   const { addAlert } = useAppStore();
+
   const [workload, setWorkload] = useState('Medium');
   const [workingDays, setWorkingDays] = useState<string[]>([]);
 
-  const { data, loading: loadingUser } = useQuery(CURRENT_USER, {
+  const { loading: loadingUser } = useQuery(CURRENT_USER, {
     fetchPolicy: 'network-only',
     onCompleted: (data) => {
       if (data?.currentUser?.user?.preferences) {
-        setWorkload(data.currentUser.user.preferences.workload || 'Medium');
-        setWorkingDays(data.currentUser.user.preferences.workingDays || []);
+        setWorkload(data.currentUser.user.preferences.workloadLevel || 'Medium');
+        const stored = data.currentUser.user.preferences.workingDays || [];
+        setWorkingDays(stored.map((d: number) => INDEX_TO_DAY[d]).filter(Boolean));
       }
     },
   });
@@ -41,171 +55,184 @@ const WorkloadSettings = () => {
       const { data } = await updatePreferences({
         variables: {
           input: {
-            workload,
-            workingDays,
+            workloadLevel: workload,
+            workingDays: workingDays.map((d) => DAY_TO_INDEX[d]).filter(Boolean),
           },
         },
       });
-
       if (data?.updatePreferences?.success) {
-        addAlert({ str: 'Preferences updated successfully', type: 'success' });
+        addAlert({ str: 'Preferences updated', type: 'success' });
         router.back();
       } else {
-        addAlert({
-          str: data?.updatePreferences?.message || 'Failed to update preferences',
-          type: 'error',
-        });
+        addAlert({ str: data?.updatePreferences?.message || 'Failed to update', type: 'error' });
       }
-    } catch (error) {
-      console.error('Update preferences error:', error);
+    } catch {
       addAlert({ str: 'Failed to update preferences', type: 'error' });
     }
   };
 
-  const toggleDay = (day: string) => {
-    if (workingDays.includes(day)) {
-      setWorkingDays(workingDays.filter((d) => d !== day));
-    } else {
-      setWorkingDays([...workingDays, day]);
-    }
-  };
-
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const workloads = [
-    {
-      id: 'Light',
-      title: 'Light',
-      description: 'Relaxed pace, fewer tasks per day.',
-      icon: 'leaf-outline',
-      color: 'bg-green-500',
-    },
-    {
-      id: 'Medium',
-      title: 'Medium',
-      description: 'Balanced workload for steady progress.',
-      icon: 'bicycle-outline',
-      color: 'bg-blue-500',
-    },
-    {
-      id: 'Aggressive',
-      title: 'Aggressive',
-      description: 'High intensity, maximum tasks per day.',
-      icon: 'flame-outline',
-      color: 'bg-red-500',
-    },
-  ];
+  const toggleDay = (day: string) =>
+    setWorkingDays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+    );
 
   return (
-    <View className="flex-1 justify-end bg-black/50">
-      <TouchableWithoutFeedback onPress={() => router.back()}>
-        <View className="absolute inset-0" />
-      </TouchableWithoutFeedback>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+      {/* Header */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 20,
+          paddingVertical: 14,
+        }}>
+        <AnimatedPressable onPress={() => router.back()} hitSlop={20} scaleDown={0.9}>
+          <Ionicons name="arrow-back" size={22} color={theme.text} />
+        </AnimatedPressable>
+        <Text style={{ fontSize: 17, fontWeight: '700', color: theme.text, marginLeft: 12 }}>
+          Workload Settings
+        </Text>
+      </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="max-h-[85%] w-full rounded-t-3xl bg-background-paper dark:bg-background-dark-default">
-        <SafeAreaView edges={['bottom', 'left', 'right']} className="flex-1">
-          {/* Header */}
-          <View className="flex-row items-center justify-between border-b border-gray-200 px-4 py-4 dark:border-gray-800">
-            <TouchableOpacity onPress={() => router.back()} hitSlop={20}>
-              <Ionicons name="close" size={24} color={colorScheme === 'dark' ? '#fff' : '#000'} />
-            </TouchableOpacity>
-            <Text className="text-lg font-bold text-text-primary dark:text-text-dark">
-              Workload Settings
+      {loadingUser ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color={ACCENT} />
+        </View>
+      ) : (
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 20, gap: 24 }}
+          showsVerticalScrollIndicator={false}>
+
+          {/* Intensity Level */}
+          <View style={{ gap: 12 }}>
+            <Text
+              style={{
+                fontSize: 11,
+                fontWeight: '800',
+                letterSpacing: 1.5,
+                textTransform: 'uppercase',
+                color: theme.textSecondary,
+              }}>
+              Intensity Level
             </Text>
-            <TouchableOpacity onPress={handleSave} disabled={saving} hitSlop={20}>
-              {saving ? (
-                <ActivityIndicator size="small" color="#8b5cf6" />
-              ) : (
-                <Text className="text-base font-semibold text-purple-600 dark:text-purple-400">
-                  Save
-                </Text>
-              )}
-            </TouchableOpacity>
+            {WORKLOADS.map((option) => {
+              const selected = workload === option.id;
+              return (
+                <AnimatedPressable
+                  key={option.id}
+                  onPress={() => setWorkload(option.id)}
+                  scaleDown={0.97}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 14,
+                    borderRadius: 16,
+                    padding: 16,
+                    borderWidth: 1.5,
+                    borderColor: selected ? ACCENT : theme.border,
+                    backgroundColor: selected
+                      ? isDark ? 'rgba(124,58,237,0.12)' : 'rgba(124,58,237,0.06)'
+                      : theme.card,
+                  }}>
+                  <View
+                    style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: 21,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: selected ? ACCENT : isDark ? 'rgba(124,58,237,0.1)' : 'rgba(124,58,237,0.08)',
+                    }}>
+                    <Ionicons name={option.icon as any} size={20} color={selected ? '#fff' : ACCENT} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 15, fontWeight: '600', color: selected ? ACCENT : theme.text }}>
+                      {option.id}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 2 }}>
+                      {option.description}
+                    </Text>
+                  </View>
+                  {selected && <Ionicons name="checkmark-circle" size={22} color={ACCENT} />}
+                </AnimatedPressable>
+              );
+            })}
           </View>
 
-          <ScrollView className="flex-1 px-4 pt-4">
-            {loadingUser ? (
-              <ActivityIndicator size="large" color="#8b5cf6" className="mt-10" />
-            ) : (
-              <>
-                {/* Workload Section */}
-                <View className="mb-6">
-                  <Text className="mb-3 text-base font-bold text-text-primary dark:text-text-dark">
-                    Intensity Level
-                  </Text>
-                  <View className="gap-3">
-                    {workloads.map((option) => (
-                      <TouchableOpacity
-                        key={option.id}
-                        onPress={() => setWorkload(option.id)}
-                        className={`flex-row items-center rounded-xl border p-4 ${
-                          workload === option.id
-                            ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
-                            : 'border-gray-200 bg-background-default dark:border-gray-700 dark:bg-background-dark-paper'
-                        }`}>
-                        <View
-                          className={`mr-4 h-10 w-10 items-center justify-center rounded-full ${option.color}`}>
-                          <Ionicons name={option.icon as any} size={20} color="#fff" />
-                        </View>
-                        <View className="flex-1">
-                          <Text
-                            className={`font-semibold ${
-                              workload === option.id
-                                ? 'text-purple-700 dark:text-purple-300'
-                                : 'text-text-primary dark:text-text-dark'
-                            }`}>
-                            {option.title}
-                          </Text>
-                          <Text className="dark:text-text-dark-secondary text-xs text-text-secondary">
-                            {option.description}
-                          </Text>
-                        </View>
-                        {workload === option.id && (
-                          <Ionicons name="checkmark-circle" size={24} color="#8b5cf6" />
-                        )}
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
+          {/* Working Days */}
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: '800',
+                  letterSpacing: 1.5,
+                  textTransform: 'uppercase',
+                  color: theme.textSecondary,
+                }}>
+                Working Days
+              </Text>
+              <Text style={{ fontSize: 13, color: theme.textSecondary, marginTop: 4 }}>
+                Select the days you want to receive tasks.
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              {DAYS.map((day) => {
+                const selected = workingDays.includes(day);
+                return (
+                  <AnimatedPressable
+                    key={day}
+                    onPress={() => toggleDay(day)}
+                    scaleDown={0.9}
+                    style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: 21,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderWidth: 1.5,
+                      borderColor: selected ? ACCENT : theme.border,
+                      backgroundColor: selected ? ACCENT : theme.card,
+                    }}>
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        fontWeight: '700',
+                        color: selected ? '#fff' : theme.textSecondary,
+                      }}>
+                      {day.charAt(0)}
+                    </Text>
+                  </AnimatedPressable>
+                );
+              })}
+            </View>
+          </View>
+        </ScrollView>
+      )}
 
-                {/* Working Days Section */}
-                <View className="mb-8">
-                  <Text className="mb-3 text-base font-bold text-text-primary dark:text-text-dark">
-                    Working Days
-                  </Text>
-                  <Text className="dark:text-text-dark-secondary mb-4 text-sm text-text-secondary">
-                    Select the days you want to receive tasks.
-                  </Text>
-                  <View className="flex-row flex-wrap justify-between gap-2">
-                    {days.map((day) => {
-                      const isSelected = workingDays.includes(day);
-                      return (
-                        <TouchableOpacity
-                          key={day}
-                          onPress={() => toggleDay(day)}
-                          className={`h-12 w-12 items-center justify-center rounded-full border ${
-                            isSelected
-                              ? 'border-purple-500 bg-purple-500'
-                              : 'border-gray-300 bg-background-default dark:border-gray-600 dark:bg-background-dark-paper'
-                          }`}>
-                          <Text
-                            className={`font-semibold ${
-                              isSelected ? 'text-white' : 'text-text-primary dark:text-text-dark'
-                            }`}>
-                            {day.charAt(0)}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-              </>
-            )}
-          </ScrollView>
-        </SafeAreaView>
-      </KeyboardAvoidingView>
-    </View>
+      {/* Save button */}
+      <View style={{ padding: 20, paddingBottom: 8 }}>
+        <AnimatedPressable
+          onPress={handleSave}
+          disabled={saving || loadingUser}
+          scaleDown={0.97}
+          style={{
+            borderRadius: 16,
+            paddingVertical: 16,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: ACCENT,
+            opacity: saving || loadingUser ? 0.6 : 1,
+          }}>
+          {saving ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#fff' }}>Save Settings</Text>
+          )}
+        </AnimatedPressable>
+      </View>
+    </SafeAreaView>
   );
 };
 

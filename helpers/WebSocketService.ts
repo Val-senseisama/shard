@@ -5,6 +5,7 @@ import Session from './Session';
 class WebSocketService {
     private socket: Socket | null = null;
     private isConnected = false;
+    private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 
     async connect() {
         if (this.socket?.connected) {
@@ -32,6 +33,7 @@ class WebSocketService {
             this.socket.on('connect', () => {
                 console.log('✅ WebSocket connected');
                 this.isConnected = true;
+                this.startHeartbeat();
             });
 
             this.socket.on('disconnect', (reason) => {
@@ -50,7 +52,24 @@ class WebSocketService {
         }
     }
 
+    startHeartbeat(intervalMs = 30000) {
+        this.stopHeartbeat();
+        this.heartbeatInterval = setInterval(() => {
+            if (this.socket?.connected) {
+                this.socket.emit('heartbeat');
+            }
+        }, intervalMs);
+    }
+
+    stopHeartbeat() {
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+        }
+    }
+
     disconnect() {
+        this.stopHeartbeat();
         if (this.socket) {
             this.socket.disconnect();
             this.socket = null;

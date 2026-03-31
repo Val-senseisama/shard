@@ -82,23 +82,16 @@ class NotificationService {
         return null;
       }
 
-      // Get push token
-      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-      if (!projectId) {
-        console.error('Project ID not found in app.json');
-        return null;
-      }
-
-
-      const tokenData = await Notifications.getExpoPushTokenAsync({
-        projectId,
-      }).catch(err => {
+      // Get FCM push token (native Firebase token for Firebase Admin SDK)
+      // Note: Using getDevicePushTokenAsync() instead of getExpoPushTokenAsync()
+      // because backend uses Firebase Admin SDK, not Expo Push API
+      const tokenData = await Notifications.getDevicePushTokenAsync().catch(err => {
         console.log("FCM token error", err);
         throw err;
       });
-
+      
       this.pushToken = tokenData.data;
-      console.log('📱 Push token:', this.pushToken);
+      console.log('📱 FCM Push token:', this.pushToken);
 
       // Configure notification channels for Android
       if (Platform.OS === 'android') {

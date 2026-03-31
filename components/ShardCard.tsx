@@ -1,5 +1,7 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity } from 'react-native';
+import { View, Text, Image, useColorScheme } from 'react-native';
+import AnimatedPressable from './AnimatedPressable';
+import { ACCENT } from './shard/constants';
 
 interface ShardCardProps {
   title: string;
@@ -10,48 +12,39 @@ interface ShardCardProps {
 }
 
 const ShardCard: React.FC<ShardCardProps> = ({ title, summary, image, completionRate, onPress }) => {
+  const isDark = useColorScheme() === 'dark';
+
   return (
-    <TouchableOpacity
+    <AnimatedPressable
       onPress={onPress}
-      activeOpacity={0.7}
-      className="my-2 flex-row items-center rounded-2xl bg-white p-4 dark:bg-background-dark-paper min-w-full"
+      scaleDown={0.98}
       style={{
+        backgroundColor: isDark ? '#242424' : '#ffffff',
+        borderRadius: 20,
+        marginBottom: 16,
+        overflow: 'hidden',
         shadowColor: '#000',
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 2 },
-        elevation: 2,
+        shadowOpacity: isDark ? 0 : 0.08,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 3,
       }}>
-      <Image
-        source={{ uri: image }}
-        className="h-12 w-12 rounded-xl"
-        style={{ marginRight: 12 }}
-        resizeMode="cover"
-      />
-      <View className="flex-1">
-        <Text
-          className="font-ibold text-base text-text-primary dark:text-text-dark"
-          numberOfLines={1}>
+      <Image source={{ uri: image }} style={{ width: '100%', height: 180 }} resizeMode="cover" />
+      <View style={{ padding: 16 }}>
+        <Text style={{ fontSize: 18, fontWeight: '700', color: isDark ? '#fff' : '#1a1a1a', marginBottom: 4 }} numberOfLines={1}>
           {title}
         </Text>
-        <Text className="font-ilight text-xs text-text-light dark:text-text-dark" numberOfLines={1}>
+        <Text style={{ fontSize: 13, color: isDark ? '#9ca3af' : '#6b7280', marginBottom: 12 }} numberOfLines={2}>
           {summary}
         </Text>
-        <View className="mt-2 flex-row items-center">
-          <View className="h-2 flex-1 overflow-hidden rounded-full bg-[#e5e7eb] dark:bg-[#22223b]">
-            <View
-              style={{
-                width: `${completionRate}%`,
-                backgroundColor: '#6366f1',
-                height: '100%',
-                borderRadius: 8,
-              }}
-            />
-          </View>
-          <Text className="ml-2 font-ibold text-xs text-[#6366f1]">{completionRate}%</Text>
+        <View style={{ height: 6, backgroundColor: isDark ? '#2a2a2a' : '#e5e7eb', borderRadius: 6, overflow: 'hidden', marginBottom: 6 }}>
+          <View style={{ width: `${completionRate}%`, height: '100%', backgroundColor: ACCENT, borderRadius: 6 }} />
         </View>
+        <Text style={{ fontSize: 12, color: isDark ? '#9ca3af' : '#6b7280', fontWeight: '600' }}>
+          {completionRate}% Complete
+        </Text>
       </View>
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 };
 

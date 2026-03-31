@@ -23,7 +23,15 @@ import { Alert } from 'react-native';
 const NotificationSettings = () => {
   const colorScheme = useColorScheme();
   const { data, loading, error } = useQuery(GET_NOTIFICATION_PREFERENCES);
-  const [updatePreferences] = useMutation(UPDATE_NOTIFICATION_PREFERENCES);
+  const [updatePreferences] = useMutation(UPDATE_NOTIFICATION_PREFERENCES, {
+    refetchQueries: [GET_NOTIFICATION_PREFERENCES],
+    onCompleted: (data) => {
+      console.log('Preferences updated successfully', data);
+    },
+    onError: (error) => {
+      console.error('Error updating preferences:', error);
+    },
+  });
   const [sendTestNotification] = useMutation(SEND_TEST_NOTIFICATION);
 
   const [preferences, setPreferences] = useState({
@@ -49,14 +57,21 @@ const NotificationSettings = () => {
     }
   }, [data]);
 
-  const handleToggle = async (key: string, value: boolean) => {
-    const newPrefs = { ...preferences, [key]: value };
+  // Helper to strip __typename from preferences object
+  const stripTypename = (obj: any) => {
+    const { __typename, ...rest } = obj;
+    return rest;
+  };
+
+  const handleToggle = async (key: keyof typeof preferences) => {
+    const newPrefs = { ...preferences, [key]: !preferences[key] };
     setPreferences(newPrefs);
+    console.log(stripTypename(newPrefs), 'newPrefs');
 
     try {
       await updatePreferences({
         variables: {
-          input: newPrefs,
+          input: stripTypename(newPrefs),
         },
       });
     } catch (err) {
@@ -84,7 +99,7 @@ const NotificationSettings = () => {
       try {
         await updatePreferences({
           variables: {
-            input: newPrefs,
+            input: stripTypename(newPrefs),
           },
         });
       } catch (err) {
@@ -139,7 +154,7 @@ const NotificationSettings = () => {
       </View>
       <Switch
         value={(preferences as any)[key]}
-        onValueChange={(value) => handleToggle(key, value)}
+        onValueChange={() => handleToggle(key as keyof typeof preferences)}
         trackColor={{ false: '#d1d5db', true: '#8b5cf6' }}
         thumbColor={(preferences as any)[key] ? '#fff' : '#f4f3f4'}
         disabled={key !== 'pushEnabled' && !preferences.pushEnabled}
@@ -181,7 +196,7 @@ const NotificationSettings = () => {
             </View>
             <Switch
               value={preferences.pushEnabled}
-              onValueChange={(value) => handleToggle('pushEnabled', value)}
+              onValueChange={() => handleToggle('pushEnabled')}
               trackColor={{ false: '#d1d5db', true: '#8b5cf6' }}
               thumbColor={preferences.pushEnabled ? '#fff' : '#f4f3f4'}
             />

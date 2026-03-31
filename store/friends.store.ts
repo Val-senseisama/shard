@@ -5,6 +5,8 @@ export interface Friend {
     username: string;
     profilePic: string;
     email: string;
+    isOnline?: boolean;
+    lastActive?: string;
 }
 
 interface FriendsStore {

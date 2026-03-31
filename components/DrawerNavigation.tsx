@@ -12,6 +12,7 @@ import { router } from 'expo-router';
 import Session from '@/helpers/Session';
 import images from '@/constants/images';
 import { AntDesign, Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { avatarUri } from '~/helpers/avatarUri';
 import { useRoute } from '@react-navigation/native';
 import Animated, {
   useAnimatedStyle,
@@ -231,9 +232,10 @@ const DrawerNavigation = ({ isOpen, onClose, user }: DrawerNavigationProps) => {
         <View className="absolute bottom-0 left-0 top-0 max-w-[300px] rounded-r-3xl bg-background-paper p-4 dark:bg-background-dark-default">
           <View className="mb-8 mt-16 min-w-full flex-row items-center gap-3 rounded-xl bg-background-default px-3 py-4 dark:bg-background-dark-paper">
             <Image
-              source={{ uri: user?.profilePic }}
+              source={{ uri: avatarUri(user?.profilePic, user?.username) }}
               className="h-14 w-14 rounded-full border border-primary-start"
-              resizeMode="center"
+              style={{ backgroundColor: '#7c3aed' }}
+              resizeMode="cover"
             />
             <View>
               <Text className="font-ibold text-lg text-text-primary dark:text-text-dark">

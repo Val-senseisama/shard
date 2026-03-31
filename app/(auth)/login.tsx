@@ -8,26 +8,23 @@ import { LOGIN, GOOGLE_SIGN_IN } from '@/Graphql/Mutations';
 import Session from '@/helpers/Session';
 import { useMutation, gql } from '@apollo/client';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Image, KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AppStore from '~/helpers/AppStore';
-import { getClientId } from '~/helpers/ClientID';
- import {
-  GoogleSignin,
-} from '@react-native-google-signin/google-signin';
+import { getClientId, WEB_CLIENT_ID } from '~/helpers/ClientID';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { useUserStore } from '~/store/user.store';
 import { useAppStore } from '~/store/app.store';
 const login = () => {
-  const {setUser: setUserStore} = useUserStore();
-  const {addAlert} =useAppStore()
+  const { setUser: setUserStore } = useUserStore();
+  const { addAlert } = useAppStore();
   const [isLoading, setIsLoading] = useState<Boolean>(false);
+  const isSigningIn = useRef(false);
   const [formData, setFormData] = useState<Record<string, any>>({
     email: '',
     password: '',
   });
-
-
 
   const [login, { loading: loginLoading }] = useMutation(LOGIN, {
     onCompleted: async (data) => {
@@ -92,34 +89,41 @@ const login = () => {
   };
 
   const startSignInFlow = async () => {
+    // Prevent concurrent sign-in attempts
+    if (isSigningIn.current) {
+      console.log('Sign-in already in progress, ignoring duplicate call');
+      return;
+    }
+
     try {
+      isSigningIn.current = true;
       console.log('Starting Google Sign-In flow...');
-      
+
       // Configure Google Sign-In
       const config = {
-        webClientId: getClientId(),
+        webClientId: WEB_CLIENT_ID,
         iosClientId: getClientId(),
         scopes: ['profile', 'email'],
         offlineAccess: true, // Enable offline access to get refresh token
         forceCodeForRefreshToken: true, // Force refresh token
       };
       console.log('Google Sign-In config:', config);
-      
+
       GoogleSignin.configure(config);
-      
+
       // Check if Play Services is available (Android only)
       if (Platform.OS === 'android') {
-        console.log("andriod");
-        
+        console.log('andriod');
+
         await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       }
-      
+
       // Try to sign in silently first
       try {
         console.log('Trying silent sign-in...');
         const response = await GoogleSignin.signInSilently();
         console.log('Silent sign-in response:', response);
-        
+
         // Check if we have valid user data
         if (response && response.type === 'success') {
           console.log('Silent sign-in successful');
@@ -132,59 +136,63 @@ const login = () => {
       } catch (silentError) {
         console.log('Silent sign-in error, proceeding with normal sign-in:', silentError);
       }
-      
+
       // If silent sign-in fails, proceed with normal sign-in
       console.log('Starting interactive sign-in...');
       try {
         await GoogleSignin.signOut(); // Clear any existing sessions
         const signInResponse = await GoogleSignin.signIn();
         console.log('Google Sign-In response:', signInResponse);
-        
+
         // Handle successful sign-in
         await handleGoogleSignInSuccess(signInResponse);
       } catch (signInError) {
         console.error('Sign-in error:', signInError);
         throw signInError; // Re-throw to be caught by the outer catch
       }
-      
     } catch (error: any) {
       console.error('Google Sign-In Error:', {
         message: error.message,
         code: error?.code,
-        details: error
+        details: error,
       });
-      
+
       let errorMessage = 'Failed to sign in with Google';
-      
+
       if (error?.code === 'SIGN_IN_CANCELLED') {
         errorMessage = 'Sign in was cancelled';
-      } else if (error?.code === 'IN_PROGRESS') {
+      } else if (
+        error?.code === 'IN_PROGRESS' ||
+        error?.code === 'ASYNC_OP_IN_PROGRESS' ||
+        error?.code === '12502'
+      ) {
         errorMessage = 'Sign in is already in progress';
       } else if (error?.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
         errorMessage = 'Google Play services not available';
       } else if (error?.message?.includes('DEVELOPER_ERROR')) {
         errorMessage = 'Developer error - check your Google Sign-In configuration';
       }
-      
-      addAlert({ 
+
+      addAlert({
         str: errorMessage,
-        type: 'error' 
+        type: 'error',
       });
+    } finally {
+      // Always reset the guard flag
+      isSigningIn.current = false;
     }
   };
-  
+
   // Google Sign-In mutation
   const [googleSignIn, { loading: googleSignInLoading }] = useMutation(GOOGLE_SIGN_IN, {
     onCompleted: async (data) => {
-      
       if (data.googleSignIn?.accessToken) {
         await Session.setCookie('x-access-token', data.googleSignIn.accessToken);
         await Session.setCookie('x-refresh-token', data.googleSignIn.refreshToken);
-        
+
         setUserStore(data.googleSignIn.user);
-    
-          router.replace('/(screens)/Home');
-        
+
+        router.replace('/(screens)/Home');
       }
     },
     onError: (error) => {
@@ -198,13 +206,13 @@ const login = () => {
           : null,
         graphQLErrors: error.graphQLErrors,
       });
-      
+
       // Show error message to user
-      addAlert({ 
+      addAlert({
         str: error.message || 'Failed to sign in with Google',
-        type: 'error' 
+        type: 'error',
       });
-      
+
       // Sign out from Google to clear any partial sign-in state
       GoogleSignin.signOut().catch(console.error);
     },
@@ -214,41 +222,44 @@ const login = () => {
    * Handles successful Google Sign-In
    * Sends the Google ID token to the backend for verification and authentication
    */
-  const handleGoogleSignInSuccess = async (response: { type: string; user?: any; idToken?: string }) => {
+  const handleGoogleSignInSuccess = async (response: {
+    type: string;
+    user?: any;
+    idToken?: string;
+  }) => {
     try {
       // Basic response validation
       if (!response || response.type !== 'success') {
         throw new Error('Invalid sign-in response from Google');
       }
-      
+
       // Get the ID token
       const tokens = await GoogleSignin.getTokens();
       if (!tokens?.idToken) {
         throw new Error('No ID token received from Google');
       }
-      
+
       console.log('Google Sign-In: ID token received, authenticating with backend...');
-      
+
       // Call the Google Sign-In mutation
       await googleSignIn({
         variables: {
           idToken: tokens.idToken,
         },
       });
-      
     } catch (error: any) {
       console.error('Google Sign-In error:', {
         message: error.message,
         code: error.code,
         details: error,
       });
-      
+
       // Show error to user
       addAlert({
         str: error.message || 'Failed to sign in with Google',
         type: 'error',
       });
-      
+
       // Sign out from Google to clear any partial sign-in state
       try {
         await GoogleSignin.signOut();
@@ -313,11 +324,12 @@ const login = () => {
                 Or
               </Text>
 
-              <IconButton src={icons.google} text="Login with Google" otherStyles="w-full" 
-               
-                 onPress={startSignInFlow} 
-             />
-
+              <IconButton
+                src={icons.google}
+                text="Login with Google"
+                otherStyles="w-full"
+                onPress={startSignInFlow}
+              />
 
               <Text className="my-2 text-center text-sm text-text-primary dark:text-text-dark">
                 Don't have an account?{' '}

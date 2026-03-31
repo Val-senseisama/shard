@@ -13,11 +13,23 @@ import {
   PanResponder,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import Animated, { FadeIn, SlideInRight } from 'react-native-reanimated';
 import { AntDesign, MaterialIcons, Ionicons } from '@expo/vector-icons';
 import AppStore from '~/helpers/AppStore';
 import images from '@/constants/images';
+import { useMutation } from '@apollo/client';
+import { gql } from '@apollo/client';
+import Toast from 'react-native-toast-message';
+
+const ADD_SHARD_PARTICIPANT = gql`
+  mutation AddShardParticipant($shardId: ID!, $userId: ID!, $role: String!) {
+    addShardParticipant(shardId: $shardId, userId: $userId, role: $role) {
+      success
+      message
+    }
+  }
+`;
 
 interface User {
   id: string;
@@ -28,11 +40,13 @@ interface User {
 }
 
 const AddPartners = () => {
+  const { shardId } = useLocalSearchParams<{ shardId: string }>();
   const [user, setUser] = useState<Record<string, any> | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
   const [swipeAnimations] = useState(() => new Map<string, RNAnimated.Value>());
   const colorScheme = useColorScheme();
+  const [addShardParticipant, { loading: addingParticipant }] = useMutation(ADD_SHARD_PARTICIPANT);
 
   // Mock data for demonstration
   const [users] = useState<User[]>([
@@ -127,12 +141,50 @@ const AddPartners = () => {
     [users, searchQuery, selectedUsers]
   );
 
-  const handleSave = useCallback(() => {
-    // TODO: Save selected users to the shard
-    console.log('Selected users:', selectedUsers);
-    // Navigate to the new shard detail page with a mock ID for now
-    router.replace('/(screens)/shard/123');
-  }, [selectedUsers]);
+  const handleSave = useCallback(async () => {
+    if (!shardId) {
+      Toast.show({
+        type: 'error',
+        text1: 'No shard selected',
+      });
+      return;
+    }
+
+    if (selectedUsers.length === 0) {
+      Toast.show({
+        type: 'error',
+        text1: 'Please select at least one partner',
+      });
+      return;
+    }
+
+    try {
+      // Add all selected users to the shard
+      for (const user of selectedUsers) {
+        await addShardParticipant({
+          variables: {
+            shardId,
+            userId: user.id,
+            role: user.role || 'collaborator', // Default to collaborator if no role set
+          },
+        });
+      }
+
+      Toast.show({
+        type: 'success',
+        text1: `Added ${selectedUsers.length} partner(s) to shard!`,
+      });
+
+      // Navigate to the shard detail page
+      router.replace(`/(screens)/shard/${shardId}`);
+    } catch (error) {
+      console.error('Error adding participants:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to add partners',
+      });
+    }
+  }, [selectedUsers, shardId, addShardParticipant]);
 
   return (
     <SafeAreaView className="flex-1 bg-background-paper dark:bg-background-dark-default">

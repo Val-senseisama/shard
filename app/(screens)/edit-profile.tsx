@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   ScrollView,
   useColorScheme,
   Image,
@@ -17,17 +16,19 @@ import * as Haptics from 'expo-haptics';
 import { useUserStore } from '~/store/user.store';
 import { useMutation } from '@apollo/client';
 import { UPDATE_PROFILE } from '~/Graphql/Mutations';
+import AnimatedPressable from '~/components/AnimatedPressable';
+import { ACCENT, t } from '~/components/shard/constants';
+import { avatarUri } from '~/helpers/avatarUri';
 
 export default function EditProfilePage() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const theme = t(isDark);
   const userStore = useUserStore((state) => state.user);
 
-  // Use mutation
   const [updateProfile] = useMutation(UPDATE_PROFILE);
 
   const [username, setUsername] = useState(userStore?.username || '');
-  const [email, setEmail] = useState(userStore?.email || '');
   const [bio, setBio] = useState(userStore?.bio || '');
   const [profilePic, setProfilePic] = useState(userStore?.profilePic || '');
   const [loading, setLoading] = useState(false);
@@ -39,7 +40,6 @@ export default function EditProfilePage() {
       aspect: [1, 1],
       quality: 0.8,
     });
-
     if (!result.canceled) {
       setProfilePic(result.assets[0].uri);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -51,7 +51,6 @@ export default function EditProfilePage() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
-
     setLoading(true);
     try {
       await updateProfile({
@@ -59,14 +58,12 @@ export default function EditProfilePage() {
           input: {
             username: username.trim(),
             bio: bio.trim(),
-            // profilePic will be uploaded separately if changed
           },
         },
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
-    } catch (error) {
-      console.error('Failed to update profile:', error);
+    } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setLoading(false);
@@ -74,123 +71,163 @@ export default function EditProfilePage() {
   };
 
   return (
-    <SafeAreaView className="flex-1" style={{ backgroundColor: isDark ? '#111827' : '#F9FAFB' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       {/* Header */}
       <View
-        className="flex-row items-center justify-between border-b px-6 py-4"
-        style={{ borderBottomColor: isDark ? '#374151' : '#E5E7EB' }}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={isDark ? '#FFF' : '#000'} />
-        </TouchableOpacity>
-        <Text className="text-xl font-bold" style={{ color: isDark ? '#FFF' : '#000' }}>
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 20,
+          paddingVertical: 14,
+          borderBottomWidth: 1,
+          borderBottomColor: theme.border,
+        }}>
+        <AnimatedPressable onPress={() => router.back()} hitSlop={20} scaleDown={0.9}>
+          <Ionicons name="arrow-back" size={22} color={theme.text} />
+        </AnimatedPressable>
+        <Text style={{ flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '700', color: theme.text }}>
           Edit Profile
         </Text>
-        <TouchableOpacity onPress={handleSave} disabled={loading}>
-          <Text
-            className="text-lg font-semibold"
-            style={{ color: loading ? '#9CA3AF' : '#667EEA' }}>
-            Save
-          </Text>
-        </TouchableOpacity>
+        {/* Spacer to balance the back button */}
+        <View style={{ width: 22 }} />
       </View>
 
-      <ScrollView className="flex-1 px-6 py-6">
-        {/* Profile Picture */}
-        <View className="mb-6 items-center">
-          <TouchableOpacity onPress={pickImage} className="relative">
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 20, gap: 20 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled">
+
+        {/* Avatar */}
+        <View style={{ alignItems: 'center', paddingVertical: 8 }}>
+          <AnimatedPressable onPress={pickImage} scaleDown={0.95} style={{ position: 'relative' }}>
             <Image
-              source={{ uri: profilePic || 'https://via.placeholder.com/150' }}
-              className="h-32 w-32 rounded-full"
+              source={{ uri: profilePic || avatarUri(userStore?.profilePic, userStore?.username) }}
+              style={{
+                width: 96,
+                height: 96,
+                borderRadius: 48,
+                borderWidth: 3,
+                borderColor: ACCENT,
+              }}
             />
             <View
-              className="absolute bottom-0 right-0 rounded-full p-2"
-              style={{ backgroundColor: '#667EEA' }}>
-              <Ionicons name="camera" size={20} color="#FFF" />
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                right: 0,
+                width: 30,
+                height: 30,
+                borderRadius: 15,
+                backgroundColor: ACCENT,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 2,
+                borderColor: theme.bg,
+              }}>
+              <Ionicons name="camera" size={15} color="#fff" />
             </View>
-          </TouchableOpacity>
-          <Text className="mt-2 text-sm" style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
+          </AnimatedPressable>
+          <Text style={{ marginTop: 8, fontSize: 12, color: theme.textSecondary }}>
             Tap to change photo
           </Text>
         </View>
 
-        {/* Email (Read-only) */}
-        <View className="mb-4">
-          <Text
-            className="mb-2 text-sm font-semibold"
-            style={{ color: isDark ? '#D1D5DB' : '#6B7280' }}>
-            EMAIL
+        {/* Email (read-only) */}
+        <View style={{ gap: 6 }}>
+          <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 1.5, textTransform: 'uppercase', color: theme.textSecondary }}>
+            Email
           </Text>
           <View
-            className="rounded-xl px-4 py-3"
             style={{
-              backgroundColor: isDark ? '#2D3748' : '#F3F4F6',
+              borderRadius: 12,
+              paddingHorizontal: 14,
+              paddingVertical: 12,
+              backgroundColor: isDark ? '#141414' : '#f3f4f6',
               borderWidth: 1,
-              borderColor: isDark ? '#4B5563' : '#E5E7EB',
+              borderColor: theme.border,
             }}>
-            <Text style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>{email}</Text>
+            <Text style={{ color: theme.textSecondary, fontSize: 14 }}>
+              {userStore?.email || ''}
+            </Text>
           </View>
-          <Text className="mt-1 text-xs" style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
-            Email cannot be changed
-          </Text>
+          <Text style={{ fontSize: 11, color: theme.textSecondary }}>Email cannot be changed</Text>
         </View>
 
         {/* Username */}
-        <View className="mb-4">
-          <Text
-            className="mb-2 text-sm font-semibold"
-            style={{ color: isDark ? '#D1D5DB' : '#6B7280' }}>
-            USERNAME
+        <View style={{ gap: 6 }}>
+          <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 1.5, textTransform: 'uppercase', color: theme.textSecondary }}>
+            Username
           </Text>
           <TextInput
             value={username}
             onChangeText={setUsername}
             placeholder="Enter username"
-            placeholderTextColor={isDark ? '#9CA3AF' : '#6B7280'}
-            className="rounded-xl px-4 py-3"
+            placeholderTextColor={theme.textSecondary}
             style={{
-              backgroundColor: isDark ? '#374151' : '#FFF',
-              color: isDark ? '#FFF' : '#000',
+              borderRadius: 12,
+              paddingHorizontal: 14,
+              paddingVertical: 12,
+              fontSize: 14,
+              backgroundColor: theme.card,
+              color: theme.text,
               borderWidth: 1,
-              borderColor: isDark ? '#4B5563' : '#E5E7EB',
+              borderColor: theme.border,
             }}
           />
         </View>
 
         {/* Bio */}
-        <View className="mb-4">
-          <Text
-            className="mb-2 text-sm font-semibold"
-            style={{ color: isDark ? '#D1D5DB' : '#6B7280' }}>
-            BIO
+        <View style={{ gap: 6 }}>
+          <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 1.5, textTransform: 'uppercase', color: theme.textSecondary }}>
+            Bio
           </Text>
           <TextInput
             value={bio}
-            onChangeText={setBio}
+            onChangeText={(t) => setBio(t.slice(0, 150))}
             placeholder="Tell us about yourself..."
-            placeholderTextColor={isDark ? '#9CA3AF' : '#6B7280'}
+            placeholderTextColor={theme.textSecondary}
             multiline
-            numberOfLines={4}
             textAlignVertical="top"
-            className="rounded-xl px-4 py-3"
             style={{
-              backgroundColor: isDark ? '#374151' : '#FFF',
-              color: isDark ? '#FFF' : '#000',
+              borderRadius: 12,
+              paddingHorizontal: 14,
+              paddingVertical: 12,
+              fontSize: 14,
+              backgroundColor: theme.card,
+              color: theme.text,
               borderWidth: 1,
-              borderColor: isDark ? '#4B5563' : '#E5E7EB',
+              borderColor: theme.border,
               minHeight: 100,
             }}
           />
-          <Text className="mt-1 text-xs" style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
-            {bio.length}/150 characters
+          <Text style={{ fontSize: 11, color: theme.textSecondary, textAlign: 'right' }}>
+            {bio.length}/150
           </Text>
         </View>
       </ScrollView>
 
-      {loading && (
-        <View className="absolute inset-0 items-center justify-center bg-black/50">
-          <ActivityIndicator size="large" color="#667EEA" />
-        </View>
-      )}
+      {/* Save block button */}
+      <View style={{ paddingHorizontal: 20, paddingBottom: 24, paddingTop: 12 }}>
+        <AnimatedPressable
+          onPress={handleSave}
+          disabled={loading}
+          scaleDown={0.97}
+          style={{
+            backgroundColor: ACCENT,
+            borderRadius: 16,
+            paddingVertical: 16,
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: loading ? 0.7 : 1,
+          }}>
+          {loading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Save Changes</Text>
+          )}
+        </AnimatedPressable>
+      </View>
     </SafeAreaView>
   );
 }
