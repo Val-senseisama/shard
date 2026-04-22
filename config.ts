@@ -16,5 +16,5 @@ export const CONFIG = {
   GRAPHQL_ENDPOINT: 'http://192.168.1.75:4000/graphql',
   WS_ENDPOINT: 'ws://192.168.1.75:4000',
 
-  REVENUECAT_API_KEY: 'test_KipSkYmaWyOFiIAWjjovOprkEwP',
+  REVENUECAT_API_KEY: process.env.EXPO_PUBLIC_REVENUECAT_API_KEY,
 };
