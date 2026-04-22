@@ -434,11 +434,84 @@ export const SEND_MESSAGE = gql`
       messageData {
         id
         content
+        type
         sender {
           id
           username
           profilePic
         }
+        createdAt
+      }
+    }
+  }
+`;
+
+export const CREATE_POLL = gql`
+  mutation CreatePoll($chatId: ID!, $question: String!, $options: [String!]!) {
+    createPoll(chatId: $chatId, question: $question, options: $options) {
+      success
+      message
+      messageData {
+        id
+        content
+        type
+        poll {
+          question
+          options {
+            text
+            votes {
+              id
+            }
+          }
+        }
+        sender {
+          id
+          username
+        }
+        createdAt
+      }
+    }
+  }
+`;
+
+export const VOTE_POLL = gql`
+  mutation VotePoll($messageId: ID!, $optionIndex: Int!) {
+    votePoll(messageId: $messageId, optionIndex: $optionIndex) {
+      success
+      message
+    }
+  }
+`;
+
+export const ASSIGN_TASK_FROM_CHAT = gql`
+  mutation AssignTaskFromChat($chatId: ID!, $taskId: ID, $assigneeId: ID!) {
+    assignTaskFromChat(chatId: $chatId, taskId: $taskId, assigneeId: $assigneeId) {
+      success
+      message
+      messageData {
+        id
+        type
+        minitaskRef {
+          taskId
+          assignedTo {
+            id
+            username
+          }
+        }
+      }
+    }
+  }
+`;
+
+export const SUMMON_SUMMARY = gql`
+  mutation SummonSummary($chatId: ID!) {
+    summonSummary(chatId: $chatId) {
+      success
+      message
+      messageData {
+        id
+        content
+        type
         createdAt
       }
     }

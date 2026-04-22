@@ -10,6 +10,7 @@ import {
   useColorScheme,
   Image,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -22,6 +23,9 @@ import { SEND_MESSAGE, MARK_MESSAGES_READ, REMOVE_SHARD_PARTICIPANT } from '~/Gr
 import { useAppStore } from '~/store/app.store';
 import WebSocketService from '~/helpers/WebSocketService';
 import { pickMediaFromGallery, uploadMediaToCloudinary } from '~/services/chatService';
+import { Audio } from 'expo-av';
+import * as DocumentPicker from 'expo-document-picker';
+import { CREATE_POLL, VOTE_POLL, ASSIGN_TASK_FROM_CHAT, SUMMON_SUMMARY } from '~/Graphql/Mutations';
 
 interface Message {
   id: string;
@@ -36,6 +40,16 @@ interface Message {
   readBy: string[];
   createdAt: string;
   sendStatus?: 'pending' | 'sent' | 'failed';
+  mentions?: string[];
+  poll?: {
+    question: string;
+    options: { text: string; votes: { id: string }[] }[];
+    multipleAnswers: boolean;
+  };
+  minitaskRef?: {
+    taskId: string;
+    assignedTo: { id: string; username: string };
+  };
 }
 
 const ShardChat = () => {
@@ -49,8 +63,19 @@ const ShardChat = () => {
   const [selectedMediaUri, setSelectedMediaUri] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
+  const [showPollModal, setShowPollModal] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollOptions, setPollOptions] = useState(['', '']);
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Audio Recording States
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioUri, setAudioUri] = useState<string | null>(null);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch chat details
   const { data: chatData, loading: chatLoading } = useQuery(GET_CHAT, {
@@ -100,6 +125,10 @@ const ShardChat = () => {
   // Mark messages as read mutation
   const [markAsRead] = useMutation(MARK_MESSAGES_READ);
 
+  // New Chat Feature Mutations
+  const [createPollMutation] = useMutation(CREATE_POLL);
+  const [summonSummaryMutation] = useMutation(SUMMON_SUMMARY);
+
   // Leave chat mutation
   const [removeShardParticipant] = useMutation(REMOVE_SHARD_PARTICIPANT);
 
@@ -138,8 +167,24 @@ const ShardChat = () => {
           };
 
           setMessages((prev) => {
+            // If we find an optimistic message with the same content and sender from "now", swap it
+            const optimisticIndex = prev.findIndex(
+              (msg) =>
+                msg.id.startsWith('temp-') && msg.content === data.content && msg.type === data.type
+            );
+
+            if (optimisticIndex !== -1) {
+              const newMsgs = [...prev];
+              newMsgs[optimisticIndex] = {
+                ...newMsgs[optimisticIndex],
+                id: data.id,
+                sendStatus: 'sent',
+              };
+              return newMsgs;
+            }
+
             // Avoid duplicates
-            if (prev.some((msg) => msg.id === newMessage.id)) {
+            if (prev.some((msg) => msg.id === data.id)) {
               return prev;
             }
             return [...prev, newMessage];
@@ -330,6 +375,155 @@ const ShardChat = () => {
     }
   };
 
+  // Audio Recording Logic
+  const startRecording = async () => {
+    try {
+      const permission = await Audio.requestPermissionsAsync();
+      if (permission.status === 'granted') {
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: true,
+          playsInSilentModeIOS: true,
+        });
+
+        const { recording } = await Audio.Recording.createAsync(
+          Audio.RecordingOptionsPresets.HIGH_QUALITY
+        );
+
+        setRecording(recording);
+        setIsRecording(true);
+        setRecordingDuration(0);
+
+        recordingIntervalRef.current = setInterval(() => {
+          setRecordingDuration((prev) => prev + 1);
+        }, 1000);
+      } else {
+        addAlert({ str: 'Microphone permission required', type: 'error' });
+      }
+    } catch (err) {
+      console.error('Failed to start recording', err);
+    }
+  };
+
+  const stopRecording = async () => {
+    setIsRecording(false);
+    if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
+
+    try {
+      await recording?.stopAndUnloadAsync();
+      const uri = recording?.getURI();
+      setRecording(null);
+      if (uri) {
+        setAudioUri(uri);
+        // Automatically send voice note
+        handleSendVoiceNote(uri);
+      }
+    } catch (err) {
+      console.error('Failed to stop recording', err);
+    }
+  };
+
+  const handleSendVoiceNote = async (uri: string) => {
+    setUploading(true);
+    try {
+      const audioUrl = await uploadMediaToCloudinary(uri, fetchSignedUrl);
+      if (audioUrl) {
+        await sendMessageMutation({
+          variables: {
+            chatId: id,
+            content: '🎵 Voice Note',
+            type: 'audio',
+            attachments: [{ url: audioUrl, type: 'audio' }],
+          },
+        });
+        setAudioUri(null);
+      }
+    } catch (error) {
+      addAlert({ str: 'Failed to send voice note', type: 'error' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handlePickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setUploading(true);
+        const fileUrl = await uploadMediaToCloudinary(asset.uri, fetchSignedUrl);
+        if (fileUrl) {
+          await sendMessageMutation({
+            variables: {
+              chatId: id,
+              content: `📄 ${asset.name}`,
+              type: 'file',
+              attachments: [{ url: fileUrl, type: 'file', name: asset.name }],
+            },
+          });
+        }
+        setUploading(false);
+      }
+    } catch (error) {
+      addAlert({ str: 'Failed to pick document', type: 'error' });
+      setUploading(false);
+    }
+  };
+
+  const handleSummonSummary = async () => {
+    try {
+      const { data } = await summonSummaryMutation({ variables: { chatId: id } });
+      if (data?.summonSummary?.success) {
+        addAlert({ str: 'Progress summary summoned!', type: 'success' });
+      }
+    } catch (err) {
+      addAlert({ str: 'Failed to summon summary', type: 'error' });
+    }
+  };
+
+  const [votePollMutation] = useMutation(VOTE_POLL);
+  const handleVotePoll = async (messageId: string, optionIndex: number) => {
+    try {
+      const { data } = await votePollMutation({ variables: { messageId, optionIndex } });
+      if (data?.votePoll?.success) {
+        refetch(); // Refresh to show new vote counts
+      }
+    } catch (err) {
+      console.error('Voting error:', err);
+    }
+  };
+
+  const handleCreatePoll = async () => {
+    const validOptions = pollOptions.filter((o) => o.trim() !== '');
+    if (!pollQuestion.trim() || validOptions.length < 2) {
+      addAlert({ str: 'Please enter a question and at least 2 options', type: 'error' });
+      return;
+    }
+    setUploading(true);
+    try {
+      const { data } = await createPollMutation({
+        variables: {
+          chatId: id,
+          question: pollQuestion,
+          options: validOptions,
+        },
+      });
+      if (data?.createPoll?.success) {
+        setShowPollModal(false);
+        setPollQuestion('');
+        setPollOptions(['', '']);
+        addAlert({ str: 'Poll created!', type: 'success' });
+      }
+    } catch (err) {
+      addAlert({ str: 'Failed to create poll', type: 'error' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     if (messages.length > 0) {
@@ -341,8 +535,12 @@ const ShardChat = () => {
 
   const renderItem = ({ item }: { item: Message }) => {
     const isMe = item.sender.id === user?.id;
-    const isSystem = item.type === 'system';
+    const isSystem = item.type === 'system' || item.type === 'summary_ping';
     const isImage = item.type === 'image';
+    const isAudio = item.type === 'audio';
+    const isFile = item.type === 'file';
+    const isPoll = item.type === 'poll';
+    const isTask = item.type === 'minitask_assignment';
 
     if (isSystem) {
       return (
@@ -362,7 +560,7 @@ const ShardChat = () => {
               paddingVertical: 7,
             }}>
             <Ionicons
-              name="flag"
+              name={item.type === 'summary_ping' ? 'stats-chart' : 'flag'}
               size={13}
               color={colorScheme === 'dark' ? '#c4b5fd' : '#7c3aed'}
             />
@@ -402,14 +600,89 @@ const ShardChat = () => {
           />
         )}
         <View
-          className={`max-w-[75%] rounded-2xl ${isImage ? 'p-1' : 'px-4 py-2'} ${
-            isMe ? 'rounded-tr-none bg-blue-500' : 'rounded-tl-none bg-gray-200 dark:bg-gray-700'
+          className={`max-w-[80%] rounded-2xl ${isImage ? 'p-1' : 'px-4 py-2'} ${
+            isMe
+              ? 'rounded-tr-none bg-blue-500'
+              : 'rounded-tl-none border border-gray-100 bg-white dark:border-gray-700 dark:bg-gray-800'
           }`}>
           {!isMe && (
-            <Text className="mb-1 px-3 pt-2 text-xs font-bold text-gray-500 dark:text-gray-400">
+            <Text className={`mb-1 text-xs font-bold ${isMe ? 'text-blue-100' : 'text-blue-500'}`}>
               {item.sender.username}
             </Text>
           )}
+
+          {/* Render Audio */}
+          {isAudio && (
+            <TouchableOpacity className="flex-row items-center gap-3 py-2">
+              <View className="rounded-full bg-blue-100 p-2 dark:bg-blue-900/30">
+                <Ionicons name="play" size={24} color="#3b82f6" />
+              </View>
+              <View className="flex-1">
+                <View className="h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
+                <Text className={`mt-1 text-[10px] ${isMe ? 'text-blue-100' : 'text-gray-400'}`}>
+                  0:00 / 0:30
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
+
+          {/* Render File */}
+          {isFile && (
+            <TouchableOpacity className="mb-1 flex-row items-center gap-3 border-b border-gray-100 py-2 dark:border-gray-700/50">
+              <Ionicons name="document-text" size={32} color={isMe ? '#fff' : '#3b82f6'} />
+              <Text
+                numberOfLines={1}
+                className={`flex-1 text-sm font-medium ${isMe ? 'text-white' : 'text-text-primary dark:text-text-dark'}`}>
+                {item.content}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Render Poll */}
+          {isPoll && item.poll && (
+            <View className="py-2">
+              <Text
+                className={`mb-3 text-base font-bold ${isMe ? 'text-white' : 'text-text-primary dark:text-text-dark'}`}>
+                {item.poll.question}
+              </Text>
+              {item.poll.options.map((opt, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  onPress={() => handleVotePoll(item.id, idx)}
+                  className={`mb-2 flex-row items-center justify-between rounded-lg border p-3 ${
+                    isMe
+                      ? 'border-white/30 bg-white/10'
+                      : 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900'
+                  }`}>
+                  <Text className={isMe ? 'text-white' : 'text-text-primary dark:text-text-dark'}>
+                    {opt.text}
+                  </Text>
+                  <View className="flex-row items-center gap-1">
+                    {opt.votes.some((v) => v.id === user?.id) && (
+                      <Ionicons name="checkmark-circle" size={14} color="#22c55e" />
+                    )}
+                    <Text className={`text-xs ${isMe ? 'text-blue-100' : 'text-gray-400'}`}>
+                      {opt.votes.length} votes
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* Render Task */}
+          {isTask && item.minitaskRef && (
+            <View className="items-center py-2">
+              <View className="w-full items-center rounded-lg bg-yellow-100 p-3 dark:bg-yellow-900/30">
+                <Ionicons name="clipboard" size={24} color="#eab308" />
+                <Text className="mt-2 text-center text-xs font-bold text-yellow-800 dark:text-yellow-200">
+                  NEW TASK ASSIGNED TO @{item.minitaskRef.assignedTo.username}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Render Text / Image Caption */}
           {isImage && item.mediaUrl ? (
             <View>
               <Image
@@ -419,7 +692,7 @@ const ShardChat = () => {
               />
               {item.content && item.content !== '📷 Image' && (
                 <Text
-                  className={`px-3 py-2 text-base ${
+                  className={`px-1 py-2 text-base ${
                     isMe ? 'text-white' : 'text-text-primary dark:text-text-dark'
                   }`}>
                   {item.content}
@@ -427,16 +700,21 @@ const ShardChat = () => {
               )}
             </View>
           ) : (
-            <Text
-              className={`text-base ${
-                isMe ? 'text-white' : 'text-text-primary dark:text-text-dark'
-              }`}>
-              {item.content}
-            </Text>
+            !isAudio &&
+            !isFile &&
+            !isPoll &&
+            !isTask && (
+              <Text
+                className={`text-base ${
+                  isMe ? 'text-white' : 'text-text-primary dark:text-text-dark'
+                }`}>
+                {item.content}
+              </Text>
+            )
           )}
 
           {/* Timestamp and Status */}
-          <View className="mt-1 flex-row items-center gap-1 self-end px-3 pb-1">
+          <View className="mt-1 flex-row items-center gap-1 self-end">
             <Text className={`text-[10px] ${isMe ? 'text-blue-100' : 'text-gray-400'}`}>
               {new Date(item.createdAt).toLocaleTimeString([], {
                 hour: '2-digit',
@@ -448,11 +726,19 @@ const ShardChat = () => {
             {isMe && (
               <View>
                 {item.id.startsWith('temp-') ? (
-                  // Pending - Clock icon
-                  <Ionicons name="time-outline" size={12} color={isMe ? '#DBEAFE' : '#9CA3AF'} />
+                  <Ionicons name="time-outline" size={12} color="#DBEAFE" />
                 ) : (
-                  // Sent - Checkmark
-                  <Ionicons name="checkmark" size={14} color={isMe ? '#DBEAFE' : '#3B82F6'} />
+                  <View className="flex-row">
+                    <Ionicons name="checkmark" size={14} color="#DBEAFE" />
+                    {item.readBy.length > 1 && (
+                      <Ionicons
+                        name="checkmark"
+                        size={14}
+                        color="#DBEAFE"
+                        style={{ marginLeft: -8 }}
+                      />
+                    )}
+                  </View>
                 )}
               </View>
             )}
@@ -475,8 +761,8 @@ const ShardChat = () => {
 
   const handleViewParticipants = () => {
     setShowMenu(false);
-    // Navigate to shard details which shows participants
-    router.push(`/(screens)/shard/${id}`);
+    // Navigate to the new settings/participants screen
+    router.push(`/(screens)/shard/${id}/chat-settings`);
   };
 
   const handleMuteNotifications = () => {
@@ -630,6 +916,63 @@ const ShardChat = () => {
         )}
 
         <View className="border-t border-gray-200 bg-background-paper dark:border-gray-800 dark:bg-background-dark-default">
+          {/* Attachment Menu */}
+          {isAttachmentMenuOpen && (
+            <Animated.View
+              entering={FadeInDown}
+              className="flex-row flex-wrap gap-4 border-b border-gray-200 p-4 dark:border-gray-800">
+              <View className="items-center">
+                <TouchableOpacity
+                  onPress={() => {
+                    handlePickMedia();
+                    setIsAttachmentMenuOpen(false);
+                  }}
+                  className="h-12 w-12 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900/30">
+                  <Ionicons name="image" size={24} color="#a855f7" />
+                </TouchableOpacity>
+                <Text className="mt-1 text-[10px] text-gray-500">Gallery</Text>
+              </View>
+              <View className="items-center">
+                <TouchableOpacity
+                  onPress={() => {
+                    handlePickDocument();
+                    setIsAttachmentMenuOpen(false);
+                  }}
+                  className="h-12 w-12 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30">
+                  <Ionicons name="document" size={24} color="#3b82f6" />
+                </TouchableOpacity>
+                <Text className="mt-1 text-[10px] text-gray-500">Document</Text>
+              </View>
+              <View className="items-center">
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowPollModal(true);
+                    setIsAttachmentMenuOpen(false);
+                  }}
+                  className="h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+                  <Ionicons name="stats-chart" size={24} color="#22c55e" />
+                </TouchableOpacity>
+                <Text className="mt-1 text-[10px] text-gray-500">Poll</Text>
+              </View>
+              <View className="items-center">
+                <TouchableOpacity
+                  onPress={() => {
+                    handleSummonSummary();
+                    setIsAttachmentMenuOpen(false);
+                  }}
+                  className="h-12 w-12 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/30">
+                  <Ionicons name="flash" size={24} color="#f97316" />
+                </TouchableOpacity>
+                <Text className="mt-1 text-[10px] text-gray-500">Summary</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsAttachmentMenuOpen(false)}
+                className="absolute right-4 top-4">
+                <Ionicons name="close-circle" size={20} color="#9ca3af" />
+              </TouchableOpacity>
+            </Animated.View>
+          )}
+
           {/* Media Preview */}
           {selectedMediaUri && (
             <View className="border-b border-gray-200 p-3 dark:border-gray-800">
@@ -650,7 +993,10 @@ const ShardChat = () => {
 
           {/* Input Area */}
           <View className="flex-row items-center p-4">
-            <TouchableOpacity className="mr-3" onPress={handlePickMedia} disabled={uploading}>
+            <TouchableOpacity
+              className="mr-3"
+              onPress={() => setIsAttachmentMenuOpen(!isAttachmentMenuOpen)}
+              disabled={uploading}>
               <Ionicons
                 name="add-circle-outline"
                 size={28}
@@ -665,26 +1011,113 @@ const ShardChat = () => {
                 placeholderTextColor={colorScheme === 'dark' ? '#9ca3af' : '#6b7280'}
                 className="flex-1 text-base text-text-primary dark:text-text-dark"
                 multiline
-                editable={!sending && !uploading}
+                editable={!sending && !uploading && !isRecording}
               />
+              {message.length === 0 && !selectedMediaUri && (
+                <TouchableOpacity
+                  onPressIn={startRecording}
+                  onPressOut={stopRecording}
+                  className="ml-2">
+                  <Ionicons
+                    name={isRecording ? 'mic' : 'mic-outline'}
+                    size={24}
+                    color={isRecording ? '#ef4444' : '#9ca3af'}
+                  />
+                </TouchableOpacity>
+              )}
             </View>
+
+            {message.trim() || selectedMediaUri ? (
+              <TouchableOpacity
+                onPress={handleSend}
+                disabled={sending || uploading}
+                className="ml-3 items-center justify-center rounded-full bg-blue-500 p-2">
+                {sending || uploading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Ionicons name="send" size={20} color="#fff" />
+                )}
+              </TouchableOpacity>
+            ) : isRecording ? (
+              <View className="ml-3 items-center justify-center">
+                <Text className="font-bold text-red-500">
+                  {Math.floor(recordingDuration / 60)}:
+                  {String(recordingDuration % 60).padStart(2, '0')}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+
+      {/* Poll Creation Modal */}
+      <Modal visible={showPollModal} animationType="slide" transparent>
+        <View className="flex-1 justify-end bg-black/50">
+          <View className="h-[70%] rounded-t-3xl bg-white p-6 dark:bg-gray-900">
+            <View className="mb-6 flex-row items-center justify-between">
+              <Text className="text-xl font-bold text-text-primary dark:text-text-dark">
+                Create Poll
+              </Text>
+              <TouchableOpacity onPress={() => setShowPollModal(false)}>
+                <Ionicons name="close" size={28} color={colorScheme === 'dark' ? '#fff' : '#000'} />
+              </TouchableOpacity>
+            </View>
+
+            <Text className="mb-2 text-sm font-medium text-gray-500">Question</Text>
+            <TextInput
+              placeholder="What do you want to ask?"
+              placeholderTextColor="#9ca3af"
+              value={pollQuestion}
+              onChangeText={setPollQuestion}
+              className="mb-6 rounded-xl bg-gray-100 p-4 text-text-primary dark:bg-gray-800 dark:text-text-dark"
+            />
+
+            <Text className="mb-2 text-sm font-medium text-gray-500">Options</Text>
+            {pollOptions.map((opt, idx) => (
+              <View key={idx} className="mb-3 flex-row items-center">
+                <TextInput
+                  placeholder={`Option ${idx + 1}`}
+                  placeholderTextColor="#9ca3af"
+                  value={opt}
+                  onChangeText={(text) => {
+                    const newOpts = [...pollOptions];
+                    newOpts[idx] = text;
+                    setPollOptions(newOpts);
+                  }}
+                  className="flex-1 rounded-xl bg-gray-100 p-4 text-text-primary dark:bg-gray-800 dark:text-text-dark"
+                />
+                {pollOptions.length > 2 && (
+                  <TouchableOpacity
+                    onPress={() => setPollOptions(pollOptions.filter((_, i) => i !== idx))}
+                    className="ml-2">
+                    <Ionicons name="remove-circle" size={24} color="#ef4444" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))}
+
+            {pollOptions.length < 5 && (
+              <TouchableOpacity
+                onPress={() => setPollOptions([...pollOptions, ''])}
+                className="mb-6 flex-row items-center gap-2">
+                <Ionicons name="add-circle" size={24} color="#3b82f6" />
+                <Text className="font-medium text-blue-500">Add Option</Text>
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity
-              onPress={handleSend}
-              disabled={(!message.trim() && !selectedMediaUri) || sending || uploading}
-              className={`ml-3 items-center justify-center rounded-full p-2 ${
-                (message.trim() || selectedMediaUri) && !sending && !uploading
-                  ? 'bg-blue-500'
-                  : 'bg-gray-300 dark:bg-gray-700'
-              }`}>
-              {sending || uploading ? (
-                <ActivityIndicator size="small" color="#fff" />
+              onPress={handleCreatePoll}
+              disabled={uploading}
+              className="items-center rounded-xl bg-blue-500 p-4">
+              {uploading ? (
+                <ActivityIndicator color="#fff" />
               ) : (
-                <Ionicons name="send" size={20} color="#fff" />
+                <Text className="text-lg font-bold text-white">Create Poll</Text>
               )}
             </TouchableOpacity>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 };
