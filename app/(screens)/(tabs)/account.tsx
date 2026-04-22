@@ -255,6 +255,11 @@ const Account = () => {
             action: () => router.push('/change-password'),
           },
           {
+            icon: 'receipt-outline',
+            label: 'Purchase History',
+            action: () => router.push('/(screens)/purchase-history'),
+          },
+          {
             icon: user?.subscriptionTier === 'pro' ? 'settings-outline' : 'star-outline',
             label: user?.subscriptionTier === 'pro' ? 'Manage Subscription' : 'Subscribe to Pro',
             action: () => {
@@ -385,16 +390,29 @@ const Account = () => {
                 <Text style={{ fontSize: 10, fontWeight: '800', color: '#fff' }}>{level}</Text>
               </View>
             </View>
-            <Text
-              style={{
-                fontSize: 16,
-                fontWeight: '700',
-                color: isDark ? '#fff' : '#1a1a1a',
-                textAlign: 'center',
-              }}
-              numberOfLines={1}>
-              {user?.username || 'User'}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: '700',
+                  color: isDark ? '#fff' : '#1a1a1a',
+                  textAlign: 'center',
+                }}
+                numberOfLines={1}>
+                {user?.username || 'User'}
+              </Text>
+              {user?.subscriptionTier === 'pro' && (
+                <View
+                  style={{
+                    backgroundColor: '#FFD700',
+                    paddingHorizontal: 5,
+                    paddingVertical: 1,
+                    borderRadius: 4,
+                  }}>
+                  <Text style={{ fontSize: 8, fontWeight: '900', color: '#000' }}>PRO</Text>
+                </View>
+              )}
+            </View>
             <Text
               style={{
                 fontSize: 11,

@@ -525,3 +525,17 @@ export const GET_OFFERINGS = gql`
     }
   }
 `;
+
+export const MY_SUBSCRIPTION_HISTORY = gql`
+  query MySubscriptionHistory {
+    mySubscriptionHistory {
+      id
+      tier
+      action
+      amount
+      currency
+      details
+      timestamp
+    }
+  }
+`;

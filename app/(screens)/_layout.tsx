@@ -15,6 +15,7 @@ export default function ScreensLayout() {
       <Stack.Screen name="new-shard" />
       <Stack.Screen name="add-partners" />
       <Stack.Screen name="notifications" />
+      <Stack.Screen name="purchase-history" />
       <Stack.Screen
         name="friend-profile"
         options={{
