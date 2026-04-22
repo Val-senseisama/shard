@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
+  Pressable,
   Image,
   ScrollView,
   useColorScheme,
@@ -10,15 +11,31 @@ import {
   Dimensions,
   ActivityIndicator,
   Alert,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { AntDesign, Ionicons } from '@expo/vector-icons';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  ZoomIn,
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { useShardStore } from '~/store/shard.store';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_SHARD, GET_SHARD_SCHEDULE, GET_SHARD_ANALYTICS } from '~/Graphql/Queries';
-import { SCHEDULE_TASKS, COMPLETE_TASK, CREATE_SHARD_CHAT } from '~/Graphql/Mutations';
+import {
+  SCHEDULE_TASKS,
+  COMPLETE_TASK,
+  COMPLETE_HABIT_CYCLE,
+  CREATE_SHARD_CHAT,
+  TRIGGER_COACH_NUDGE,
+} from '~/Graphql/Mutations';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { useAppStore } from '~/store/app.store';
 import ShardHeaderSkeleton from '@/components/ShardHeaderSkeleton';
@@ -26,6 +43,9 @@ import GoalCardSkeleton from '@/components/GoalCardSkeleton';
 import ProgressChartSkeleton from '@/components/ProgressChartSkeleton';
 import Toast from 'react-native-toast-message';
 import ScheduleTaskSkeleton from '@/components/ScheduleTaskSkeleton';
+import AssignmentSheet from '~/components/AssignmentSheet';
+import { useUserStore } from '~/store/user.store';
+import AnimatedPressable from '~/components/AnimatedPressable';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DAY_ITEM_WIDTH = 60;
@@ -33,36 +53,183 @@ const DAY_ITEM_WIDTH = 60;
 type TabType = 'overview' | 'progress' | 'schedule';
 
 interface Participant {
-  id: string;
-  name: string;
-  color: string;
-}
-
-interface Goal {
-  id: string;
-  title: string;
-  tasks: Task[];
+  user: string;
+  username?: string;
+  profilePic?: string;
+  role: string;
 }
 
 interface Task {
   id: string;
   title: string;
   completed: boolean;
+  taskIndex: number;
+  assignedTo?: string | null;
 }
+
+interface Goal {
+  id: string;
+  title: string;
+  tasks: Task[];
+  assignedTo?: string | null;
+}
+
+// ── Animated Task Row ─────────────────────────────────────────────
+const AnimatedTaskRow = ({
+  task,
+  onToggle,
+  onLongPress,
+  assigneeName,
+  assigneeAvatar,
+  isDark,
+}: {
+  task: Task;
+  onToggle: () => void;
+  onLongPress: () => void;
+  assigneeName?: string;
+  assigneeAvatar?: string;
+  isDark: boolean;
+}) => {
+  const scale = useSharedValue(1);
+  const checkScale = useSharedValue(task.completed ? 1 : 0);
+
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const checkStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: checkScale.value }],
+    opacity: checkScale.value,
+  }));
+
+  const handlePress = () => {
+    scale.value = withSequence(withSpring(0.92), withSpring(1));
+    checkScale.value = task.completed
+      ? withTiming(0, { duration: 150 })
+      : withSequence(withSpring(1.3), withSpring(1));
+    onToggle();
+  };
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      onLongPress={onLongPress}
+      delayLongPress={400}
+      style={{ marginBottom: 10 }}>
+      <Animated.View style={[animStyle, { flexDirection: 'row', alignItems: 'center' }]}>
+        {/* Checkbox */}
+        <Pressable
+          onPress={handlePress}
+          style={{
+            width: 24,
+            height: 24,
+            borderRadius: 12,
+            marginRight: 12,
+            backgroundColor: task.completed ? '#8b5cf6' : 'transparent',
+            borderWidth: task.completed ? 0 : 2,
+            borderColor: isDark ? '#4b5563' : '#d1d5db',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+          {task.completed && (
+            <Animated.View style={checkStyle}>
+              <Ionicons name="checkmark" size={14} color="#fff" />
+            </Animated.View>
+          )}
+        </Pressable>
+
+        {/* Title */}
+        <Text
+          style={{
+            flex: 1,
+            fontSize: 14,
+            color: task.completed ? (isDark ? '#4b5563' : '#9ca3af') : isDark ? '#fff' : '#1a1a1a',
+            textDecorationLine: task.completed ? 'line-through' : 'none',
+          }}>
+          {task.title}
+        </Text>
+
+        {/* Assignee badge */}
+        {assigneeName && (
+          <Animated.View
+            entering={ZoomIn.duration(250)}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 8 }}>
+            {assigneeAvatar ? (
+              <Image
+                source={{ uri: assigneeAvatar }}
+                style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: 10,
+                  borderWidth: 1.5,
+                  borderColor: '#8b5cf6',
+                }}
+              />
+            ) : (
+              <View
+                style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: 10,
+                  backgroundColor: 'rgba(139,92,246,0.2)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                <Text style={{ color: '#8b5cf6', fontSize: 9, fontWeight: '700' }}>
+                  {assigneeName[0].toUpperCase()}
+                </Text>
+              </View>
+            )}
+          </Animated.View>
+        )}
+
+        {/* Long-press hint dot */}
+        <Ionicons
+          name="person-add-outline"
+          size={13}
+          color={isDark ? '#333' : '#ddd'}
+          style={{ marginLeft: 8 }}
+        />
+      </Animated.View>
+    </Pressable>
+  );
+};
 
 const ShardInfo = () => {
   const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
   const params = useLocalSearchParams();
   const { selectedShard } = useShardStore();
+  const currentUser = useUserStore((s) => s.user);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [shard, setShard] = useState<any>(null);
   const [expandedSummary, setExpandedSummary] = useState(false);
+  const [coachNudge, setCoachNudge] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [tasksForSelectedDate, setTasksForSelectedDate] = useState<Task[]>([]);
   const [expandedGoals, setExpandedGoals] = useState<Set<string>>(new Set());
   const [timeframe, setTimeframe] = useState<'week' | 'month' | 'all'>('week');
   const { addAlert } = useAppStore();
   const flatListRef = useRef<FlatList>(null);
+
+  // Derive user role
+  const userRole = useMemo(() => {
+    if (!shard || !currentUser) return null;
+    if (shard.owner === currentUser.id || shard.owner?.id === currentUser.id) return 'owner';
+    const p = shard.participants?.find(
+      (p: any) => p.user === currentUser.id || p.user?.id === currentUser.id
+    );
+    return p?.role || null;
+  }, [shard, currentUser]);
+
+  const isAccountabilityPartner = userRole === 'accountability_partner';
+
+  // Assignment sheet state
+  const [assignSheet, setAssignSheet] = useState<{
+    visible: boolean;
+    miniGoalId: string;
+    miniGoalTitle: string;
+    taskIndex?: number;
+    taskTitle?: string;
+    currentAssigneeId?: string | null;
+  } | null>(null);
 
   // Get shard ID from params or selected shard
   const shardId = (params.shardId as string) || selectedShard?.id;
@@ -105,21 +272,46 @@ const ShardInfo = () => {
     },
   });
 
-  //const shard = shardData?.getShard?.shard;
-
-  // Map mini-goals to goals format for UI
+  // Map mini-goals with full task data including assignedTo
   const goals: Goal[] =
     (shard as any)?.minigoals?.map((mg: any) => ({
       id: mg.id,
       title: mg.title,
+      assignedTo: mg.assignedTo || null,
       tasks:
         mg.tasks?.map((task: any, index: number) => ({
           id: `${mg.id}-${index}`,
           title: task.title,
           completed: task.completed,
-          taskIndex: index, // Track original index for mutation
+          taskIndex: index,
+          assignedTo: task.assignedTo || null,
         })) || [],
     })) || [];
+
+  // Build a lookup: userId -> participant info (from real participants)
+  const participantMap: Record<string, Participant> = {};
+  if (shard?.participants) {
+    shard.participants.forEach((p: any) => {
+      participantMap[p.user] = {
+        user: p.user,
+        username: p.username,
+        profilePic: p.profilePic,
+        role: p.role,
+      };
+    });
+  }
+  // Also include the owner — support both .id and ._id to be safe
+  const ownerId = shard?.owner?.id || shard?.owner?._id?.toString();
+  if (ownerId) {
+    participantMap[ownerId] = {
+      user: ownerId,
+      username: shard.owner.username,
+      profilePic: shard.owner.profilePic || undefined,
+      role: 'owner',
+    };
+  }
+
+  const shardParticipants: Participant[] = Object.values(participantMap);
 
   // Initialize expanded goals when shard loads
   React.useEffect(() => {
@@ -232,6 +424,50 @@ const ShardInfo = () => {
 
   // Task Completion
   const [completeTaskMutation] = useMutation(COMPLETE_TASK);
+  const [completeHabitCycleMutation] = useMutation(COMPLETE_HABIT_CYCLE);
+  const [triggerCoachNudgeMutation, { loading: coachLoading }] = useMutation(TRIGGER_COACH_NUDGE);
+
+  const handleTriggerCoachNudge = async () => {
+    if (!shardId) return;
+    const { data } = await triggerCoachNudgeMutation({ variables: { shardId } }).catch(() => ({
+      data: null,
+    }));
+    if (data?.triggerCoachNudge?.success && data.triggerCoachNudge.nudge) {
+      setCoachNudge(data.triggerCoachNudge.nudge);
+    } else {
+      addAlert({
+        str: data?.triggerCoachNudge?.message || 'Could not get a nudge right now.',
+        type: 'info',
+      });
+    }
+  };
+
+  const handleCompleteHabitCycle = async () => {
+    if (!shardId) return;
+    try {
+      const { data } = await completeHabitCycleMutation({
+        variables: { shardId },
+      });
+      if (data?.completeHabitCycle?.success) {
+        if (data.completeHabitCycle.xpEarned > 0) {
+          Toast.show({
+            type: 'success',
+            text1: `+${data.completeHabitCycle.xpEarned} XP earned! 🎉 (${data.completeHabitCycle.newStreak} streak)`,
+          });
+        }
+        await refetchShard();
+        await refetchAnalytics();
+        await refetchSchedule();
+      } else {
+        addAlert({
+          str: data?.completeHabitCycle?.message || 'Failed to complete cycle',
+          type: 'error',
+        });
+      }
+    } catch (e) {
+      addAlert({ str: 'Error completing cycle', type: 'error' });
+    }
+  };
 
   const handleTaskToggle = async (
     miniGoalId: string,
@@ -453,12 +689,208 @@ const ShardInfo = () => {
     );
   }
 
-  // Mock participants - in real app, fetch based on shard
-  const participants: Participant[] = [
-    { id: '1', name: 'Levi Idhosa', color: '#d946ef' },
-    { id: '2', name: 'John Bull', color: '#d946ef' },
-    { id: '3', name: 'Sasha Davis', color: '#6366f1' },
-  ];
+  // Render the overview Goals section
+  const renderGoals = () => (
+    <View style={{ marginBottom: 24 }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 16,
+        }}>
+        <Text
+          style={{
+            fontSize: 11,
+            fontWeight: '700',
+            textTransform: 'uppercase',
+            letterSpacing: 1.2,
+            color: isDark ? '#adaaaa' : '#666',
+          }}>
+          Shard Goals
+        </Text>
+        {!isAccountabilityPartner && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Ionicons name="person-add-outline" size={11} color={isDark ? '#555' : '#aaa'} />
+            <Text style={{ fontSize: 10, color: isDark ? '#555' : '#aaa' }}>
+              Long-press to assign
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {goals.map((goal, goalIndex) => {
+        const goalAssignee = goal.assignedTo ? participantMap[goal.assignedTo] : null;
+        return (
+          <Animated.View
+            key={goal.id}
+            entering={FadeInDown.delay(goalIndex * 80).duration(350)}
+            style={{ marginBottom: 16 }}>
+            {/* Goal header — long-press to assign whole goal */}
+            <Pressable
+              onPress={() => toggleGoalExpanded(goal.id)}
+              onLongPress={() => {
+                if (isAccountabilityPartner) return;
+                setAssignSheet({
+                  visible: true,
+                  miniGoalId: goal.id,
+                  miniGoalTitle: goal.title,
+                  currentAssigneeId: goal.assignedTo,
+                });
+              }}
+              delayLongPress={400}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: isDark ? '#1a1a1a' : '#f6f7fb',
+                borderRadius: 16,
+                padding: 14,
+                borderWidth: 1,
+                borderColor: isDark ? 'rgba(72,72,71,0.25)' : 'rgba(0,0,0,0.06)',
+              }}>
+              {/* Number badge */}
+              <View
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 9,
+                  backgroundColor: 'rgba(139,92,246,0.15)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 12,
+                }}>
+                <Text style={{ color: '#8b5cf6', fontWeight: '800', fontSize: 12 }}>
+                  {goalIndex + 1}
+                </Text>
+              </View>
+
+              <Text
+                style={{
+                  flex: 1,
+                  fontWeight: '700',
+                  fontSize: 14,
+                  color: isDark ? '#fff' : '#1a1a1a',
+                }}>
+                {goal.title}
+              </Text>
+
+              {/* Assignee chip */}
+              {goalAssignee && (
+                <Animated.View
+                  entering={ZoomIn.duration(250)}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 5,
+                    marginRight: 8,
+                    backgroundColor: 'rgba(139,92,246,0.1)',
+                    borderRadius: 12,
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                  }}>
+                  {goalAssignee.profilePic ? (
+                    <Image
+                      source={{ uri: goalAssignee.profilePic }}
+                      style={{ width: 16, height: 16, borderRadius: 8 }}
+                    />
+                  ) : (
+                    <View
+                      style={{
+                        width: 16,
+                        height: 16,
+                        borderRadius: 8,
+                        backgroundColor: '#8b5cf6',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                      <Text style={{ color: '#fff', fontSize: 8, fontWeight: '700' }}>
+                        {(goalAssignee.username || '?')[0].toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                  <Text style={{ color: '#8b5cf6', fontSize: 11, fontWeight: '600' }}>
+                    {goalAssignee.username}
+                  </Text>
+                </Animated.View>
+              )}
+
+              <Ionicons
+                name={expandedGoals.has(goal.id) ? 'chevron-down' : 'chevron-forward'}
+                size={16}
+                color={isDark ? '#555' : '#bbb'}
+              />
+            </Pressable>
+
+            {/* Tasks */}
+            {expandedGoals.has(goal.id) && (
+              <Animated.View
+                entering={FadeInDown.duration(250)}
+                style={{ paddingTop: 10, paddingHorizontal: 4 }}>
+                {goal.tasks.length === 0 ? (
+                  <Text
+                    style={{
+                      color: isDark ? '#444' : '#bbb',
+                      fontSize: 12,
+                      textAlign: 'center',
+                      paddingVertical: 12,
+                    }}>
+                    No tasks yet
+                  </Text>
+                ) : (
+                  goal.tasks.map((task) => {
+                    const taskAssignee = task.assignedTo ? participantMap[task.assignedTo] : null;
+                    return (
+                      <AnimatedTaskRow
+                        key={task.id}
+                        task={task}
+                        isDark={isDark}
+                        assigneeName={taskAssignee?.username}
+                        assigneeAvatar={taskAssignee?.profilePic}
+                        onToggle={() => {
+                          if (!isAccountabilityPartner) {
+                            handleTaskToggle(goal.id, task.taskIndex, task.completed);
+                          }
+                        }}
+                        onLongPress={() => {
+                          if (!isAccountabilityPartner) {
+                            setAssignSheet({
+                              visible: true,
+                              miniGoalId: goal.id,
+                              miniGoalTitle: goal.title,
+                              taskIndex: task.taskIndex,
+                              taskTitle: task.title,
+                              currentAssigneeId: task.assignedTo,
+                            });
+                          }
+                        }}
+                      />
+                    );
+                  })
+                )}
+              </Animated.View>
+            )}
+          </Animated.View>
+        );
+      })}
+
+      {goals.length === 0 && (
+        <View
+          style={{
+            alignItems: 'center',
+            paddingVertical: 32,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderStyle: 'dashed',
+            borderColor: isDark ? '#2a2a2a' : '#e5e7eb',
+          }}>
+          <Ionicons name="flag-outline" size={32} color={isDark ? '#333' : '#ccc'} />
+          <Text style={{ color: isDark ? '#444' : '#bbb', fontSize: 13, marginTop: 8 }}>
+            No goals yet
+          </Text>
+        </View>
+      )}
+    </View>
+  );
 
   return (
     <SafeAreaView className="flex-1 bg-background-paper dark:bg-background-dark-default">
@@ -531,6 +963,28 @@ const ShardInfo = () => {
       </View>
 
       <ScrollView className="flex-1 px-4">
+        {isAccountabilityPartner && (
+          <View
+            style={{
+              marginBottom: 16,
+              backgroundColor: isDark ? 'rgba(234,179,8,0.15)' : 'rgba(234,179,8,0.1)',
+              paddingVertical: 10,
+              paddingHorizontal: 16,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: isDark ? 'rgba(234,179,8,0.3)' : 'rgba(234,179,8,0.2)',
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 8,
+            }}>
+            <Ionicons name="eye" size={16} color={isDark ? '#fde047' : '#eab308'} />
+            <Text
+              style={{ color: isDark ? '#fde047' : '#ca8a04', fontWeight: '700', fontSize: 13 }}>
+              Viewing as Accountability Partner
+            </Text>
+          </View>
+        )}
+
         {activeTab === 'overview' && (
           <Animated.View entering={FadeIn}>
             {/* Shard Header Card */}
@@ -614,19 +1068,216 @@ const ShardInfo = () => {
                   </Text>
 
                   {/* Participants */}
-                  <View className="flex-row flex-wrap gap-2">
-                    {participants.map((participant: Participant) => (
-                      <View
-                        key={participant.id}
-                        className="rounded-full px-3 py-1.5"
-                        style={{ backgroundColor: participant.color }}>
-                        <Text className="text-xs font-semibold text-white">{participant.name}</Text>
-                      </View>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    {shardParticipants.map((p) => (
+                      <Animated.View
+                        key={p.user}
+                        entering={ZoomIn.delay(50).duration(250)}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 5,
+                          backgroundColor: isDark
+                            ? 'rgba(139,92,246,0.15)'
+                            : 'rgba(139,92,246,0.1)',
+                          borderRadius: 20,
+                          paddingHorizontal: 10,
+                          paddingVertical: 5,
+                        }}>
+                        {p.profilePic ? (
+                          <Image
+                            source={{ uri: p.profilePic }}
+                            style={{ width: 18, height: 18, borderRadius: 9 }}
+                          />
+                        ) : (
+                          <View
+                            style={{
+                              width: 18,
+                              height: 18,
+                              borderRadius: 9,
+                              backgroundColor: '#8b5cf6',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}>
+                            <Text style={{ color: '#fff', fontSize: 8, fontWeight: '700' }}>
+                              {(p.username || '?')[0].toUpperCase()}
+                            </Text>
+                          </View>
+                        )}
+                        <Text
+                          style={{
+                            color: isDark ? '#c4b5fd' : '#7c3aed',
+                            fontSize: 11,
+                            fontWeight: '600',
+                          }}>
+                          {p.username || 'Teammate'}
+                        </Text>
+                      </Animated.View>
                     ))}
                   </View>
                 </View>
               </View>
             </View>
+
+            {/* AI Coach Nudge Modal */}
+            <Modal
+              visible={!!coachNudge}
+              transparent
+              animationType="fade"
+              onRequestClose={() => setCoachNudge(null)}>
+              <TouchableOpacity
+                activeOpacity={1}
+                onPress={() => setCoachNudge(null)}
+                style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+                <TouchableOpacity activeOpacity={1}>
+                  <Animated.View
+                    entering={FadeInDown.duration(300)}
+                    style={{
+                      backgroundColor: isDark ? '#131313' : '#f8f8fa',
+                      borderTopLeftRadius: 28,
+                      borderTopRightRadius: 28,
+                      paddingTop: 12,
+                      paddingBottom: 40,
+                      paddingHorizontal: 20,
+                    }}>
+                    {/* Drag handle */}
+                    <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                      <View
+                        style={{
+                          width: 36,
+                          height: 4,
+                          borderRadius: 2,
+                          backgroundColor: isDark ? '#333' : '#ddd',
+                        }}
+                      />
+                    </View>
+
+                    <View
+                      style={{
+                        marginBottom: 20,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 10,
+                      }}>
+                      <View
+                        style={{
+                          backgroundColor: 'rgba(139,92,246,0.15)',
+                          padding: 10,
+                          borderRadius: 12,
+                        }}>
+                        <Ionicons name="sparkles" size={20} color="#8b5cf6" />
+                      </View>
+                      <Text
+                        style={{
+                          fontSize: 18,
+                          fontWeight: '800',
+                          color: isDark ? '#fff' : '#1a1a1a',
+                        }}>
+                        Quest Coach
+                      </Text>
+                    </View>
+
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        color: isDark ? '#d1d5db' : '#374151',
+                        lineHeight: 24,
+                        marginBottom: 24,
+                      }}>
+                      {coachNudge}
+                    </Text>
+
+                    <TouchableOpacity
+                      onPress={() => setCoachNudge(null)}
+                      style={{
+                        backgroundColor: '#8b5cf6',
+                        paddingVertical: 14,
+                        borderRadius: 14,
+                        alignItems: 'center',
+                      }}>
+                      <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Close</Text>
+                    </TouchableOpacity>
+                  </Animated.View>
+                </TouchableOpacity>
+              </TouchableOpacity>
+            </Modal>
+
+            {/* AI Coach Button */}
+            {!isAccountabilityPartner && (
+              <TouchableOpacity
+                onPress={handleTriggerCoachNudge}
+                disabled={coachLoading}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: isDark ? 'rgba(14,165,233,0.15)' : 'rgba(14,165,233,0.1)',
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  marginBottom: 16,
+                  borderWidth: 1,
+                  borderColor: isDark ? 'rgba(14,165,233,0.3)' : 'rgba(14,165,233,0.2)',
+                }}>
+                <Ionicons name="sparkles" size={16} color={isDark ? '#38bdf8' : '#0284c7'} />
+                <Text
+                  style={{
+                    color: isDark ? '#38bdf8' : '#0284c7',
+                    fontWeight: 'bold',
+                    marginLeft: 8,
+                  }}>
+                  {coachLoading ? 'Asking Coach...' : 'Get AI Coach Tip'}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Habit Quest Banner */}
+            {shard?.questType === 'habit' && (
+              <View
+                className="mb-6 rounded-2xl p-4"
+                style={{
+                  backgroundColor: isDark ? 'rgba(139,92,246,0.1)' : 'rgba(139,92,246,0.05)',
+                  borderWidth: 1,
+                  borderColor: isDark ? 'rgba(139,92,246,0.3)' : 'rgba(139,92,246,0.2)',
+                }}>
+                <View className="mb-3 flex-row items-center justify-between">
+                  <View>
+                    <Text style={{ color: '#8b5cf6', fontWeight: '800', fontSize: 16 }}>
+                      Recurring Habit
+                    </Text>
+                    <Text
+                      style={{ color: isDark ? '#a0a0a0' : '#666', fontSize: 13, marginTop: 2 }}>
+                      {shard.cadence === 'daily' ? 'Resets daily' : 'Resets weekly'}
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: 'center' }}>
+                    <Text style={{ fontSize: 24, fontWeight: '800', color: '#8b5cf6' }}>
+                      🔥 {shard.habitStreak || 0}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 10,
+                        color: isDark ? '#a0a0a0' : '#666',
+                        fontWeight: '700',
+                        textTransform: 'uppercase',
+                      }}>
+                      Streak
+                    </Text>
+                  </View>
+                </View>
+                <AnimatedPressable
+                  onPress={handleCompleteHabitCycle}
+                  style={{
+                    backgroundColor: '#8b5cf6',
+                    borderRadius: 12,
+                    paddingVertical: 12,
+                    alignItems: 'center',
+                  }}>
+                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>
+                    Complete Cycle & Reset
+                  </Text>
+                </AnimatedPressable>
+              </View>
+            )}
 
             {/* Shard Summary */}
             {shard?.description && (
@@ -647,73 +1298,7 @@ const ShardInfo = () => {
               </View>
             )}
             {/* Shard Goals */}
-            <View className="mb-6">
-              <View className="mb-4 flex-row items-center justify-between">
-                <Text className="text-sm font-bold uppercase text-text-primary dark:text-text-dark">
-                  Shard Goals
-                </Text>
-                <TouchableOpacity>
-                  <Ionicons
-                    name="ellipsis-vertical"
-                    size={20}
-                    color={colorScheme === 'dark' ? '#fff' : '#000'}
-                  />
-                </TouchableOpacity>
-              </View>
-
-              {goals.map((goal, goalIndex) => (
-                <Animated.View
-                  key={goal.id}
-                  entering={FadeInDown.delay(goalIndex * 100)}
-                  className="mb-6">
-                  {/* Expandable Goal Title */}
-                  <TouchableOpacity
-                    onPress={() => toggleGoalExpanded(goal.id)}
-                    className="mb-3 flex-row items-center justify-between">
-                    <Text className="flex-1 text-base font-bold text-text-primary dark:text-text-dark">
-                      {goalIndex + 1}. {goal.title}
-                    </Text>
-                    <Ionicons
-                      name={expandedGoals.has(goal.id) ? 'chevron-down' : 'chevron-forward'}
-                      size={20}
-                      color={colorScheme === 'dark' ? '#9ca3af' : '#6b7280'}
-                    />
-                  </TouchableOpacity>
-
-                  {/* Tasks - show only when expanded */}
-                  {expandedGoals.has(goal.id) &&
-                    goal.tasks.map((task: any) => (
-                      <TouchableOpacity
-                        key={task.id}
-                        onPress={() => handleTaskToggle(goal.id, task.taskIndex, task.completed)}
-                        className="mb-3 flex-row items-center"
-                        activeOpacity={0.7}>
-                        <View
-                          className="mr-3 h-6 w-6 items-center justify-center rounded-full"
-                          style={{
-                            backgroundColor: task.completed ? '#a855f7' : 'transparent',
-                            borderWidth: task.completed ? 0 : 2,
-                            borderColor: '#d1d5db',
-                          }}>
-                          {task.completed && <Ionicons name="checkmark" size={16} color="#fff" />}
-                        </View>
-                        <Text
-                          className="dark:text-text-dark-secondary flex-1 text-sm text-text-secondary"
-                          style={{
-                            color: task.completed
-                              ? '#9ca3af'
-                              : colorScheme === 'dark'
-                                ? '#fff'
-                                : '#000',
-                            textDecorationLine: task.completed ? 'line-through' : 'none',
-                          }}>
-                          {task.title}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                </Animated.View>
-              ))}
-            </View>
+            {renderGoals()}
           </Animated.View>
         )}
 
@@ -1137,6 +1722,21 @@ const ShardInfo = () => {
           </Animated.View>
         )}
       </ScrollView>
+
+      {/* Assignment sheet */}
+      {assignSheet && (
+        <AssignmentSheet
+          visible={assignSheet.visible}
+          onClose={() => setAssignSheet(null)}
+          miniGoalId={assignSheet.miniGoalId}
+          miniGoalTitle={assignSheet.miniGoalTitle}
+          taskIndex={assignSheet.taskIndex}
+          taskTitle={assignSheet.taskTitle}
+          participants={shardParticipants}
+          currentAssigneeId={assignSheet.currentAssigneeId}
+          onAssigned={() => refetchShard()}
+        />
+      )}
     </SafeAreaView>
   );
 };

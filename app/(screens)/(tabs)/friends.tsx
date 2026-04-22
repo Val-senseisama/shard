@@ -365,31 +365,38 @@ const Friends = () => {
   const [suggestions, setSuggestions] = useState<FriendRequest[]>([]);
 
   const { refetch: refetchRequests } = useQuery(GET_PENDING_REQUESTS, {
-    onCompleted: (data) => {
-      if (data?.getPendingRequests?.success) {
-        setIncomingRequests(
-          (data.getPendingRequests.incoming || []).map((u: any) => ({
-            id: u.id,
-            username: u.username,
-            email: '',
-            profilePic: u.profilePic,
-            timestamp: '',
-          }))
-        );
-        setOutgoingRequests(
-          (data.getPendingRequests.outgoing || []).map((u: any) => ({
-            id: u.id,
-            username: u.username,
-            email: '',
-            profilePic: u.profilePic,
-            timestamp: '',
-          }))
-        );
-      }
-    },
+    onCompleted: applyRequestsData,
   });
 
-  useQuery(GET_FRIEND_SUGGESTIONS, {
+  function applyRequestsData(data: any) {
+    if (data?.getPendingRequests?.success) {
+      setIncomingRequests(
+        (data.getPendingRequests.incoming || []).map((u: any) => ({
+          id: u.id,
+          username: u.username,
+          email: '',
+          profilePic: u.profilePic,
+          timestamp: '',
+        }))
+      );
+      setOutgoingRequests(
+        (data.getPendingRequests.outgoing || []).map((u: any) => ({
+          id: u.id,
+          username: u.username,
+          email: '',
+          profilePic: u.profilePic,
+          timestamp: '',
+        }))
+      );
+    }
+  }
+
+  const doRefetchRequests = async () => {
+    const result = await refetchRequests();
+    applyRequestsData(result.data);
+  };
+
+  const { refetch: refetchSuggestions } = useQuery(GET_FRIEND_SUGGESTIONS, {
     onCompleted: (data) => {
       if (data?.getFriendSuggestions?.success) {
         setSuggestions(
@@ -478,7 +485,10 @@ const Friends = () => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([refetch(), refetchRequests()]);
+    const [result] = await Promise.all([refetch(), doRefetchRequests(), refetchSuggestions()]);
+    if (result.data?.getFriends?.success) {
+      setFriends(result.data.getFriends.friends);
+    }
     setRefreshing(false);
   };
 
@@ -564,6 +574,13 @@ const Friends = () => {
       if (data?.acceptFriendRequest?.success) {
         addAlert({ str: 'Friend request accepted!', type: 'success' });
         setIncomingRequests((prev) => prev.filter((r) => r.id !== requestId));
+        setSuggestions((prev) => prev.filter((s) => s.id !== requestId));
+        setSearchResults((prev) => prev.filter((s) => s.id !== requestId));
+        const result = await refetch();
+        if (result.data?.getFriends?.success) {
+          setFriends(result.data.getFriends.friends);
+        }
+        refetchSuggestions();
       } else {
         addAlert({
           str: data?.acceptFriendRequest?.message || 'Failed to accept request',
@@ -585,6 +602,8 @@ const Friends = () => {
       if (data?.rejectFriendRequest?.success) {
         addAlert({ str: 'Friend request declined', type: 'success' });
         setIncomingRequests((prev) => prev.filter((r) => r.id !== requestId));
+        doRefetchRequests();
+        refetchSuggestions();
       } else {
         addAlert({
           str: data?.rejectFriendRequest?.message || 'Failed to decline request',
@@ -606,6 +625,8 @@ const Friends = () => {
       if (data?.blockUser?.success) {
         addAlert({ str: 'User blocked', type: 'success' });
         setIncomingRequests((prev) => prev.filter((r) => r.id !== requestId));
+        doRefetchRequests();
+        refetchSuggestions();
       } else {
         addAlert({ str: data?.blockUser?.message || 'Failed to block user', type: 'error' });
       }
@@ -624,6 +645,8 @@ const Friends = () => {
       if (data?.cancelFriendRequest?.success) {
         addAlert({ str: 'Friend request cancelled', type: 'success' });
         setOutgoingRequests((prev) => prev.filter((r) => r.id !== requestId));
+        doRefetchRequests();
+        refetchSuggestions();
       } else {
         addAlert({
           str: data?.cancelFriendRequest?.message || 'Failed to cancel request',
@@ -963,8 +986,8 @@ const Friends = () => {
             <Text className="mb-3 text-sm font-semibold text-text-primary dark:text-text-dark">
               People You May Know
             </Text>
-            {suggestions.length > 0 ? (
-              suggestions.map((suggestion) => (
+            {suggestions.filter((s) => !friends.some((f) => f.id === s.id)).length > 0 ? (
+              suggestions.filter((s) => !friends.some((f) => f.id === s.id)).map((suggestion) => (
                 <TouchableOpacity
                   key={suggestion.id}
                   activeOpacity={0.7}

@@ -48,6 +48,7 @@ const ShardChat = () => {
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [selectedMediaUri, setSelectedMediaUri] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -98,6 +99,9 @@ const ShardChat = () => {
 
   // Mark messages as read mutation
   const [markAsRead] = useMutation(MARK_MESSAGES_READ);
+
+  // Leave chat mutation
+  const [removeShardParticipant] = useMutation(REMOVE_SHARD_PARTICIPANT);
 
   // Fetch signed upload URL for media
   const [fetchSignedUrl] = useLazyQuery(GET_SIGNED_UPLOAD_URL);
@@ -342,9 +346,46 @@ const ShardChat = () => {
 
     if (isSystem) {
       return (
-        <View className="my-2 items-center">
-          <Text className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-500 dark:bg-gray-800 dark:text-gray-400">
-            {item.content}
+        <View style={{ marginVertical: 10, alignItems: 'center', paddingHorizontal: 24 }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              backgroundColor:
+                colorScheme === 'dark' ? 'rgba(139,92,246,0.12)' : 'rgba(139,92,246,0.08)',
+              borderWidth: 1,
+              borderColor:
+                colorScheme === 'dark' ? 'rgba(139,92,246,0.25)' : 'rgba(139,92,246,0.2)',
+              borderRadius: 20,
+              paddingHorizontal: 14,
+              paddingVertical: 7,
+            }}>
+            <Ionicons
+              name="flag"
+              size={13}
+              color={colorScheme === 'dark' ? '#c4b5fd' : '#7c3aed'}
+            />
+            <Text
+              style={{
+                color: colorScheme === 'dark' ? '#c4b5fd' : '#7c3aed',
+                fontSize: 12,
+                fontWeight: '500',
+                textAlign: 'center',
+              }}>
+              {item.content}
+            </Text>
+          </View>
+          <Text
+            style={{
+              color: colorScheme === 'dark' ? '#4b5563' : '#9ca3af',
+              fontSize: 10,
+              marginTop: 4,
+            }}>
+            {new Date(item.createdAt).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
           </Text>
         </View>
       );
@@ -432,8 +473,6 @@ const ShardChat = () => {
   const chatName =
     chatData?.getChat?.chat?.shard?.title || chatData?.getChat?.chat?.name || 'Shard Chat';
 
-  const [showMenu, setShowMenu] = useState(false);
-
   const handleViewParticipants = () => {
     setShowMenu(false);
     // Navigate to shard details which shows participants
@@ -444,8 +483,6 @@ const ShardChat = () => {
     setShowMenu(false);
     addAlert({ str: 'Notifications muted for this chat', type: 'success' });
   };
-
-  const [removeShardParticipant] = useMutation(REMOVE_SHARD_PARTICIPANT);
 
   const handleLeaveChat = async () => {
     setShowMenu(false);

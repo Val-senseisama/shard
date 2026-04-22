@@ -21,6 +21,9 @@ export interface User {
   creativity?: number;
   currentStreak?: number;
   longestStreak?: number;
+  pendingAchievements?: string[];
+  birthdate?: string;
+  timezone?: string;
   preferences?: {
     workloadLevel: string;
     maxTasksPerDay: number;

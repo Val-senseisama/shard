@@ -1,12 +1,5 @@
 import React, { useMemo } from 'react';
-import {
-  View,
-  Text,
-  Image,
-  ScrollView,
-  useColorScheme,
-  Switch,
-} from 'react-native';
+import { View, Text, Image, ScrollView, useColorScheme, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +13,8 @@ import { avatarUri } from '~/helpers/avatarUri';
 import AnimatedPressable from '~/components/AnimatedPressable';
 import Session from '~/helpers/Session';
 import Toast from 'react-native-toast-message';
+import RevenueCatUI from 'react-native-purchases-ui';
+import { purchasesService } from '~/services/purchasesService';
 
 // ─── Radar Chart ─────────────────────────────────────────────────────
 
@@ -108,13 +103,27 @@ const RadarChart = ({ stats, isDark }: { stats: number[]; isDark: boolean }) => 
 
 // ─── Level Thermometer ───────────────────────────────────────────────
 
-const LevelThermometer = ({ level, xp, isDark }: { level: number; xp: number; isDark: boolean }) => {
+const LevelThermometer = ({
+  level,
+  xp,
+  isDark,
+}: {
+  level: number;
+  xp: number;
+  isDark: boolean;
+}) => {
   const xpForNext = level * 1000;
   const progress = Math.min(xp / xpForNext, 1);
 
   return (
     <View style={{ alignItems: 'center', gap: 6 }}>
-      <Text style={{ fontSize: 10, fontWeight: '700', color: isDark ? '#adaaaa' : '#767575', letterSpacing: 1 }}>
+      <Text
+        style={{
+          fontSize: 10,
+          fontWeight: '700',
+          color: isDark ? '#adaaaa' : '#767575',
+          letterSpacing: 1,
+        }}>
         Level
       </Text>
       <Text style={{ fontSize: 18, fontWeight: '800', color: '#8b5cf6' }}>{level}</Text>
@@ -166,7 +175,11 @@ const SettingsRow = ({
   const inner = (
     <View
       className="flex-row items-center justify-between px-4 py-3.5"
-      style={!isLast ? { borderBottomWidth: 1, borderBottomColor: isDark ? '#262626' : '#f3f4f6' } : undefined}>
+      style={
+        !isLast
+          ? { borderBottomWidth: 1, borderBottomColor: isDark ? '#262626' : '#f3f4f6' }
+          : undefined
+      }>
       <View className="flex-row items-center gap-3">
         <View
           style={{
@@ -215,7 +228,7 @@ const Account = () => {
   const client = useApolloClient();
   const { isDarkMode, toggleDarkMode } = useAppStore();
 
-const level = user?.level || 1;
+  const level = user?.level || 1;
   const xp = user?.xp || 0;
   const xpForNext = level * 1000;
   const stats = [
@@ -231,25 +244,70 @@ const level = user?.level || 1;
       {
         title: 'Account',
         items: [
-          { icon: 'person-outline', label: 'Edit Profile', action: () => router.push('/edit-profile') },
-          { icon: 'lock-closed-outline', label: 'Change Password', action: () => router.push('/change-password') },
-          { icon: 'star-outline', label: 'Subscribe to Pro', action: () => router.push('/subscribe-pro') },
+          {
+            icon: 'person-outline',
+            label: 'Edit Profile',
+            action: () => router.push('/edit-profile'),
+          },
+          {
+            icon: 'lock-closed-outline',
+            label: 'Change Password',
+            action: () => router.push('/change-password'),
+          },
+          {
+            icon: user?.subscriptionTier === 'pro' ? 'settings-outline' : 'star-outline',
+            label: user?.subscriptionTier === 'pro' ? 'Manage Subscription' : 'Subscribe to Pro',
+            action: () => {
+              if (user?.subscriptionTier === 'pro') {
+                RevenueCatUI.presentCustomerCenter();
+              } else {
+                router.push('/subscribe-pro');
+              }
+            },
+          },
         ],
       },
       {
         title: 'Settings',
         items: [
-          { icon: 'speedometer-outline', label: 'Workload Settings', action: () => router.push('/(screens)/workload-settings') },
-          { icon: 'notifications-outline', label: 'Notifications', action: () => router.push('/(screens)/notification-settings') },
-          { icon: 'moon-outline', label: 'Dark Mode', action: () => {}, toggle: true, value: isDarkMode, onToggle: toggleDarkMode },
+          {
+            icon: 'speedometer-outline',
+            label: 'Workload Settings',
+            action: () => router.push('/(screens)/workload-settings'),
+          },
+          {
+            icon: 'notifications-outline',
+            label: 'Notifications',
+            action: () => router.push('/(screens)/notification-settings'),
+          },
+          {
+            icon: 'moon-outline',
+            label: 'Dark Mode',
+            action: () => {},
+            toggle: true,
+            value: isDarkMode,
+            onToggle: toggleDarkMode,
+          },
         ],
       },
       {
         title: 'Support',
         items: [
-          { icon: 'help-circle-outline', label: 'Help & Support', action: () => router.push('/help-support') },
-          { icon: 'document-text-outline', label: 'Terms of Service', action: () => router.push('/terms-of-service') },
-          { icon: 'shield-checkmark-outline', label: 'Privacy Policy', action: () => router.push('/privacy-policy') },
+          {
+            icon: 'help-circle-outline',
+            label: 'Help & Support',
+            action: () => router.push('/help-support'),
+          },
+          {
+            icon: 'document-text-outline',
+            label: 'Terms of Service',
+            action: () => router.push('/terms-of-service'),
+          },
+          {
+            icon: 'shield-checkmark-outline',
+            label: 'Privacy Policy',
+            action: () => router.push('/privacy-policy'),
+          },
         ],
       },
     ],
@@ -279,12 +337,18 @@ const level = user?.level || 1;
         <Text style={{ fontSize: 22, fontWeight: '700', color: '#8b5cf6', letterSpacing: -0.5 }}>
           Profile
         </Text>
-        <AnimatedPressable onPress={() => router.push('/edit-profile')} hitSlop={20} scaleDown={0.9}>
+        <AnimatedPressable
+          onPress={() => router.push('/edit-profile')}
+          hitSlop={20}
+          scaleDown={0.9}>
           <Ionicons name="settings-outline" size={22} color={isDark ? '#adaaaa' : '#767575'} />
         </AnimatedPressable>
       </View>
 
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+      <ScrollView
+        className="flex-1"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 120 }}>
         {/* ── Profile Hero ── */}
         <Animated.View
           entering={FadeInDown.duration(400)}
@@ -322,12 +386,22 @@ const level = user?.level || 1;
               </View>
             </View>
             <Text
-              style={{ fontSize: 16, fontWeight: '700', color: isDark ? '#fff' : '#1a1a1a', textAlign: 'center' }}
+              style={{
+                fontSize: 16,
+                fontWeight: '700',
+                color: isDark ? '#fff' : '#1a1a1a',
+                textAlign: 'center',
+              }}
               numberOfLines={1}>
               {user?.username || 'User'}
             </Text>
             <Text
-              style={{ fontSize: 11, color: isDark ? '#767575' : '#9ca3af', textAlign: 'center', marginTop: 2 }}
+              style={{
+                fontSize: 11,
+                color: isDark ? '#767575' : '#9ca3af',
+                textAlign: 'center',
+                marginTop: 2,
+              }}
               numberOfLines={1}>
               {user?.email || ''}
             </Text>
@@ -342,7 +416,12 @@ const level = user?.level || 1;
           <View className="flex-1 items-center justify-center p-3">
             <View className="mb-1 w-full">
               <View className="mb-1 flex-row items-center justify-between">
-                <Text style={{ fontSize: 10, fontWeight: '700', color: isDark ? '#adaaaa' : '#767575' }}>
+                <Text
+                  style={{
+                    fontSize: 10,
+                    fontWeight: '700',
+                    color: isDark ? '#adaaaa' : '#767575',
+                  }}>
                   Power Level
                 </Text>
                 <Text style={{ fontSize: 10, fontWeight: '700', color: '#8b5cf6' }}>
@@ -367,7 +446,13 @@ const level = user?.level || 1;
                   }}
                 />
               </View>
-              <Text style={{ fontSize: 9, color: isDark ? '#484847' : '#d1d5db', marginTop: 2, textAlign: 'right' }}>
+              <Text
+                style={{
+                  fontSize: 9,
+                  color: isDark ? '#484847' : '#d1d5db',
+                  marginTop: 2,
+                  textAlign: 'right',
+                }}>
                 {xp}/{xpForNext}
               </Text>
             </View>
@@ -376,7 +461,9 @@ const level = user?.level || 1;
         </Animated.View>
 
         {/* ── Progression Stats ── */}
-        <Animated.View entering={FadeInDown.delay(100).duration(400)} className="mx-5 mt-4 flex-row gap-3">
+        <Animated.View
+          entering={FadeInDown.delay(100).duration(400)}
+          className="mx-5 mt-4 flex-row gap-3">
           {/* XP Card */}
           <View
             className="flex-1 items-center rounded-2xl border p-4"
@@ -394,7 +481,13 @@ const level = user?.level || 1;
               <Ionicons name="flash" size={18} color="#8b5cf6" />
             </View>
             <Text style={{ fontSize: 20, fontWeight: '800', color: '#8b5cf6' }}>{xp}</Text>
-            <Text style={{ fontSize: 10, fontWeight: '600', color: isDark ? '#767575' : '#9ca3af', marginTop: 2 }}>
+            <Text
+              style={{
+                fontSize: 10,
+                fontWeight: '600',
+                color: isDark ? '#767575' : '#9ca3af',
+                marginTop: 2,
+              }}>
               Total XP
             </Text>
           </View>
@@ -418,34 +511,51 @@ const level = user?.level || 1;
             <Text style={{ fontSize: 20, fontWeight: '800', color: '#f97316' }}>
               {user?.currentStreak || 0}
             </Text>
-            <Text style={{ fontSize: 10, fontWeight: '600', color: isDark ? '#767575' : '#9ca3af', marginTop: 2 }}>
+            <Text
+              style={{
+                fontSize: 10,
+                fontWeight: '600',
+                color: isDark ? '#767575' : '#9ca3af',
+                marginTop: 2,
+              }}>
               Day Streak
             </Text>
           </View>
 
           {/* Achievements Card */}
-          <View
-            className="flex-1 items-center rounded-2xl border p-4"
-            style={{ backgroundColor: cardBg, borderColor: cardBorder }}>
+          <AnimatedPressable
+            onPress={() => router.push('/(screens)/achievements')}
+            style={{ flex: 1 }}
+            scaleDown={0.96}>
             <View
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 18,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: 'rgba(234,179,8,0.12)',
-                marginBottom: 6,
-              }}>
-              <Ionicons name="trophy" size={18} color="#eab308" />
+              className="h-full items-center rounded-2xl border p-4"
+              style={{ backgroundColor: cardBg, borderColor: cardBorder }}>
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: 'rgba(234,179,8,0.12)',
+                  marginBottom: 6,
+                }}>
+                <Ionicons name="trophy" size={18} color="#eab308" />
+              </View>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: '#eab308' }}>
+                {user?.achievements?.length || 0}
+              </Text>
+              <Text
+                style={{
+                  fontSize: 10,
+                  fontWeight: '600',
+                  color: isDark ? '#767575' : '#9ca3af',
+                  marginTop: 2,
+                }}>
+                Badges
+              </Text>
             </View>
-            <Text style={{ fontSize: 20, fontWeight: '800', color: '#eab308' }}>
-              {user?.achievements?.length || 0}
-            </Text>
-            <Text style={{ fontSize: 10, fontWeight: '600', color: isDark ? '#767575' : '#9ca3af', marginTop: 2 }}>
-              Badges
-            </Text>
-          </View>
+          </AnimatedPressable>
         </Animated.View>
 
         {/* ── Settings Sections ── */}

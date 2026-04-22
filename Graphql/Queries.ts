@@ -1,5 +1,16 @@
 import { gql } from '@apollo/client';
 
+export const GET_AI_USAGE = gql`
+  query GetAIUsage {
+    getAIUsage {
+      success
+      remaining
+      limit
+      canProceed
+    }
+  }
+`;
+
 export const CURRENT_USER = gql`
   query Query {
     currentUser {
@@ -28,6 +39,9 @@ export const CURRENT_USER = gql`
         }
         currentStreak
         longestStreak
+        pendingAchievements
+        birthdate
+        timezone
       }
     }
   }
@@ -135,6 +149,9 @@ export const GET_SHARD = gql`
         isPrivate
         isAnonymous
         version
+        questType
+        cadence
+        habitStreak
         progress {
           completion
           xpEarned
@@ -158,6 +175,7 @@ export const GET_SHARD = gql`
         owner {
           id
           username
+          profilePic
         }
         minigoals {
           id
@@ -170,6 +188,7 @@ export const GET_SHARD = gql`
             title
             dueDate
             completed
+            assignedTo
           }
         }
       }
@@ -469,6 +488,39 @@ export const GET_MY_STATS = gql`
         activeMinigoals
         completedMinigoals
         completionRate
+      }
+    }
+  }
+`;
+
+export const GET_ACHIEVEMENTS = gql`
+  query GetAchievements {
+    getAchievements {
+      success
+      achievements {
+        id
+        name
+        description
+        icon
+        category
+        rarity
+        earned
+        pending
+      }
+    }
+  }
+`;
+
+export const GET_OFFERINGS = gql`
+  query GetOfferings {
+    listOfferings {
+      identifier
+      description
+      packages {
+        identifier
+        priceString
+        price
+        currencyCode
       }
     }
   }

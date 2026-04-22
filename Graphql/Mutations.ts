@@ -58,6 +58,16 @@ export const GOOGLE_SIGN_IN = gql`
 `;
 
 // User preferences
+export const UPDATE_PROFILE_PICTURE = gql`
+  mutation UpdateProfilePicture($cloudinaryUrl: String!) {
+    updateProfilePicture(cloudinaryUrl: $cloudinaryUrl) {
+      success
+      message
+      profilePic
+    }
+  }
+`;
+
 export const UPDATE_PREFERENCES = gql`
   mutation UpdatePreferences($input: PreferencesInput!) {
     updatePreferences(input: $input) {
@@ -77,6 +87,8 @@ export const UPDATE_PROFILE = gql`
         username
         bio
         profilePic
+        birthdate
+        timezone
       }
     }
   }
@@ -132,6 +144,27 @@ export const COMPLETE_MINI_GOAL = gql`
   }
 `;
 
+export const COMPLETE_HABIT_CYCLE = gql`
+  mutation CompleteHabitCycle($shardId: ID!) {
+    completeHabitCycle(shardId: $shardId) {
+      success
+      message
+      xpEarned
+      newStreak
+    }
+  }
+`;
+
+export const TRIGGER_COACH_NUDGE = gql`
+  mutation TriggerCoachNudge($shardId: ID!) {
+    triggerCoachNudge(shardId: $shardId) {
+      success
+      message
+      nudge
+    }
+  }
+`;
+
 // Notification mutations
 export const UPDATE_NOTIFICATION_PREFERENCES = gql`
   mutation UpdateNotificationPreferences($input: NotificationPreferencesInput!) {
@@ -181,6 +214,16 @@ export const REMOVE_SHARD_PARTICIPANT = gql`
     }
   }
 `;
+
+export const ASSIGN_MINI_GOAL = gql`
+  mutation AssignMiniGoal($miniGoalId: ID!, $userId: ID!, $taskIndex: Int) {
+    assignMiniGoal(miniGoalId: $miniGoalId, userId: $userId, taskIndex: $taskIndex) {
+      success
+      message
+    }
+  }
+`;
+
 
 // Friendship mutations
 export const SEND_FRIEND_REQUEST = gql`
@@ -256,6 +299,8 @@ export const CREATE_SHARD = gql`
     $participants: [ParticipantInput!]
     $isPrivate: Boolean
     $isAnonymous: Boolean
+    $questType: String
+    $cadence: String
   ) {
     createShard(
       goal: $goal
@@ -264,6 +309,8 @@ export const CREATE_SHARD = gql`
       participants: $participants
       isPrivate: $isPrivate
       isAnonymous: $isAnonymous
+      questType: $questType
+      cadence: $cadence
     ) {
       success
       message
@@ -279,6 +326,12 @@ export const CREATE_SHARD = gql`
           completion
           xpEarned
           level
+        }
+        miniGoals {
+          id
+          title
+          taskCount
+          dueDate
         }
       }
     }
@@ -300,6 +353,12 @@ export const CREATE_SHARD_MANUAL = gql`
           completion
           xpEarned
           level
+        }
+        miniGoals {
+          id
+          title
+          taskCount
+          dueDate
         }
       }
     }
@@ -449,6 +508,90 @@ export const COMPLETE_SIDE_QUEST = gql`
         newLevel
         leveledUp
       }
+    }
+  }
+`;
+
+export const UPDATE_MINI_GOAL = gql`
+  mutation UpdateMiniGoal($miniGoalId: ID!, $input: UpdateMiniGoalInput!) {
+    updateMiniGoal(miniGoalId: $miniGoalId, input: $input) {
+      success
+      message
+    }
+  }
+`;
+
+export const DELETE_MINI_GOAL = gql`
+  mutation DeleteMiniGoal($miniGoalId: ID!) {
+    deleteMiniGoal(miniGoalId: $miniGoalId) {
+      success
+      message
+    }
+  }
+`;
+
+export const ADD_MINI_GOAL = gql`
+  mutation AddMiniGoal($shardId: ID!, $input: AddMiniGoalInput!) {
+    addMiniGoal(shardId: $shardId, input: $input) {
+      success
+      message
+      miniGoal {
+        id
+        title
+        description
+        dueDate
+        tasks {
+          title
+          dueDate
+          completed
+          assignedTo
+        }
+      }
+    }
+  }
+`;
+
+export const ADD_TASK = gql`
+  mutation AddTask($miniGoalId: ID!, $title: String!, $dueDate: String) {
+    addTask(miniGoalId: $miniGoalId, title: $title, dueDate: $dueDate) {
+      success
+      message
+    }
+  }
+`;
+
+export const UPDATE_TASK = gql`
+  mutation UpdateTask($miniGoalId: ID!, $taskIndex: Int!, $title: String!, $dueDate: String) {
+    updateTask(miniGoalId: $miniGoalId, taskIndex: $taskIndex, title: $title, dueDate: $dueDate) {
+      success
+      message
+    }
+  }
+`;
+
+export const REGENERATE_SHARD = gql`
+  mutation RegenerateShard($shardId: ID!) {
+    regenerateShard(shardId: $shardId) {
+      success
+      message
+      warning
+      needsUpgrade
+      aiCallsRemaining
+      miniGoals {
+        id
+        title
+        taskCount
+        dueDate
+      }
+    }
+  }
+`;
+
+export const CLEAR_PENDING_ACHIEVEMENTS = gql`
+  mutation ClearPendingAchievements {
+    clearPendingAchievements {
+      success
+      message
     }
   }
 `;

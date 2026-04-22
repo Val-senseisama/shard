@@ -1,21 +1,20 @@
 export const CONFIG = {
-  // 10.0.2.2 = host machine localhost when running in Android emulator
+  // --- Option 1: Android Emulator (host machine localhost) ---
   // GRAPHQL_ENDPOINT: 'http://10.0.2.2:4000/graphql',
   // WS_ENDPOINT: 'ws://10.0.2.2:4000',
+
+  // --- Option 2: Remote server (production / public URL) ---
   // GRAPHQL_ENDPOINT: 'https://shard-server.pxxl.click/graphql',
   // WS_ENDPOINT: 'wss://shard-server.pxxl.click',
-  GRAPHQL_ENDPOINT: 'http://10.84.67.1:4000/graphql',
-  WS_ENDPOINT: 'ws://10.84.67.1:4000',
-  // Physical device / hotspot: use your machine's LAN IP
-  // GRAPHQL_ENDPOINT: 'http://10.153.102.1:4000/graphql',
-  // WS_ENDPOINT: 'ws://10.153.102.1:4000',
+
+  // --- Option 3: Phone hotspot (laptop connected to phone's hotspot) ---
+  // GRAPHQL_ENDPOINT: 'http://10.84.67.1:4000/graphql',
+  // WS_ENDPOINT: 'ws://10.84.67.1:4000',
+
+  // --- Option 4: Same WiFi network (laptop + physical phone on same LAN) ---
+  // Run `ip addr show | grep "inet " | grep -v "127.0.0.1"` to get your LAN IP
+  GRAPHQL_ENDPOINT: 'http://192.168.1.75:4000/graphql',
+  WS_ENDPOINT: 'ws://192.168.1.75:4000',
+
+  REVENUECAT_API_KEY: 'test_KipSkYmaWyOFiIAWjjovOprkEwP',
 };
-
-// GRAPHQL_ENDPOINT: 'http://10.153.102.1:4000/graphql',
-// WS_ENDPOINT: 'ws://10.153.102.1:400sss0',
-
-// use this for now : http://192.168.1.21:4000/graphql'
-
-// ryn this when connected to hotspot phone
-// ip addr show | grep "inet " | grep -v "127.0.0.1"
-//https://shard-server.pxxl.click

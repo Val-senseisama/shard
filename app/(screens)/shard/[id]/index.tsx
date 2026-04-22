@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_SHARD, GET_SHARD_SCHEDULE, GET_SHARD_ANALYTICS } from '~/Graphql/Queries';
-import { COMPLETE_TASK } from '~/Graphql/Mutations';
+import { COMPLETE_TASK, CREATE_SHARD_CHAT } from '~/Graphql/Mutations';
 import CelebrationOverlay from '~/components/CelebrationOverlay';
 import { useAppStore } from '~/store/app.store';
 import AnimatedPressable from '~/components/AnimatedPressable';
@@ -146,9 +146,7 @@ const ProgressGoalRow = memo(({ g, isDark }: { g: GoalStat; isDark: boolean }) =
         <Text style={{ fontSize: 14, fontWeight: '800', color: g.color }}>{g.pct}%</Text>
       </View>
       <View style={{ flex: 1 }}>
-        <Text
-          style={{ fontSize: 13, fontWeight: '600', color: theme.text }}
-          numberOfLines={1}>
+        <Text style={{ fontSize: 13, fontWeight: '600', color: theme.text }} numberOfLines={1}>
           {g.title}
         </Text>
         <Text style={{ fontSize: 11, color: theme.textSecondary, marginTop: 2 }}>
@@ -163,7 +161,9 @@ const ProgressGoalRow = memo(({ g, isDark }: { g: GoalStat; isDark: boolean }) =
           backgroundColor: theme.trackBg,
           overflow: 'hidden',
         }}>
-        <View style={{ height: 4, borderRadius: 2, backgroundColor: g.color, width: `${g.pct}%` }} />
+        <View
+          style={{ height: 4, borderRadius: 2, backgroundColor: g.color, width: `${g.pct}%` }}
+        />
       </View>
     </View>
   );
@@ -179,7 +179,14 @@ interface OverviewTabProps {
   onComplete: (miniGoalId: string, taskIndex: number, completed: boolean) => void;
 }
 const OverviewTab = memo(
-  ({ visible, shard, isDark, expandedSummary, setExpandedSummary, onComplete }: OverviewTabProps) => {
+  ({
+    visible,
+    shard,
+    isDark,
+    expandedSummary,
+    setExpandedSummary,
+    onComplete,
+  }: OverviewTabProps) => {
     const theme = t(isDark);
     const shadow = getCardShadow(isDark);
     return (
@@ -200,8 +207,7 @@ const OverviewTab = memo(
             borderLeftColor: ACCENT,
             ...(shadow as any),
           }}>
-          <Text
-            style={[S.sectionLabel, { color: theme.textSecondary, marginBottom: 8 }]}>
+          <Text style={[S.sectionLabel, { color: theme.textSecondary, marginBottom: 8 }]}>
             SHARD SUMMARY
           </Text>
           <Text
@@ -231,13 +237,7 @@ const OverviewTab = memo(
         <Text style={[S.sectionLabel, { color: theme.textSecondary }]}>SHARD GOALS</Text>
 
         {shard.minigoals?.map((goal: any, idx: number) => (
-          <GoalCard
-            key={goal.id}
-            goal={goal}
-            idx={idx}
-            isDark={isDark}
-            onComplete={onComplete}
-          />
+          <GoalCard key={goal.id} goal={goal} idx={idx} isDark={isDark} onComplete={onComplete} />
         ))}
       </View>
     );
@@ -349,7 +349,12 @@ const ProgressTab = memo(
             {/* Bar chart */}
             {goalStats.length > 0 && (
               <View
-                style={{ backgroundColor: theme.card, borderRadius: 16, padding: 16, ...(shadow as any) }}>
+                style={{
+                  backgroundColor: theme.card,
+                  borderRadius: 16,
+                  padding: 16,
+                  ...(shadow as any),
+                }}>
                 <Text style={[S.sectionLabel, { color: theme.textSecondary, marginBottom: 8 }]}>
                   GOAL BREAKDOWN
                 </Text>
@@ -413,7 +418,12 @@ const ScheduleTab = memo(
                 <View style={{ flex: 1, padding: 16, gap: 10 }}>
                   <Skeleton width="40%" height={12} animStyle={skeletonAnim} />
                   <Skeleton width="70%" height={16} animStyle={skeletonAnim} />
-                  <Skeleton width={60} height={22} style={{ borderRadius: 8 }} animStyle={skeletonAnim} />
+                  <Skeleton
+                    width={60}
+                    height={22}
+                    style={{ borderRadius: 8 }}
+                    animStyle={skeletonAnim}
+                  />
                 </View>
               </View>
             ))}
@@ -473,7 +483,12 @@ const ShardDetail = () => {
     data: shardData,
     loading: shardLoading,
     refetch: refetchShard,
-  } = useQuery(GET_SHARD, { variables: { id }, skip: !id });
+  } = useQuery(GET_SHARD, {
+    variables: { id },
+    skip: !id,
+    fetchPolicy: 'cache-and-network',
+    notifyOnNetworkStatusChange: true,
+  });
   const shard = shardData?.getShard?.shard;
 
   const {
@@ -488,6 +503,7 @@ const ShardDetail = () => {
   } = useQuery(GET_SHARD_ANALYTICS, { variables: { shardId: id }, skip: !id });
 
   const [completeTask] = useMutation(COMPLETE_TASK);
+  const [createShardChat, { loading: creatingChat }] = useMutation(CREATE_SHARD_CHAT);
 
   // ─── Derived data ─────────────────────────────────────────────────
   const scheduleTasksList = useMemo(
@@ -497,14 +513,33 @@ const ShardDetail = () => {
 
   const allParticipants = useMemo(() => {
     if (!shard) return [];
-    const list: any[] = [];
-    if (shard.owner)
-      list.push({ user: shard.owner.id, username: shard.owner.username, profilePic: null, role: 'owner' });
-    if (shard.participants)
-      shard.participants.forEach((p: any) => {
-        if (p.user !== shard.owner?.id) list.push(p);
-      });
-    return list;
+
+    const participantMap: Record<string, any> = {};
+
+    // 1. Add participants from the array
+    (shard.participants || []).forEach((p: any) => {
+      if (p.user) {
+        participantMap[p.user] = {
+          user: p.user,
+          username: p.username,
+          profilePic: p.profilePic,
+          role: p.role,
+        };
+      }
+    });
+
+    // 2. Add/Override with owner data (to ensure they are always present and correctly labeled)
+    const ownerId = shard.owner?.id || shard.owner?._id?.toString();
+    if (ownerId && shard.owner) {
+      participantMap[ownerId] = {
+        user: ownerId,
+        username: shard.owner.username,
+        profilePic: shard.owner.profilePic || null,
+        role: 'owner',
+      };
+    }
+
+    return Object.values(participantMap);
   }, [shard]);
 
   const goalStats = useMemo<GoalStat[]>(() => {
@@ -528,10 +563,7 @@ const ShardDetail = () => {
   const completedTasks = analytics?.completedTasks ?? 0;
 
   // Stable image source — prevents Image from re-fetching on every render
-  const heroImageSource = useMemo(
-    () => ({ uri: shard?.image || FALLBACK_IMAGE }),
-    [shard?.image]
-  );
+  const heroImageSource = useMemo(() => ({ uri: shard?.image || FALLBACK_IMAGE }), [shard?.image]);
 
   // ─── Handlers ─────────────────────────────────────────────────────
   const refetchAll = useCallback(() => {
@@ -554,7 +586,10 @@ const ShardDetail = () => {
           setShowCelebration(true);
           refetchAll();
         } else {
-          addAlert({ str: data?.completeTask?.message || 'Failed to complete task', type: 'error' });
+          addAlert({
+            str: data?.completeTask?.message || 'Failed to complete task',
+            type: 'error',
+          });
         }
       } catch {
         addAlert({ str: 'Failed to complete task', type: 'error' });
@@ -572,6 +607,31 @@ const ShardDetail = () => {
     },
     [handleCompleteTask]
   );
+
+  const handleChatPress = useCallback(async () => {
+    if (!id || creatingChat) return;
+
+    if (shard?.chatId) {
+      router.push(`/shard/${shard.chatId}/chat`);
+      return;
+    }
+
+    try {
+      const { data } = await createShardChat({ variables: { shardId: id } });
+      if (data?.createOrGetShardChat?.success && data?.createOrGetShardChat?.chatId) {
+        // Refetch to get the new chatId saved in the shard object
+        refetchShard();
+        router.push(`/shard/${data.createOrGetShardChat.chatId}/chat`);
+      } else {
+        addAlert({
+          str: data?.createOrGetShardChat?.message || 'Failed to create chat',
+          type: 'error',
+        });
+      }
+    } catch (e) {
+      addAlert({ str: 'Failed to open chat', type: 'error' });
+    }
+  }, [id, shard?.chatId, creatingChat, createShardChat, refetchShard, addAlert]);
 
   const handleCloseCelebration = useCallback(() => setShowCelebration(false), []);
 
@@ -619,6 +679,11 @@ const ShardDetail = () => {
                 <Ionicons name="arrow-back" size={20} color="#fff" />
               </AnimatedPressable>
               <View style={S.headerBtnGroup}>
+                {allParticipants.length > 1 && (
+                  <AnimatedPressable onPress={handleChatPress} scaleDown={0.9} style={S.headerBtn}>
+                    <Ionicons name="chatbubble-outline" size={18} color="#fff" />
+                  </AnimatedPressable>
+                )}
                 <AnimatedPressable
                   onPress={() => router.push(`/(screens)/shard/${id}/notifications`)}
                   scaleDown={0.9}

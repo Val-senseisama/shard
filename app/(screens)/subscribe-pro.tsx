@@ -1,214 +1,320 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, useColorScheme, Dimensions } from 'react-native';
+import React, { useState, useRef, useCallback } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ActivityIndicator,
+  ScrollView,
+  useColorScheme,
+  Alert,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useQuery } from '@apollo/client';
 import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
+import { GET_OFFERINGS } from '@/Graphql/Queries';
+import { purchasesService } from '@/services/purchasesService';
+import { useUserStore } from '@/store/user.store';
 
-const { width } = Dimensions.get('window');
+const PRO_FEATURES = [
+  { icon: 'infinite-outline', label: 'Unlimited Shards & Mini-Goals' },
+  { icon: 'flash-outline', label: 'AI-Powered Scheduling' },
+  { icon: 'bar-chart-outline', label: 'Advanced Analytics' },
+  { icon: 'star-outline', label: 'Priority Support' },
+  { icon: 'shield-checkmark-outline', label: 'Ad-Free Experience' },
+];
+
+// Maps server package identifier → RevenueCat package identifier
+const PACKAGE_ID_MAP: Record<string, string> = {
+  monthly: '$rc_monthly',
+  yearly: '$rc_annual',
+  lifetime: '$rc_lifetime',
+};
 
 export default function SubscribeToProPage() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
 
-  const features = [
-    { icon: 'infinite', text: 'Unlimited AI Task Generation', pro: true, free: '10/month' },
-    { icon: 'trending-up', text: 'Unlimited Shards (Goals)', pro: true, free: '5 active' },
-    { icon: 'people', text: 'Unlimited Collaborators', pro: true, free: '1 partner' },
-    { icon: 'analytics', text: 'Advanced Analytics & Insights', pro: true, free: false },
-    { icon: 'cloud-upload', text: 'Cloud Backup & Export', pro: true, free: false },
-    { icon: 'notifications-off', text: 'Ad-Free Experience', pro: true, free: false },
-    { icon: 'flash', text: 'Priority AI Processing', pro: true, free: false },
-    { icon: 'calendar', text: 'Advanced Scheduling Tools', pro: true, free: false },
-    { icon: 'shield-checkmark', text: 'Streak Freeze Protection', pro: true, free: false },
-    { icon: 'rocket', text: 'Early Access to New Features', pro: true, free: false },
-  ];
+  const [selectedPkgId, setSelectedPkgId] = useState<string>('yearly');
+  const [purchasing, setPurchasing] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  // Ref-based guard prevents double-tap from triggering OperationAlreadyInProgressError
+  const purchaseInFlight = useRef(false);
 
-  const handleSubscribe = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    // Handle subscription
+  const { data, loading, error } = useQuery(GET_OFFERINGS, {
+    fetchPolicy: 'cache-and-network',
+  });
+
+  const offerings: any[] = data?.listOfferings ?? [];
+  // Flatten packages across all offerings into a single list
+  const packages: any[] = offerings.flatMap((o) => o.packages);
+
+  const bg = isDark ? '#0F172A' : '#F8FAFC';
+  const card = isDark ? '#1E293B' : '#FFFFFF';
+  const text = isDark ? '#F1F5F9' : '#0F172A';
+  const muted = isDark ? '#94A3B8' : '#64748B';
+  const accent = '#7C3AED';
+  const accentLight = isDark ? '#4C1D95' : '#EDE9FE';
+
+  const updateUser = useUserStore((state) => state.updateUser);
+
+  const handlePurchase = useCallback(async () => {
+    if (!selectedPkgId) return;
+    // Hard lock: ref is synchronous, state is not — prevents double-tap race
+    if (purchaseInFlight.current) return;
+    purchaseInFlight.current = true;
+    setPurchasing(true);
+    try {
+      const rcOfferings = await purchasesService.getOfferings();
+      if (!rcOfferings) {
+        Alert.alert('Unavailable', 'Store packages not available. Please try again later.');
+        return;
+      }
+      const rcPkgId = PACKAGE_ID_MAP[selectedPkgId];
+      const pkg = rcOfferings.availablePackages.find(
+        (p) => p.packageType === rcPkgId || p.identifier === rcPkgId
+      );
+
+      let success = false;
+      if (!pkg) {
+        // Fallback: try all available packages
+        const fallback = rcOfferings.availablePackages[0];
+        if (fallback) {
+          success = await purchasesService.purchasePackage(fallback);
+        } else {
+          throw new Error('No packages available in store.');
+        }
+      } else {
+        success = await purchasesService.purchasePackage(pkg);
+      }
+
+      if (success) {
+        // Update local store immediately so UI feels snappy
+        updateUser({ subscriptionTier: 'pro' });
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        router.replace('/(screens)/(tabs)/Home');
+      }
+    } catch (e: any) {
+      if (!e.userCancelled) {
+        Alert.alert('Purchase Failed', e.message || 'Could not complete purchase.');
+      }
+    } finally {
+      purchaseInFlight.current = false;
+      setPurchasing(false);
+    }
+  }, [selectedPkgId, updateUser]);
+
+  const handleRestore = async () => {
+    setRestoring(true);
+    try {
+      const isPro = await purchasesService.restorePurchases();
+      if (isPro) {
+        updateUser({ subscriptionTier: 'pro' });
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert('Restored!', 'Your Pro subscription has been restored.', [
+          { text: 'OK', onPress: () => router.back() },
+        ]);
+      } else {
+        Alert.alert('Not Found', 'No active subscription found for this account.');
+      }
+    } catch {
+      Alert.alert('Error', 'Could not restore purchases. Please try again.');
+    } finally {
+      setRestoring(false);
+    }
   };
 
   return (
-    <SafeAreaView className="flex-1" style={{ backgroundColor: isDark ? '#111827' : '#F9FAFB' }}>
-      {/* Header */}
-      <View className="flex-row items-center px-6 py-4">
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="close" size={28} color={isDark ? '#FFF' : '#000'} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: bg }}>
+      <ScrollView
+        contentContainerStyle={{ padding: 24, paddingBottom: 40 }}
+        showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{ alignSelf: 'flex-start', marginBottom: 20 }}>
+          <Ionicons name="close" size={24} color={muted} />
         </TouchableOpacity>
-      </View>
 
-      <ScrollView className="flex-1 px-6">
-        {/* Hero */}
-        <Animated.View entering={FadeInDown.delay(100)} className="mb-8 items-center">
+        {/* Title */}
+        <View style={{ alignItems: 'center', marginBottom: 32 }}>
           <View
-            className="mb-4 h-20 w-20 items-center justify-center rounded-full"
-            style={{ backgroundColor: '#FFD700' }}>
-            <Ionicons name="diamond" size={40} color="#FFF" />
+            style={{
+              backgroundColor: accentLight,
+              borderRadius: 20,
+              padding: 16,
+              marginBottom: 16,
+            }}>
+            <Ionicons name="flash" size={36} color={accent} />
           </View>
+          <Text style={{ fontSize: 28, fontWeight: '800', color: text, textAlign: 'center' }}>
+            Unlock Shard Pro
+          </Text>
           <Text
-            className="mb-2 text-center text-3xl font-bold"
-            style={{ color: isDark ? '#FFF' : '#000' }}>
-            Upgrade to Pro
-          </Text>
-          <Text className="text-center text-lg" style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
-            Unlock unlimited potential
-          </Text>
-        </Animated.View>
-
-        {/* Plan Toggle */}
-        <Animated.View
-          entering={FadeInDown.delay(200)}
-          className="mb-8 flex-row rounded-xl p-1"
-          style={{ backgroundColor: isDark ? '#374151' : '#E5E7EB' }}>
-          <TouchableOpacity
-            onPress={() => {
-              setSelectedPlan('monthly');
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-            className="flex-1 rounded-lg py-3"
             style={{
-              backgroundColor: selectedPlan === 'monthly' ? '#667EEA' : 'transparent',
+              fontSize: 15,
+              color: muted,
+              textAlign: 'center',
+              marginTop: 8,
+              lineHeight: 22,
             }}>
-            <Text
-              className="text-center font-semibold"
-              style={{
-                color: selectedPlan === 'monthly' ? '#FFF' : isDark ? '#9CA3AF' : '#6B7280',
-              }}>
-              Monthly
-            </Text>
-            <Text
-              className="text-center text-sm"
-              style={{
-                color: selectedPlan === 'monthly' ? '#FFF' : isDark ? '#9CA3AF' : '#6B7280',
-              }}>
-              $9.99/mo
-            </Text>
-          </TouchableOpacity>
+            Supercharge your productivity with unlimited access to all features.
+          </Text>
+        </View>
 
-          <TouchableOpacity
-            onPress={() => {
-              setSelectedPlan('yearly');
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-            className="relative flex-1 rounded-lg py-3"
-            style={{
-              backgroundColor: selectedPlan === 'yearly' ? '#667EEA' : 'transparent',
-            }}>
-            <View className="absolute -top-3 right-2 rounded-full bg-green-500 px-2 py-1">
-              <Text className="text-xs font-bold text-white">SAVE 40%</Text>
+        {/* Pro Features */}
+        <View
+          style={{
+            backgroundColor: card,
+            borderRadius: 16,
+            padding: 20,
+            marginBottom: 28,
+            gap: 14,
+          }}>
+          {PRO_FEATURES.map((f) => (
+            <View key={f.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+              <View style={{ backgroundColor: accentLight, borderRadius: 10, padding: 8 }}>
+                <Ionicons name={f.icon as any} size={20} color={accent} />
+              </View>
+              <Text style={{ fontSize: 15, color: text, fontWeight: '500', flex: 1 }}>
+                {f.label}
+              </Text>
             </View>
-            <Text
-              className="text-center font-semibold"
-              style={{
-                color: selectedPlan === 'yearly' ? '#FFF' : isDark ? '#9CA3AF' : '#6B7280',
-              }}>
-              Yearly
-            </Text>
-            <Text
-              className="text-center text-sm"
-              style={{
-                color: selectedPlan === 'yearly' ? '#FFF' : isDark ? '#9CA3AF' : '#6B7280',
-              }}>
-              $5.99/mo
-            </Text>
-          </TouchableOpacity>
-        </Animated.View>
-
-        {/* Features Comparison */}
-        <View className="mb-8">
-          <Text
-            className="mb-4 text-center text-sm"
-            style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
-            ✨ Unlock everything with Pro
-          </Text>
-          {features.map((feature, index) => (
-            <Animated.View
-              key={index}
-              entering={FadeInDown.delay(300 + index * 50)}
-              className="flex-row items-center justify-between border-b py-4"
-              style={{ borderBottomColor: isDark ? '#374151' : '#E5E7EB' }}>
-              <View className="flex-1 flex-row items-center">
-                <View
-                  className="mr-3 h-10 w-10 items-center justify-center rounded-full"
-                  style={{ backgroundColor: '#667EEA20' }}>
-                  <Ionicons name={feature.icon as any} size={20} color="#667EEA" />
-                </View>
-                <View className="flex-1">
-                  <Text className="font-medium" style={{ color: isDark ? '#FFF' : '#000' }}>
-                    {feature.text}
-                  </Text>
-                  {feature.free && (
-                    <Text
-                      className="mt-1 text-xs"
-                      style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
-                      Free: {feature.free}
-                    </Text>
-                  )}
-                </View>
-              </View>
-              <View className="flex-row items-center gap-2">
-                {feature.free ? (
-                  <>
-                    <View
-                      className="rounded px-2 py-1"
-                      style={{ backgroundColor: isDark ? '#374151' : '#F3F4F6' }}>
-                      <Text className="text-xs" style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
-                        Limited
-                      </Text>
-                    </View>
-                    <Ionicons
-                      name="arrow-forward"
-                      size={16}
-                      color={isDark ? '#4B5563' : '#9CA3AF'}
-                    />
-                  </>
-                ) : null}
-                <Ionicons name="checkmark-circle" size={24} color="#10B981" />
-              </View>
-            </Animated.View>
           ))}
         </View>
 
-        {/* Price Summary */}
-        <Animated.View
-          entering={FadeInDown.delay(600)}
-          className="mb-6 rounded-xl p-4"
-          style={{ backgroundColor: isDark ? '#374151' : '#F3F4F6' }}>
-          <View className="mb-2 flex-row justify-between">
-            <Text style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
-              {selectedPlan === 'yearly' ? 'Yearly Plan' : 'Monthly Plan'}
-            </Text>
-            <Text className="font-bold" style={{ color: isDark ? '#FFF' : '#000' }}>
-              ${selectedPlan === 'yearly' ? '71.88' : '9.99'}
-            </Text>
-          </View>
-          {selectedPlan === 'yearly' && (
-            <Text className="text-sm text-green-500">You save $47.88 per year!</Text>
-          )}
-        </Animated.View>
-      </ScrollView>
-
-      {/* Subscribe Button */}
-      <View
-        className="border-t px-6 py-4"
-        style={{ borderTopColor: isDark ? '#374151' : '#E5E7EB' }}>
-        <TouchableOpacity
-          onPress={handleSubscribe}
-          className="rounded-xl py-4"
-          style={{ backgroundColor: '#FFD700' }}>
-          <Text className="text-center text-lg font-bold" style={{ color: '#000' }}>
-            Subscribe Now
+        {/* Plans */}
+        {loading ? (
+          <ActivityIndicator color={accent} style={{ marginVertical: 32 }} />
+        ) : error ? (
+          <Text style={{ color: 'red', textAlign: 'center', marginBottom: 24 }}>
+            Could not load plans. Please check your connection.
           </Text>
+        ) : (
+          <View style={{ gap: 12, marginBottom: 28 }}>
+            {packages.map((pkg) => {
+              const selected = selectedPkgId === pkg.identifier;
+              const isPopular = pkg.identifier === 'yearly';
+              return (
+                <TouchableOpacity
+                  key={pkg.identifier}
+                  onPress={() => setSelectedPkgId(pkg.identifier)}
+                  activeOpacity={0.85}
+                  style={{
+                    backgroundColor: selected ? accentLight : card,
+                    borderRadius: 16,
+                    borderWidth: 2,
+                    borderColor: selected ? accent : 'transparent',
+                    padding: 18,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <View
+                      style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: 11,
+                        borderWidth: 2,
+                        borderColor: selected ? accent : muted,
+                        backgroundColor: selected ? accent : 'transparent',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                      {selected && <Ionicons name="checkmark" size={13} color="#fff" />}
+                    </View>
+                    <View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text
+                          style={{
+                            fontSize: 16,
+                            fontWeight: '700',
+                            color: text,
+                            textTransform: 'capitalize',
+                          }}>
+                          {pkg.identifier}
+                        </Text>
+                        {isPopular && (
+                          <View
+                            style={{
+                              backgroundColor: accent,
+                              borderRadius: 6,
+                              paddingHorizontal: 6,
+                              paddingVertical: 2,
+                            }}>
+                            <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>
+                              BEST VALUE
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={{ fontSize: 13, color: muted, marginTop: 2 }}>
+                        {pkg.currencyCode}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text
+                    style={{ fontSize: 18, fontWeight: '800', color: selected ? accent : text }}>
+                    {pkg.priceString}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        {/* CTA */}
+        <TouchableOpacity
+          onPress={handlePurchase}
+          disabled={purchasing || loading || !selectedPkgId}
+          activeOpacity={0.85}
+          style={{
+            backgroundColor: accent,
+            borderRadius: 16,
+            paddingVertical: 18,
+            alignItems: 'center',
+            opacity: purchasing || loading ? 0.7 : 1,
+            marginBottom: 16,
+          }}>
+          {purchasing ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={{ color: '#fff', fontSize: 17, fontWeight: '800' }}>
+              Continue with{' '}
+              {selectedPkgId
+                ? selectedPkgId.charAt(0).toUpperCase() + selectedPkgId.slice(1)
+                : 'Plan'}
+            </Text>
+          )}
         </TouchableOpacity>
+
+        {/* Restore */}
+        <TouchableOpacity
+          onPress={handleRestore}
+          disabled={restoring}
+          style={{ alignItems: 'center', paddingVertical: 8 }}>
+          {restoring ? (
+            <ActivityIndicator color={muted} size="small" />
+          ) : (
+            <Text style={{ color: muted, fontSize: 14 }}>Restore Purchases</Text>
+          )}
+        </TouchableOpacity>
+
         <Text
-          className="mt-2 text-center text-xs"
-          style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
-          Cancel anytime. No questions asked.
+          style={{
+            color: muted,
+            fontSize: 12,
+            textAlign: 'center',
+            marginTop: 16,
+            lineHeight: 18,
+          }}>
+          Prices are set in{' '}
+          {packages.find((p) => p.identifier === selectedPkgId)?.currencyCode ?? 'USD'}.
+          Subscription renews automatically. Cancel anytime.
         </Text>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

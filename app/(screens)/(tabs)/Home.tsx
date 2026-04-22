@@ -1,6 +1,6 @@
 import AnimatedCrystal from '@/components/AnimatedCrystal';
-import React, { useRef } from 'react';
-import { FlatList, Image, Text, View, useColorScheme } from 'react-native';
+import React, { useRef, useState, useCallback } from 'react';
+import { FlatList, Image, Text, View, useColorScheme, ScrollView, RefreshControl } from 'react-native';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -39,7 +39,7 @@ const Home = () => {
   const scrollY = useSharedValue(0);
   const shardListRef = useRef<FlatList>(null);
 
-  useQuery(CURRENT_USER, {
+  const { refetch: refetchUser } = useQuery(CURRENT_USER, {
     onCompleted: (data) => {
       if (data?.currentUser?.user) setUser(data.currentUser.user);
     },
@@ -47,6 +47,13 @@ const Home = () => {
 
   const { data, loading, refetch } = useQuery(MY_SHARDS, { fetchPolicy: 'cache-and-network' });
   const shards = data?.myShards?.shards || [];
+
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([refetch(), refetchUser()]);
+    setRefreshing(false);
+  }, [refetch, refetchUser]);
 
   const avatarAnimatedStyle = useAnimatedStyle(() => ({
     opacity: interpolate(scrollY.value, [AVATAR_ANIMATION_RANGE * 0.3, AVATAR_ANIMATION_RANGE], [1, 0], Extrapolate.CLAMP),
@@ -107,7 +114,10 @@ const Home = () => {
               <ShardCardSkeleton />
             </View>
           ) : shards.length === 0 ? (
-            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, paddingBottom: 80 }}>
+            <ScrollView
+              contentContainerStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, paddingBottom: 80 }}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ACCENT} colors={[ACCENT]} />}
+            >
               <View style={{ marginBottom: 16 }}>
                 <AnimatedCrystal />
               </View>
@@ -137,7 +147,7 @@ const Home = () => {
                 <AntDesign name="plus" size={20} color="#fff" />
                 <Text style={{ fontSize: 15, fontWeight: '600', color: '#fff' }}>Create Your First Shard</Text>
               </AnimatedPressable>
-            </View>
+            </ScrollView>
           ) : (
             <Animated.FlatList
               ref={shardListRef}
@@ -165,8 +175,8 @@ const Home = () => {
               updateCellsBatchingPeriod={50}
               windowSize={7}
               removeClippedSubviews
-              onRefresh={refetch}
-              refreshing={loading}
+              onRefresh={onRefresh}
+              refreshing={refreshing}
             />
           )}
         </View>
