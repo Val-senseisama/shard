@@ -1,89 +1,164 @@
-import { Image, StyleSheet, Text, View, ScrollView } from 'react-native';
+import { useEffect } from 'react';
+import { View, Text, useColorScheme } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useFonts } from 'expo-font';
-import { useCallback } from 'react';
-import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Platform } from 'react-native';
-import BlockButton from '../BlockButton';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  FadeInUp,
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
+import AnimatedPressable from '../AnimatedPressable';
+import AnimatedCrystal from '../AnimatedCrystal';
+
+// ─── Floating orb ─────────────────────────────────────────────────────────────
+
+const Orb = ({ x, y, size, color, delay }: { x: string; y: string; size: number; color: string; delay: number }) => {
+  const opacity = useSharedValue(0.15);
+  const scale = useSharedValue(1);
+
+  useEffect(() => {
+    opacity.value = withRepeat(
+      withSequence(withTiming(0.4, { duration: 2500 + delay }), withTiming(0.15, { duration: 2500 + delay })),
+      -1,
+      true
+    );
+    scale.value = withRepeat(
+      withSequence(withTiming(1.15, { duration: 3000 + delay }), withTiming(1, { duration: 3000 + delay })),
+      -1,
+      true
+    );
+  }, []);
+
+  const style = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        {
+          position: 'absolute',
+          left: x as any,
+          top: y as any,
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: color,
+          filter: undefined,
+        },
+        style,
+      ]}
+    />
+  );
+};
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const isDark = useColorScheme() === 'dark';
 
-    const [fontsLoaded] = useFonts({
-      'Inter-Bold': require('../../assets/fonts/Inter_24pt-Bold.ttf'),
-      'Inter-SemiBold': require('../../assets/fonts/Inter_18pt-SemiBold.ttf'),
-      'Inter-Regular': require('../../assets/fonts/Inter_18pt-Regular.ttf'),
-    });
-
-  const onLayoutRootView = useCallback(() => {
-    // Layout root view callback if needed
-  }, []);
-
-  if (!fontsLoaded) {
-    return null;
-  }
+  const bg1 = isDark ? '#0a0a0f' : '#f0effe';
+  const bg2 = isDark ? '#0f0a1a' : '#e8e4ff';
 
   return (
-    <SafeAreaView className="min-h-screen min-w-full flex-1 bg-background-default dark:bg-background-dark-default">
-      <ScrollView className="flex-1">
-        <View className="min-h-screen min-w-full flex-1 items-center p-4">
-          <Animated.View 
-            entering={FadeIn.duration(1000)}
-            className="mb-5 mt-10"
-          >
-            <Image
-              source={require('../../assets/images/Fractal-shard.png')}
-              className="h-64 w-64"
-              resizeMode="contain"
-            />
-          </Animated.View>
+    <View style={{ flex: 1 }}>
+      <LinearGradient
+        colors={[bg1, bg2]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ flex: 1 }}>
 
-          <Animated.View 
-            entering={FadeInDown.duration(1000).delay(200)}
-            className="mb-10 items-center"
-          >
-            <Text className="mb-2 text-center font-ibold text-3xl text-text-primary dark:text-text-dark">
-              Welcome to Shard
-            </Text>
-            <Text className="text-center text-lg text-text-secondary dark:text-text-dark-secondary">
-              Where goals become quests.
-            </Text>
-          </Animated.View>
+        {/* Ambient orbs */}
+        <Orb x="-15%" y="5%" size={260} color="#7c3aed" delay={0} />
+        <Orb x="60%" y="55%" size={200} color="#6d28d9" delay={800} />
+        <Orb x="30%" y="75%" size={150} color="#8b5cf6" delay={400} />
 
-          <Animated.View 
-            entering={FadeInUp.duration(1000).delay(400)}
-            className="w-full max-w-md"
-          >
-            <View 
-              style={{
-                elevation: 3,
-                padding: 24,
-                gap: 16,
-              }}
-              className="w-full rounded-2xl bg-background-paper dark:bg-background-dark-paper"
-            >
-              <BlockButton 
-                title="Create Account"
-                otherStyles="w-full h-12 rounded-xl"
-                onPress={() => router.push('/(auth)/onboarding')}
-                variant='outline'
-              />
-              
-              <BlockButton 
-                title="Log In"
-                otherStyles="w-full h-12 rounded-xl bg-transparent"
-                onPress={() => router.push('/(auth)/login')}
+        <SafeAreaView style={{ flex: 1 }}>
+          <View style={{ flex: 1, justifyContent: 'space-between', paddingHorizontal: 28, paddingTop: 24, paddingBottom: 40 }}>
 
-              />
+            {/* Top: logo */}
+            <Animated.View entering={FadeIn.duration(600)} style={{ alignItems: 'center' }}>
+              <Text style={{
+                fontSize: 30,
+                fontWeight: '900',
+                letterSpacing: 5,
+                color: isDark ? '#fff' : '#1a1a1a',
+              }}>
+                SH<Text style={{ color: '#7c3aed' }}>▲</Text>RD
+              </Text>
+            </Animated.View>
+
+            {/* Center: crystal + tagline */}
+            <View style={{ alignItems: 'center' }}>
+              <Animated.View entering={FadeIn.duration(800).delay(200)} style={{ marginBottom: 32 }}>
+                <AnimatedCrystal />
+              </Animated.View>
+
+              <Animated.View entering={FadeInDown.duration(600).delay(400)} style={{ alignItems: 'center' }}>
+                <Text style={{
+                  fontSize: 34,
+                  fontWeight: '900',
+                  color: isDark ? '#fff' : '#1a1a1a',
+                  textAlign: 'center',
+                  letterSpacing: -0.5,
+                  lineHeight: 40,
+                  marginBottom: 12,
+                }}>
+                  Goals become{'\n'}
+                  <Text style={{ color: '#7c3aed' }}>quests.</Text>
+                </Text>
+                <Text style={{
+                  fontSize: 16,
+                  color: isDark ? '#9ca3af' : '#6b7280',
+                  textAlign: 'center',
+                  lineHeight: 24,
+                }}>
+                  Track progress. Earn XP.{'\n'}Achieve with friends.
+                </Text>
+              </Animated.View>
             </View>
-          </Animated.View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+
+            {/* Bottom: buttons */}
+            <Animated.View entering={FadeInUp.duration(600).delay(600)} style={{ gap: 14 }}>
+              <AnimatedPressable
+                onPress={() => router.push('/(auth)/register')}
+                scaleDown={0.97}
+                style={{ borderRadius: 18, overflow: 'hidden' }}>
+                <LinearGradient
+                  colors={['#7c3aed', '#6d28d9']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={{ height: 56, alignItems: 'center', justifyContent: 'center', borderRadius: 18 }}>
+                  <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700', letterSpacing: 0.2 }}>
+                    Create Account
+                  </Text>
+                </LinearGradient>
+              </AnimatedPressable>
+
+              <AnimatedPressable
+                onPress={() => router.push('/(auth)/login')}
+                scaleDown={0.97}
+                style={{
+                  height: 56, borderRadius: 18,
+                  borderWidth: 1.5,
+                  borderColor: isDark ? 'rgba(124,58,237,0.4)' : 'rgba(124,58,237,0.3)',
+                  backgroundColor: isDark ? 'rgba(124,58,237,0.08)' : 'rgba(124,58,237,0.05)',
+                  alignItems: 'center', justifyContent: 'center',
+                }}>
+                <Text style={{ fontSize: 17, fontWeight: '600', color: '#7c3aed' }}>Log In</Text>
+              </AnimatedPressable>
+            </Animated.View>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  // Keeping styles object for any additional styles that can't be handled by className
-});

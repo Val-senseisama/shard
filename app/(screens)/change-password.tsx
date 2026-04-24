@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -15,6 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useMutation } from '@apollo/client';
 import { CHANGE_PASSWORD } from '~/Graphql/Mutations';
+import Toast from 'react-native-toast-message';
+import AnimatedPressable from '~/components/AnimatedPressable';
 
 export default function ChangePasswordPage() {
   const colorScheme = useColorScheme();
@@ -54,13 +57,14 @@ export default function ChangePasswordPage() {
 
     setLoading(true);
     try {
-      await changePassword({
-        variables: {
-          currentPassword,
-          newPassword,
-        },
-      });
+      const { data } = await changePassword({ variables: { currentPassword, newPassword } });
+      if (data?.changePassword?.success === false) {
+        setError(data.changePassword.message || 'Incorrect current password');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        return;
+      }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Toast.show({ type: 'success', text1: 'Password changed successfully' });
       router.back();
     } catch (err: any) {
       setError(err.message || 'Failed to change password');
@@ -208,15 +212,15 @@ export default function ChangePasswordPage() {
                 ) : null}
 
                 {/* Submit Button */}
-                <TouchableOpacity
-                  onPress={handleSubmit}
-                  disabled={loading}
-                  className="rounded-xl py-4"
-                  style={{ backgroundColor: loading ? '#9CA3AF' : '#667EEA' }}>
-                  <Text className="text-center text-lg font-bold text-white">
-                    {loading ? 'Changing Password...' : 'Change Password'}
-                  </Text>
-                </TouchableOpacity>
+                <AnimatedPressable onPress={handleSubmit} disabled={loading} scaleDown={0.96}>
+                  <View className="rounded-xl py-4" style={{ backgroundColor: loading ? '#9CA3AF' : '#7c3aed', alignItems: 'center', justifyContent: 'center', height: 52 }}>
+                    {loading ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text className="text-center text-lg font-bold text-white">Change Password</Text>
+                    )}
+                  </View>
+                </AnimatedPressable>
               </View>
             </ScrollView>
           </KeyboardAvoidingView>

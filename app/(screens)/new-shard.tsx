@@ -20,7 +20,7 @@ import { AntDesign, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useMutation, useLazyQuery, useQuery } from '@apollo/client';
 import { useUserStore } from '~/store/user.store';
 import { useAppStore } from '~/store/app.store';
-import { CREATE_SHARD, CREATE_SHARD_MANUAL } from '~/Graphql/Mutations';
+import { CREATE_SHARD, CREATE_SHARD_MANUAL, DELETE_MINI_GOAL } from '~/Graphql/Mutations';
 import { GET_FRIENDS, GET_SIGNED_UPLOAD_URL, GET_AI_USAGE } from '~/Graphql/Queries';
 import { useFriendsStore, Friend } from '~/store/friends.store';
 import AddImageInput from '~/components/AddImageInput';
@@ -237,6 +237,7 @@ const AIReviewStep = ({
   onRegenerate,
   isDark,
   confirming,
+  warning,
 }: {
   miniGoals: MiniGoalPreview[];
   onRemove: (id: string) => void;
@@ -244,6 +245,7 @@ const AIReviewStep = ({
   onRegenerate: () => void;
   isDark: boolean;
   confirming: boolean;
+  warning?: string | null;
 }) => (
   <Animated.View entering={FadeInDown.duration(400)}>
     <Text
@@ -257,6 +259,28 @@ const AIReviewStep = ({
       }}>
       Your AI Quest Breakdown
     </Text>
+
+    {warning && (
+      <Animated.View
+        entering={FadeInDown.duration(300)}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'flex-start',
+          gap: 10,
+          backgroundColor: isDark ? 'rgba(234,179,8,0.1)' : 'rgba(234,179,8,0.08)',
+          borderRadius: 14,
+          borderWidth: 1,
+          borderColor: isDark ? 'rgba(234,179,8,0.25)' : 'rgba(234,179,8,0.2)',
+          padding: 12,
+          marginBottom: 16,
+        }}>
+        <Ionicons name="warning-outline" size={16} color="#eab308" style={{ marginTop: 1 }} />
+        <Text style={{ flex: 1, color: isDark ? '#fde68a' : '#92400e', fontSize: 12, lineHeight: 18 }}>
+          {warning}
+        </Text>
+      </Animated.View>
+    )}
+
     <Text
       style={{ color: isDark ? '#666' : '#999', fontSize: 12, marginBottom: 20, lineHeight: 18 }}>
       Review the steps your AI generated. Remove any you don't need, then confirm.
@@ -728,10 +752,12 @@ const NewShard = () => {
 
   // AI credit count
   const [aiRemaining, setAiRemaining] = useState<number | null>(null);
+  const [aiWarning, setAiWarning] = useState<string | null>(null);
 
   const { setFriends } = useFriendsStore();
 
   useQuery(GET_FRIENDS, {
+    fetchPolicy: 'cache-and-network', // always show newly accepted friends
     onCompleted: (data) => {
       if (data?.getFriends?.success) setFriends(data.getFriends.friends);
     },
@@ -746,6 +772,7 @@ const NewShard = () => {
 
   const [createShard] = useMutation(CREATE_SHARD);
   const [createShardManual] = useMutation(CREATE_SHARD_MANUAL);
+  const [deleteMiniGoal] = useMutation(DELETE_MINI_GOAL);
   const [fetchSignedUrl] = useLazyQuery(GET_SIGNED_UPLOAD_URL);
 
   const handleFriendSelect = (
@@ -800,7 +827,11 @@ const NewShard = () => {
       addAlert({ str: 'Please describe your goal', type: 'error' });
       return;
     }
+    // Move to step 2 immediately so the AILoadingView is visible during generation
     setLoading(true);
+    setStep(2);
+    setAiWarning(null);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
     try {
       let imageUrl = aiImageUrl;
       if (aiImageUri && !aiImageUrl) {
@@ -821,6 +852,7 @@ const NewShard = () => {
 
       if (data?.createShard?.needsUpgrade) {
         addAlert({ str: data.createShard.message, type: 'warning' });
+        setStep(1);
         return;
       }
 
@@ -829,13 +861,14 @@ const NewShard = () => {
           setAiRemaining(data.createShard.aiCallsRemaining);
         setPendingShardId(data.createShard.shard?.id);
         setReviewMiniGoals(data.createShard.shard?.miniGoals || []);
-        scrollRef.current?.scrollTo({ y: 0, animated: true });
-        setStep(2);
+        if (data.createShard.warning) setAiWarning(data.createShard.warning);
       } else {
         addAlert({ str: data?.createShard?.message || 'Failed to create quest', type: 'error' });
+        setStep(1);
       }
-    } catch {
-      addAlert({ str: 'Failed to create quest. Please try again.', type: 'error' });
+    } catch (err: any) {
+      addAlert({ str: err?.message || 'Failed to create quest. Please try again.', type: 'error' });
+      setStep(1);
     } finally {
       setLoading(false);
     }
@@ -1312,11 +1345,16 @@ const NewShard = () => {
               <View style={glassStyle}>
                 <AIReviewStep
                   miniGoals={reviewMiniGoals}
-                  onRemove={(id) => setReviewMiniGoals((prev) => prev.filter((mg) => mg.id !== id))}
+                  onRemove={(id) => {
+                    setReviewMiniGoals((prev) => prev.filter((mg) => mg.id !== id));
+                    // Delete from DB — fire and forget, non-blocking
+                    deleteMiniGoal({ variables: { miniGoalId: id } }).catch(() => {});
+                  }}
                   onConfirm={handleAIConfirm}
                   onRegenerate={handleAIRegenerate}
                   isDark={isDark}
                   confirming={confirming}
+                  warning={aiWarning}
                 />
               </View>
             )}

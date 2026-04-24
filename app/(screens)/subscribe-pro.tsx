@@ -2,20 +2,25 @@ import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   ActivityIndicator,
   ScrollView,
   useColorScheme,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useQuery } from '@apollo/client';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import Toast from 'react-native-toast-message';
 import { GET_OFFERINGS } from '@/Graphql/Queries';
 import { purchasesService } from '@/services/purchasesService';
 import { useUserStore } from '@/store/user.store';
+import AnimatedPressable from '~/components/AnimatedPressable';
+import { ACCENT, t } from '~/components/shard/constants';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+
+// ─── Config ───────────────────────────────────────────────────────────────────
 
 const PRO_FEATURES = [
   { icon: 'infinite-outline', label: 'Unlimited Shards & Mini-Goals' },
@@ -25,79 +30,62 @@ const PRO_FEATURES = [
   { icon: 'shield-checkmark-outline', label: 'Ad-Free Experience' },
 ];
 
-// Maps server package identifier → RevenueCat package identifier
 const PACKAGE_ID_MAP: Record<string, string> = {
   monthly: '$rc_monthly',
   yearly: '$rc_annual',
   lifetime: '$rc_lifetime',
 };
 
+const PLAN_META: Record<string, { label: string; period: string; badge?: string }> = {
+  monthly: { label: 'Monthly', period: 'per month' },
+  yearly:  { label: 'Yearly',  period: 'per year',  badge: 'BEST VALUE' },
+  lifetime:{ label: 'Lifetime',period: 'one-time payment' },
+};
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
 export default function SubscribeToProPage() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const isDark = useColorScheme() === 'dark';
+  const theme = t(isDark);
 
   const [selectedPkgId, setSelectedPkgId] = useState<string>('yearly');
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
-  // Ref-based guard prevents double-tap from triggering OperationAlreadyInProgressError
   const purchaseInFlight = useRef(false);
 
-  const { data, loading, error } = useQuery(GET_OFFERINGS, {
-    fetchPolicy: 'cache-and-network',
-  });
-
+  const { data, loading, error } = useQuery(GET_OFFERINGS, { fetchPolicy: 'cache-and-network' });
   const offerings: any[] = data?.listOfferings ?? [];
-  // Flatten packages across all offerings into a single list
   const packages: any[] = offerings.flatMap((o) => o.packages);
-
-  const bg = isDark ? '#0F172A' : '#F8FAFC';
-  const card = isDark ? '#1E293B' : '#FFFFFF';
-  const text = isDark ? '#F1F5F9' : '#0F172A';
-  const muted = isDark ? '#94A3B8' : '#64748B';
-  const accent = '#7C3AED';
-  const accentLight = isDark ? '#4C1D95' : '#EDE9FE';
 
   const updateUser = useUserStore((state) => state.updateUser);
 
   const handlePurchase = useCallback(async () => {
-    if (!selectedPkgId) return;
-    // Hard lock: ref is synchronous, state is not — prevents double-tap race
-    if (purchaseInFlight.current) return;
+    if (!selectedPkgId || purchaseInFlight.current) return;
     purchaseInFlight.current = true;
     setPurchasing(true);
     try {
       const rcOfferings = await purchasesService.getOfferings();
       if (!rcOfferings) {
-        Alert.alert('Unavailable', 'Store packages not available. Please try again later.');
+        Toast.show({ type: 'error', text1: 'Store unavailable', text2: 'Please try again later.' });
         return;
       }
       const rcPkgId = PACKAGE_ID_MAP[selectedPkgId];
       const pkg = rcOfferings.availablePackages.find(
         (p) => p.packageType === rcPkgId || p.identifier === rcPkgId
-      );
+      ) ?? rcOfferings.availablePackages[0];
 
-      let success = false;
-      if (!pkg) {
-        // Fallback: try all available packages
-        const fallback = rcOfferings.availablePackages[0];
-        if (fallback) {
-          success = await purchasesService.purchasePackage(fallback);
-        } else {
-          throw new Error('No packages available in store.');
-        }
-      } else {
-        success = await purchasesService.purchasePackage(pkg);
-      }
+      if (!pkg) throw new Error('No packages available in store.');
 
+      const success = await purchasesService.purchasePackage(pkg);
       if (success) {
-        // Update local store immediately so UI feels snappy
         updateUser({ subscriptionTier: 'pro' });
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Toast.show({ type: 'success', text1: 'Welcome to Shard Pro!', text2: 'All features unlocked.' });
         router.replace('/(screens)/(tabs)/Home');
       }
     } catch (e: any) {
       if (!e.userCancelled) {
-        Alert.alert('Purchase Failed', e.message || 'Could not complete purchase.');
+        Toast.show({ type: 'error', text1: 'Purchase Failed', text2: e.message || 'Please try again.' });
       }
     } finally {
       purchaseInFlight.current = false;
@@ -112,206 +100,153 @@ export default function SubscribeToProPage() {
       if (isPro) {
         updateUser({ subscriptionTier: 'pro' });
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert('Restored!', 'Your Pro subscription has been restored.', [
-          { text: 'OK', onPress: () => router.back() },
-        ]);
+        Toast.show({ type: 'success', text1: 'Pro restored!', text2: 'Your subscription is active.' });
+        router.back();
       } else {
-        Alert.alert('Not Found', 'No active subscription found for this account.');
+        Toast.show({ type: 'info', text1: 'No subscription found', text2: 'No active Pro plan for this account.' });
       }
     } catch {
-      Alert.alert('Error', 'Could not restore purchases. Please try again.');
+      Toast.show({ type: 'error', text1: 'Restore failed', text2: 'Please try again.' });
     } finally {
       setRestoring(false);
     }
   };
 
-  return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: bg }}>
-      <ScrollView
-        contentContainerStyle={{ padding: 24, paddingBottom: 40 }}
-        showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={{ alignSelf: 'flex-start', marginBottom: 20 }}>
-          <Ionicons name="close" size={24} color={muted} />
-        </TouchableOpacity>
+  // Find monthly price to compute yearly savings
+  const monthlyPkg = packages.find(p => p.identifier === 'monthly');
+  const yearlyPkg  = packages.find(p => p.identifier === 'yearly');
+  const savingsPct = monthlyPkg && yearlyPkg && monthlyPkg.price > 0
+    ? Math.round((1 - yearlyPkg.price / (monthlyPkg.price * 12)) * 100)
+    : null;
 
-        {/* Title */}
-        <View style={{ alignItems: 'center', marginBottom: 32 }}>
-          <View
-            style={{
-              backgroundColor: accentLight,
-              borderRadius: 20,
-              padding: 16,
-              marginBottom: 16,
-            }}>
-            <Ionicons name="flash" size={36} color={accent} />
-          </View>
-          <Text style={{ fontSize: 28, fontWeight: '800', color: text, textAlign: 'center' }}>
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+      <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
+
+        {/* Close */}
+        <AnimatedPressable onPress={() => router.back()} scaleDown={0.88} style={{ alignSelf: 'flex-start', marginBottom: 20 }}>
+          <Ionicons name="close" size={24} color={theme.textSecondary} />
+        </AnimatedPressable>
+
+        {/* Hero */}
+        <Animated.View entering={FadeInDown.duration(400)} style={{ alignItems: 'center', marginBottom: 28 }}>
+          <LinearGradient
+            colors={['#7c3aed', '#6d28d9']}
+            style={{ borderRadius: 22, padding: 18, marginBottom: 16 }}>
+            <Ionicons name="flash" size={36} color="#fff" />
+          </LinearGradient>
+          <Text style={{ fontSize: 28, fontWeight: '800', color: theme.text, textAlign: 'center', letterSpacing: -0.5 }}>
             Unlock Shard Pro
           </Text>
-          <Text
-            style={{
-              fontSize: 15,
-              color: muted,
-              textAlign: 'center',
-              marginTop: 8,
-              lineHeight: 22,
-            }}>
+          <Text style={{ fontSize: 15, color: theme.textSecondary, textAlign: 'center', marginTop: 8, lineHeight: 22 }}>
             Supercharge your productivity with unlimited access to all features.
           </Text>
-        </View>
+        </Animated.View>
 
-        {/* Pro Features */}
-        <View
-          style={{
-            backgroundColor: card,
-            borderRadius: 16,
-            padding: 20,
-            marginBottom: 28,
-            gap: 14,
-          }}>
+        {/* Features */}
+        <Animated.View
+          entering={FadeInDown.delay(100).duration(400)}
+          style={{ backgroundColor: theme.card, borderRadius: 18, padding: 20, marginBottom: 24, gap: 14, borderWidth: 1, borderColor: isDark ? theme.border : 'rgba(0,0,0,0.05)' }}>
           {PRO_FEATURES.map((f) => (
             <View key={f.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-              <View style={{ backgroundColor: accentLight, borderRadius: 10, padding: 8 }}>
-                <Ionicons name={f.icon as any} size={20} color={accent} />
+              <View style={{ backgroundColor: isDark ? 'rgba(124,58,237,0.15)' : 'rgba(124,58,237,0.08)', borderRadius: 10, padding: 9 }}>
+                <Ionicons name={f.icon as any} size={18} color={ACCENT} />
               </View>
-              <Text style={{ fontSize: 15, color: text, fontWeight: '500', flex: 1 }}>
-                {f.label}
-              </Text>
+              <Text style={{ fontSize: 15, color: theme.text, fontWeight: '500', flex: 1 }}>{f.label}</Text>
+              <Ionicons name="checkmark-circle" size={18} color="#10b981" />
             </View>
           ))}
-        </View>
+        </Animated.View>
 
         {/* Plans */}
         {loading ? (
-          <ActivityIndicator color={accent} style={{ marginVertical: 32 }} />
+          <ActivityIndicator color={ACCENT} style={{ marginVertical: 32 }} />
         ) : error ? (
-          <Text style={{ color: 'red', textAlign: 'center', marginBottom: 24 }}>
-            Could not load plans. Please check your connection.
+          <Text style={{ color: '#ef4444', textAlign: 'center', marginBottom: 24 }}>
+            Could not load plans. Check your connection.
           </Text>
         ) : (
-          <View style={{ gap: 12, marginBottom: 28 }}>
+          <Animated.View entering={FadeInDown.delay(200).duration(400)} style={{ gap: 12, marginBottom: 24 }}>
             {packages.map((pkg) => {
               const selected = selectedPkgId === pkg.identifier;
-              const isPopular = pkg.identifier === 'yearly';
+              const meta = PLAN_META[pkg.identifier] ?? { label: pkg.identifier, period: '' };
               return (
-                <TouchableOpacity
+                <AnimatedPressable
                   key={pkg.identifier}
                   onPress={() => setSelectedPkgId(pkg.identifier)}
-                  activeOpacity={0.85}
+                  scaleDown={0.97}
                   style={{
-                    backgroundColor: selected ? accentLight : card,
+                    backgroundColor: selected ? isDark ? 'rgba(124,58,237,0.15)' : 'rgba(124,58,237,0.07)' : theme.card,
                     borderRadius: 16,
                     borderWidth: 2,
-                    borderColor: selected ? accent : 'transparent',
-                    padding: 18,
+                    borderColor: selected ? ACCENT : isDark ? theme.border : 'rgba(0,0,0,0.06)',
+                    padding: 16,
                     flexDirection: 'row',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                   }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <View
-                      style={{
-                        width: 22,
-                        height: 22,
-                        borderRadius: 11,
-                        borderWidth: 2,
-                        borderColor: selected ? accent : muted,
-                        backgroundColor: selected ? accent : 'transparent',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}>
-                      {selected && <Ionicons name="checkmark" size={13} color="#fff" />}
+                    {/* Radio */}
+                    <View style={{
+                      width: 22, height: 22, borderRadius: 11,
+                      borderWidth: 2,
+                      borderColor: selected ? ACCENT : theme.textSecondary,
+                      backgroundColor: selected ? ACCENT : 'transparent',
+                      alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {selected && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff' }} />}
                     </View>
                     <View>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <Text
-                          style={{
-                            fontSize: 16,
-                            fontWeight: '700',
-                            color: text,
-                            textTransform: 'capitalize',
-                          }}>
-                          {pkg.identifier}
-                        </Text>
-                        {isPopular && (
-                          <View
-                            style={{
-                              backgroundColor: accent,
-                              borderRadius: 6,
-                              paddingHorizontal: 6,
-                              paddingVertical: 2,
-                            }}>
-                            <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>
-                              BEST VALUE
+                        <Text style={{ fontSize: 16, fontWeight: '700', color: theme.text }}>{meta.label}</Text>
+                        {meta.badge && (
+                          <View style={{ backgroundColor: ACCENT, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                            <Text style={{ color: '#fff', fontSize: 9, fontWeight: '800' }}>
+                              {meta.badge}{savingsPct && pkg.identifier === 'yearly' ? ` · SAVE ${savingsPct}%` : ''}
                             </Text>
                           </View>
                         )}
                       </View>
-                      <Text style={{ fontSize: 13, color: muted, marginTop: 2 }}>
-                        {pkg.currencyCode}
-                      </Text>
+                      <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 2 }}>{meta.period}</Text>
                     </View>
                   </View>
-                  <Text
-                    style={{ fontSize: 18, fontWeight: '800', color: selected ? accent : text }}>
+                  <Text style={{ fontSize: 18, fontWeight: '800', color: selected ? ACCENT : theme.text }}>
                     {pkg.priceString}
                   </Text>
-                </TouchableOpacity>
+                </AnimatedPressable>
               );
             })}
-          </View>
+          </Animated.View>
         )}
 
         {/* CTA */}
-        <TouchableOpacity
-          onPress={handlePurchase}
-          disabled={purchasing || loading || !selectedPkgId}
-          activeOpacity={0.85}
-          style={{
-            backgroundColor: accent,
-            borderRadius: 16,
-            paddingVertical: 18,
-            alignItems: 'center',
-            opacity: purchasing || loading ? 0.7 : 1,
-            marginBottom: 16,
-          }}>
-          {purchasing ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={{ color: '#fff', fontSize: 17, fontWeight: '800' }}>
-              Continue with{' '}
-              {selectedPkgId
-                ? selectedPkgId.charAt(0).toUpperCase() + selectedPkgId.slice(1)
-                : 'Plan'}
-            </Text>
-          )}
-        </TouchableOpacity>
+        <AnimatedPressable onPress={handlePurchase} disabled={purchasing || loading || !selectedPkgId} scaleDown={0.96} style={{ marginBottom: 14 }}>
+          <LinearGradient
+            colors={['#7c3aed', '#6d28d9']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={{ borderRadius: 16, height: 56, alignItems: 'center', justifyContent: 'center', opacity: purchasing ? 0.7 : 1 }}>
+            {purchasing ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={{ color: '#fff', fontSize: 17, fontWeight: '800' }}>
+                Continue with {PLAN_META[selectedPkgId]?.label ?? 'Plan'}
+              </Text>
+            )}
+          </LinearGradient>
+        </AnimatedPressable>
 
         {/* Restore */}
-        <TouchableOpacity
-          onPress={handleRestore}
-          disabled={restoring}
-          style={{ alignItems: 'center', paddingVertical: 8 }}>
+        <AnimatedPressable onPress={handleRestore} disabled={restoring} scaleDown={0.94} style={{ alignItems: 'center', paddingVertical: 10, marginBottom: 16 }}>
           {restoring ? (
-            <ActivityIndicator color={muted} size="small" />
+            <ActivityIndicator color={theme.textSecondary} size="small" />
           ) : (
-            <Text style={{ color: muted, fontSize: 14 }}>Restore Purchases</Text>
+            <Text style={{ color: theme.textSecondary, fontSize: 14 }}>Restore Purchases</Text>
           )}
-        </TouchableOpacity>
+        </AnimatedPressable>
 
-        <Text
-          style={{
-            color: muted,
-            fontSize: 12,
-            textAlign: 'center',
-            marginTop: 16,
-            lineHeight: 18,
-          }}>
-          Prices are set in{' '}
-          {packages.find((p) => p.identifier === selectedPkgId)?.currencyCode ?? 'USD'}.
+        <Text style={{ color: theme.textSecondary, fontSize: 12, textAlign: 'center', lineHeight: 18 }}>
+          Prices shown in {packages.find(p => p.identifier === selectedPkgId)?.currencyCode ?? 'local currency'}.{' '}
           Subscription renews automatically. Cancel anytime.
         </Text>
       </ScrollView>

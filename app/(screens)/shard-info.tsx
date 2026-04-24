@@ -26,7 +26,6 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import { useShardStore } from '~/store/shard.store';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_SHARD, GET_SHARD_SCHEDULE, GET_SHARD_ANALYTICS } from '~/Graphql/Queries';
 import {
@@ -196,7 +195,6 @@ const ShardInfo = () => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const params = useLocalSearchParams();
-  const { selectedShard } = useShardStore();
   const currentUser = useUserStore((s) => s.user);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [shard, setShard] = useState<any>(null);
@@ -232,7 +230,7 @@ const ShardInfo = () => {
   } | null>(null);
 
   // Get shard ID from params or selected shard
-  const shardId = (params.shardId as string) || selectedShard?.id;
+  const shardId = (params.shardId as string) || (params.id as string);
 
   // Fetch full shard data
   const {

@@ -58,8 +58,7 @@ const ChatSettings = () => {
       const { data: res } = await assignTask({
         variables: {
           chatId: id,
-          assignedToId: userId,
-          content: `Task assigned to @${username}`,
+          assigneeId: userId,
         },
       });
       if (res?.assignTaskFromChat?.success) {

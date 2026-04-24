@@ -289,8 +289,15 @@ const Schedule = () => {
     [screenWidth]
   );
 
+  const [refreshing, setRefreshing] = useState(false);
   const { data, loading, error, refetch } = useQuery(GET_MY_SCHEDULE);
   const [completeTask] = useMutation(COMPLETE_TASK);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  }, [refetch]);
 
   const allDays = useMemo(() => {
     const days: Date[] = [];
@@ -425,8 +432,8 @@ const tasksForSelectedDate = data?.getMySchedule?.tasksByDate?.[selectedDateKey]
           scrollEventThrottle={16}
           refreshControl={
             <RefreshControl
-              refreshing={loading}
-              onRefresh={refetch}
+              refreshing={refreshing}
+              onRefresh={onRefresh}
               tintColor={ACCENT}
               colors={[ACCENT]}
             />

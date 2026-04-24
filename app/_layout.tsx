@@ -13,12 +13,78 @@ import {
   HttpLink,
   Observable,
   Observer,
-  useQuery,
 } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import { jwtDecode } from 'jwt-decode';
 import Session from '@/helpers/Session';
 import { CONFIG } from '@/config';
+
+// ─── Apollo client — created once at module level ─────────────────────────────
+// IMPORTANT: must not be inside the component or the cache resets on every render.
+
+const middlewareAuthLink = new ApolloLink((operation, forward) =>
+  new Observable((observer: Observer<any>) => {
+    (async () => {
+      try {
+        const headers: Record<string, string> = {
+          'x-access-token': (await Session.getCookie('x-access-token')) || '',
+          'x-refresh-token': (await Session.getCookie('x-refresh-token')) || '',
+        };
+        const refresh = (await Session.getCookie('x-force-token')) || '';
+        if (refresh) {
+          headers['x-force-token'] = refresh;
+          await Session.clearAllCookies();
+        }
+        operation.setContext({ headers });
+        const sub = forward(operation).subscribe({
+          next: (r) => observer.next?.(r),
+          error: (e) => observer.error?.(e),
+          complete: () => observer.complete?.(),
+        });
+        return () => sub.unsubscribe();
+      } catch (e) {
+        observer.error?.(e);
+      }
+    })();
+  })
+);
+
+const afterwareLink = new ApolloLink((operation, forward) =>
+  forward(operation).map((response) => {
+    const { response: { headers } = {} as any } = operation.getContext();
+    if (headers) {
+      const accessToken = headers.get('x-access-token');
+      if (accessToken) {
+        try {
+          const decoded: any = jwtDecode(accessToken);
+          if (decoded.exp > Math.floor(Date.now() / 1000) && decoded.id) {
+            Session.setCookie('x-access-token', accessToken);
+            Session.setCookie('x-refresh-token', headers.get('x-refresh-token'));
+          } else {
+            Session.clearAllCookies();
+          }
+        } catch {
+          Session.clearAllCookies();
+        }
+      }
+    }
+    return response;
+  })
+);
+
+const errorLink = onError(({ graphQLErrors, networkError }) => {
+  graphQLErrors?.forEach(({ message, locations, path }) =>
+    console.log(`[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`)
+  );
+  if (networkError) console.log('[Network error]:', networkError);
+});
+
+const httpLink = new HttpLink({ uri: CONFIG.GRAPHQL_ENDPOINT, credentials: 'omit' });
+
+const apolloClient = new ApolloClient({
+  link: ApolloLink.from([errorLink, middlewareAuthLink, afterwareLink, httpLink]),
+  cache: new InMemoryCache(),
+});
 import { isLoggedIn } from '@/helpers/isLoggedIn';
 import Toast from 'react-native-toast-message';
 import { Text, View } from 'react-native';
@@ -136,90 +202,6 @@ export default function RootLayout() {
     return null;
   }
 
-  const middlewareAuthLink = new ApolloLink((operation, forward) => {
-    return new Observable((observer: Observer<any>) => {
-      (async () => {
-        try {
-          const headers: Record<string, string> = {
-            'x-access-token': (await Session.getCookie('x-access-token')) || '',
-            'x-refresh-token': (await Session.getCookie('x-refresh-token')) || '',
-          };
-          const refresh = (await Session.getCookie('x-force-token')) || '';
-          if (refresh) {
-            headers['x-force-token'] = refresh;
-            await Session.clearAllCookies();
-          }
-          operation.setContext({ headers });
-
-          const subscription = forward(operation).subscribe({
-            next: (result) => observer.next?.(result),
-            error: (error) => observer.error?.(error),
-            complete: () => observer.complete?.(),
-          });
-
-          return () => {
-            if (subscription) subscription.unsubscribe();
-          };
-        } catch (error) {
-          observer.error?.(error);
-        }
-      })();
-    });
-  });
-
-  // After the backend responds, we take the x-refresh-token and x-refresh-token from headers if it exists, and save it in the session.
-  const afterwareLink = new ApolloLink((operation, forward) => {
-    return forward(operation).map((response) => {
-      const context = operation.getContext();
-      const {
-        response: { headers },
-      } = context;
-
-      if (headers) {
-        const refreshToken = headers.get('x-refresh-token');
-        const accessToken = headers.get('x-access-token');
-        if (accessToken) {
-          try {
-            const decoded: any = jwtDecode(accessToken);
-            const isExpired = decoded.exp <= Math.floor(Date.now() / 1000);
-            if (!isExpired && decoded.id) {
-              Session.setCookie('x-access-token', accessToken);
-              Session.setCookie('x-refresh-token', refreshToken);
-            } else {
-              Session.clearAllCookies();
-            }
-          } catch (err) {
-            // err
-            Session.clearAllCookies();
-          }
-        }
-      }
-
-      return response;
-    });
-  });
-
-  const errorLink = onError(({ graphQLErrors, networkError }) => {
-    if (graphQLErrors) {
-      graphQLErrors.forEach(({ message, locations, path }) => {
-        console.log(`[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`);
-      });
-    }
-    if (networkError) {
-      console.log('[Network error]:', networkError);
-    }
-  });
-
-  const httpLink = new HttpLink({
-    uri: CONFIG.GRAPHQL_ENDPOINT,
-    credentials: 'omit',
-  });
-
-  const client = new ApolloClient({
-    link: ApolloLink.from([errorLink, middlewareAuthLink, afterwareLink, httpLink]),
-    cache: new InMemoryCache(),
-  });
-
   const toastConfig = {
     success: ({ text1 }: any) => (
       <View
@@ -261,10 +243,10 @@ export default function RootLayout() {
   };
 
   return (
-    <ApolloProvider client={client}>
+    <ApolloProvider client={apolloClient}>
       <GestureHandlerRootView>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+        <ThemeProvider value={isDarkMode ? DarkTheme : DefaultTheme}>
+          <StatusBar style={isDarkMode ? 'light' : 'dark'} />
           <UserProvider />
           <PushTokenRegistration />
           <Stack

@@ -20,7 +20,7 @@ class PurchasesService {
     
     try {
       await Purchases.configure({ 
-        apiKey: REVENUECAT_API_KEY, 
+        apiKey: REVENUECAT_API_KEY || "", 
         appUserID: userId 
       });
       console.log('✅ RevenueCat initialized for user:', userId || 'anonymous');

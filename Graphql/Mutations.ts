@@ -603,6 +603,46 @@ export const DELETE_MINI_GOAL = gql`
   }
 `;
 
+export const ADD_SHARD_PARTICIPANT = gql`
+  mutation AddShardParticipant($shardId: ID!, $userId: ID!, $role: String!) {
+    addShardParticipant(shardId: $shardId, userId: $userId, role: $role) {
+      success
+      message
+    }
+  }
+`;
+
+export const CREATE_CHALLENGE = gql`
+  mutation CreateChallenge($input: CreateChallengeInput!) {
+    createChallenge(input: $input) {
+      success
+      message
+      challenge {
+        id
+        title
+        type
+        targetDate
+        xpReward
+      }
+    }
+  }
+`;
+
+export const COMPLETE_CHALLENGE = gql`
+  mutation CompleteChallenge($challengeId: ID!) {
+    completeChallenge(challengeId: $challengeId) {
+      success
+      message
+      xpEarned
+      xpResult {
+        newXP
+        newLevel
+        leveledUp
+      }
+    }
+  }
+`;
+
 export const ADD_MINI_GOAL = gql`
   mutation AddMiniGoal($shardId: ID!, $input: AddMiniGoalInput!) {
     addMiniGoal(shardId: $shardId, input: $input) {
@@ -663,6 +703,42 @@ export const REGENERATE_SHARD = gql`
 export const CLEAR_PENDING_ACHIEVEMENTS = gql`
   mutation ClearPendingAchievements {
     clearPendingAchievements {
+      success
+      message
+    }
+  }
+`;
+
+export const ADD_REACTION = gql`
+  mutation AddReaction($messageId: ID!, $emoji: String!) {
+    addReaction(messageId: $messageId, emoji: $emoji) {
+      success
+      message
+    }
+  }
+`;
+
+export const REMOVE_REACTION = gql`
+  mutation RemoveReaction($messageId: ID!, $emoji: String!) {
+    removeReaction(messageId: $messageId, emoji: $emoji) {
+      success
+      message
+    }
+  }
+`;
+
+export const EDIT_MESSAGE = gql`
+  mutation EditMessage($messageId: ID!, $content: String!) {
+    editMessage(messageId: $messageId, content: $content) {
+      success
+      message
+    }
+  }
+`;
+
+export const DELETE_MESSAGE = gql`
+  mutation DeleteMessage($messageId: ID!) {
+    deleteMessage(messageId: $messageId) {
       success
       message
     }

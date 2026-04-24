@@ -16,7 +16,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useShardStore } from '~/store/shard.store';
 import AddImageInput from '~/components/AddImageInput';
 import { useAppStore } from '~/store/app.store';
 import { useQuery, useMutation, useLazyQuery } from '@apollo/client';
@@ -62,7 +61,6 @@ const EditShard = () => {
   const isDark = colorScheme === 'dark';
   const { addAlert } = useAppStore();
   const { friends, setFriends } = useFriendsStore();
-  const { shards, setShards } = useShardStore();
 
   const { data: shardData, loading: shardLoading, refetch } = useQuery(GET_SHARD, {
     variables: { id },
@@ -205,10 +203,6 @@ const EditShard = () => {
       });
 
       if (data?.updateShard?.success) {
-        const updatedShards = shards.map((s) =>
-          s.id === id ? { ...s, title: data.updateShard.shard.title, summary: data.updateShard.shard.description, image: data.updateShard.shard.image } : s
-        );
-        setShards(updatedShards);
         addAlert({ str: 'Shard updated!', type: 'success' });
         router.back();
       } else {
@@ -230,7 +224,6 @@ const EditShard = () => {
           try {
             const { data } = await deleteShardMutation({ variables: { id } });
             if (data?.deleteShard?.success) {
-              setShards(shards.filter((s) => s.id !== id));
               addAlert({ str: 'Shard deleted', type: 'success' });
               router.dismissAll();
               router.replace('/(screens)/(tabs)/Home');

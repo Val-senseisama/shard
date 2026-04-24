@@ -1,441 +1,494 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
-  Image,
   ScrollView,
+  Image,
   useColorScheme,
-  Platform,
-  KeyboardAvoidingView,
-  Animated as RNAnimated,
-  PanResponder,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import Animated, { FadeIn, SlideInRight } from 'react-native-reanimated';
-import { AntDesign, MaterialIcons, Ionicons } from '@expo/vector-icons';
-import AppStore from '~/helpers/AppStore';
-import images from '@/constants/images';
-import { useMutation } from '@apollo/client';
-import { gql } from '@apollo/client';
+import { Ionicons } from '@expo/vector-icons';
+import { useQuery, useLazyQuery, useMutation } from '@apollo/client';
+import Animated, { FadeIn, FadeInDown, FadeOutRight } from 'react-native-reanimated';
 import Toast from 'react-native-toast-message';
+import { GET_FRIENDS, GET_SHARD, SEARCH_USERS } from '~/Graphql/Queries';
+import { ADD_SHARD_PARTICIPANT } from '~/Graphql/Mutations';
+import { ACCENT, t } from '~/components/shard/constants';
+import AnimatedPressable from '~/components/AnimatedPressable';
+import { avatarUri } from '~/helpers/avatarUri';
+import { useFriendsStore } from '~/store/friends.store';
 
-const ADD_SHARD_PARTICIPANT = gql`
-  mutation AddShardParticipant($shardId: ID!, $userId: ID!, $role: String!) {
-    addShardParticipant(shardId: $shardId, userId: $userId, role: $role) {
-      success
-      message
-    }
-  }
-`;
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-interface User {
+type Role = 'collaborator' | 'accountability';
+
+interface Candidate {
   id: string;
-  name: string;
-  email: string;
-  avatar: string;
-  role?: 'collaborator' | 'accountability';
+  username: string;
+  profilePic: string;
+  mutualFriends?: number;
 }
+
+interface Selected extends Candidate {
+  role: Role;
+}
+
+// ─── Role chip ────────────────────────────────────────────────────────────────
+
+const ROLE_META: Record<Role, { label: string; color: string; icon: string }> = {
+  collaborator: { label: 'Collaborator', color: '#8b5cf6', icon: 'people' },
+  accountability: { label: 'Accountability', color: '#f59e0b', icon: 'shield-checkmark' },
+};
+
+const RoleToggle = ({
+  role,
+  onToggle,
+  isDark,
+}: {
+  role: Role;
+  onToggle: () => void;
+  isDark: boolean;
+}) => {
+  const meta = ROLE_META[role];
+  return (
+    <AnimatedPressable
+      onPress={onToggle}
+      scaleDown={0.9}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        backgroundColor: `${meta.color}20`,
+        borderRadius: 8,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderWidth: 1,
+        borderColor: `${meta.color}40`,
+      }}>
+      <Ionicons name={meta.icon as any} size={11} color={meta.color} />
+      <Text style={{ fontSize: 10, fontWeight: '700', color: meta.color }}>
+        {role === 'collaborator' ? 'Collab' : 'Acct.'}
+      </Text>
+      <Ionicons name="swap-horizontal" size={9} color={meta.color} />
+    </AnimatedPressable>
+  );
+};
+
+// ─── Selected chip ────────────────────────────────────────────────────────────
+
+const SelectedChip = ({
+  user,
+  onRemove,
+  onToggleRole,
+  isDark,
+}: {
+  user: Selected;
+  onRemove: (id: string) => void;
+  onToggleRole: (id: string) => void;
+  isDark: boolean;
+}) => (
+  <Animated.View
+    entering={FadeIn.duration(200)}
+    exiting={FadeOutRight.duration(180)}
+    style={{ alignItems: 'center', width: 76, marginRight: 12 }}>
+    <View style={{ position: 'relative' }}>
+      <Image
+        source={{ uri: avatarUri(user.profilePic, user.username) }}
+        style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: ACCENT, borderWidth: 2, borderColor: ROLE_META[user.role].color }}
+      />
+      <AnimatedPressable
+        onPress={() => onRemove(user.id)}
+        scaleDown={0.85}
+        style={{
+          position: 'absolute', top: -4, right: -4,
+          width: 20, height: 20, borderRadius: 10,
+          backgroundColor: '#ef4444',
+          alignItems: 'center', justifyContent: 'center',
+          borderWidth: 2, borderColor: isDark ? '#0f0f0f' : '#fff',
+        }}>
+        <Ionicons name="close" size={11} color="#fff" />
+      </AnimatedPressable>
+    </View>
+    <Text
+      style={{ fontSize: 11, fontWeight: '600', color: isDark ? '#fff' : '#1a1a1a', marginTop: 6, textAlign: 'center' }}
+      numberOfLines={1}>
+      {user.username}
+    </Text>
+    <View style={{ marginTop: 4 }}>
+      <RoleToggle role={user.role} onToggle={() => onToggleRole(user.id)} isDark={isDark} />
+    </View>
+  </Animated.View>
+);
+
+// ─── Candidate row ────────────────────────────────────────────────────────────
+
+const CandidateRow = ({
+  user,
+  isDark,
+  isSelected,
+  isExisting,
+  onAdd,
+}: {
+  user: Candidate;
+  isDark: boolean;
+  isSelected: boolean;
+  isExisting: boolean;
+  onAdd: (user: Candidate) => void;
+}) => {
+  const theme = t(isDark);
+  const disabled = isSelected || isExisting;
+
+  return (
+    <Animated.View
+      entering={FadeInDown.duration(250)}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.card,
+        borderRadius: 14,
+        padding: 12,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: isSelected
+          ? `${ACCENT}40`
+          : isDark ? theme.border : 'rgba(0,0,0,0.05)',
+      }}>
+      <Image
+        source={{ uri: avatarUri(user.profilePic, user.username) }}
+        style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: ACCENT }}
+      />
+      <View style={{ flex: 1, marginLeft: 12 }}>
+        <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text }}>{user.username}</Text>
+        {(user.mutualFriends ?? 0) > 0 && (
+          <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 2 }}>
+            {user.mutualFriends} mutual
+          </Text>
+        )}
+      </View>
+      <AnimatedPressable
+        onPress={() => !disabled && onAdd(user)}
+        scaleDown={0.88}
+        disabled={disabled}
+        style={{
+          width: 36, height: 36, borderRadius: 18,
+          alignItems: 'center', justifyContent: 'center',
+          backgroundColor: isExisting
+            ? isDark ? '#1a1a1a' : '#f3f4f6'
+            : isSelected
+              ? `${ACCENT}20`
+              : ACCENT,
+        }}>
+        {isExisting ? (
+          <Ionicons name="checkmark-circle" size={20} color={isDark ? '#4b5563' : '#9ca3af'} />
+        ) : isSelected ? (
+          <Ionicons name="checkmark-circle" size={20} color={ACCENT} />
+        ) : (
+          <Ionicons name="add" size={20} color="#fff" />
+        )}
+      </AnimatedPressable>
+    </Animated.View>
+  );
+};
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 const AddPartners = () => {
   const { shardId } = useLocalSearchParams<{ shardId: string }>();
-  const [user, setUser] = useState<Record<string, any> | null>(null);
+  const isDark = useColorScheme() === 'dark';
+  const theme = t(isDark);
+
+  const [selected, setSelected] = useState<Selected[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
-  const [swipeAnimations] = useState(() => new Map<string, RNAnimated.Value>());
-  const colorScheme = useColorScheme();
-  const [addShardParticipant, { loading: addingParticipant }] = useMutation(ADD_SHARD_PARTICIPANT);
+  const [searchResults, setSearchResults] = useState<Candidate[]>([]);
+  const [saving, setSaving] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Mock data for demonstration
-  const [users] = useState<User[]>([
-    {
-      id: '1',
-      name: 'John Doe',
-      email: 'john@example.com',
-      avatar: 'https://i.pravatar.cc/150?img=1',
-    },
-    {
-      id: '2',
-      name: 'Jane Smith',
-      email: 'jane@example.com',
-      avatar: 'https://i.pravatar.cc/150?img=2',
-    },
-    {
-      id: '3',
-      name: 'Mike Johnson',
-      email: 'mike@example.com',
-      avatar: 'https://i.pravatar.cc/150?img=3',
-    },
-    // Add more mock users as needed
-  ]);
+  const { friends, setFriends } = useFriendsStore();
 
+  // Fetch friends list
+  const { data: friendsData, loading: friendsLoading } = useQuery(GET_FRIENDS, {
+    fetchPolicy: 'cache-and-network',
+  });
   useEffect(() => {
-    const fetchUser = async () => {
-      const userData = await AppStore.get('user');
-      setUser(userData);
-    };
-    fetchUser();
+    if (friendsData?.getFriends?.success) {
+      setFriends(friendsData.getFriends.friends);
+    }
+  }, [friendsData]);
+
+  // Fetch current shard participants to disable already-added ones
+  const { data: shardData } = useQuery(GET_SHARD, {
+    variables: { id: shardId },
+    skip: !shardId,
+    fetchPolicy: 'cache-and-network',
+  });
+  const existingParticipantIds = useMemo<Set<string>>(() => {
+    const participants = shardData?.getShard?.shard?.participants || [];
+    return new Set(participants.map((p: any) => p.user));
+  }, [shardData]);
+
+  // Server search for non-friends
+  const [searchUsers, { loading: searchLoading }] = useLazyQuery(SEARCH_USERS);
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (searchQuery.trim().length < 2) { setSearchResults([]); return; }
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const { data } = await searchUsers({ variables: { query: searchQuery.trim() } });
+        if (data?.searchUsers?.success) {
+          setSearchResults((data.searchUsers.users || []).map((u: any) => ({
+            id: u.id, username: u.username, profilePic: u.profilePic,
+            mutualFriends: u.mutualFriends || 0,
+          })));
+        }
+      } catch { /* silent */ }
+    }, 500);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [searchQuery]);
+
+  const [addShardParticipant] = useMutation(ADD_SHARD_PARTICIPANT);
+
+  const handleAdd = useCallback((user: Candidate) => {
+    setSelected(prev => {
+      if (prev.some(s => s.id === user.id)) return prev;
+      return [...prev, { ...user, role: 'collaborator' }];
+    });
   }, []);
 
-  const getSwipeAnimation = useCallback(
-    (userId: string) => {
-      if (!swipeAnimations.has(userId)) {
-        swipeAnimations.set(userId, new RNAnimated.Value(0));
-      }
-      return swipeAnimations.get(userId)!;
-    },
-    [swipeAnimations]
-  );
-
-  const createPanResponder = useCallback(
-    (user: User) => {
-      const swipeAnim = getSwipeAnimation(user.id);
-
-      return PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onPanResponderMove: (_, gestureState) => {
-          swipeAnim.setValue(gestureState.dx);
-        },
-        onPanResponderRelease: (_, gestureState) => {
-          if (Math.abs(gestureState.dx) > 100) {
-            const role = gestureState.dx > 0 ? 'accountability' : 'collaborator';
-            addUser(user, role);
-          }
-          RNAnimated.spring(swipeAnim, {
-            toValue: 0,
-            useNativeDriver: true,
-          }).start();
-        },
-      });
-    },
-    [getSwipeAnimation]
-  );
-
-  const addUser = useCallback((user: User, role: 'collaborator' | 'accountability') => {
-    setSelectedUsers((prev) => [...prev, { ...user, role }]);
+  const handleRemove = useCallback((id: string) => {
+    setSelected(prev => prev.filter(s => s.id !== id));
   }, []);
 
-  const removeUser = useCallback(
-    (userId: string) => {
-      setSelectedUsers((prev) => prev.filter((user) => user.id !== userId));
-      // Reset the swipe animation
-      const swipeAnim = getSwipeAnimation(userId);
-      RNAnimated.spring(swipeAnim, {
-        toValue: 0,
-        useNativeDriver: true,
-      }).start();
-    },
-    [getSwipeAnimation]
-  );
-
-  const filteredUsers = useMemo(
-    () =>
-      users.filter(
-        (user) =>
-          (user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            user.email.toLowerCase().includes(searchQuery.toLowerCase())) &&
-          !selectedUsers.some((selected) => selected.id === user.id)
-      ),
-    [users, searchQuery, selectedUsers]
-  );
+  const handleToggleRole = useCallback((id: string) => {
+    setSelected(prev =>
+      prev.map(s =>
+        s.id === id
+          ? { ...s, role: s.role === 'collaborator' ? 'accountability' : 'collaborator' }
+          : s
+      )
+    );
+  }, []);
 
   const handleSave = useCallback(async () => {
-    if (!shardId) {
-      Toast.show({
-        type: 'error',
-        text1: 'No shard selected',
-      });
-      return;
-    }
+    if (!shardId) { Toast.show({ type: 'error', text1: 'No shard selected' }); return; }
+    if (selected.length === 0) { Toast.show({ type: 'error', text1: 'Select at least one partner' }); return; }
 
-    if (selectedUsers.length === 0) {
-      Toast.show({
-        type: 'error',
-        text1: 'Please select at least one partner',
-      });
-      return;
-    }
-
+    setSaving(true);
     try {
-      // Add all selected users to the shard
-      for (const user of selectedUsers) {
-        await addShardParticipant({
-          variables: {
-            shardId,
-            userId: user.id,
-            role: user.role || 'collaborator', // Default to collaborator if no role set
-          },
-        });
+      const results = await Promise.all(
+        selected.map(u =>
+          addShardParticipant({ variables: { shardId, userId: u.id, role: u.role } })
+        )
+      );
+      const failed = results.filter(r => !r.data?.addShardParticipant?.success);
+      if (failed.length === 0) {
+        Toast.show({ type: 'success', text1: `Added ${selected.length} partner${selected.length > 1 ? 's' : ''}!` });
+        router.replace(`/(screens)/shard/${shardId}`);
+      } else {
+        Toast.show({ type: 'error', text1: `${selected.length - failed.length} added, ${failed.length} failed` });
       }
-
-      Toast.show({
-        type: 'success',
-        text1: `Added ${selectedUsers.length} partner(s) to shard!`,
-      });
-
-      // Navigate to the shard detail page
-      router.replace(`/(screens)/shard/${shardId}`);
-    } catch (error) {
-      console.error('Error adding participants:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Failed to add partners',
-      });
+    } catch {
+      Toast.show({ type: 'error', text1: 'Failed to add partners' });
+    } finally {
+      setSaving(false);
     }
-  }, [selectedUsers, shardId, addShardParticipant]);
+  }, [selected, shardId]);
+
+  // Friend list filtered by search (client-side)
+  const filteredFriends = useMemo(() => {
+    const q = searchQuery.toLowerCase();
+    return friends.filter(f =>
+      f.username.toLowerCase().includes(q) || f.email?.toLowerCase().includes(q)
+    );
+  }, [friends, searchQuery]);
+
+  // Non-friend server results
+  const nonFriendResults = useMemo(
+    () => searchResults.filter(u => !friends.some(f => f.id === u.id)),
+    [searchResults, friends]
+  );
+
+  const selectedIds = useMemo(() => new Set(selected.map(s => s.id)), [selected]);
 
   return (
-    <SafeAreaView className="flex-1 bg-background-paper dark:bg-background-dark-default">
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1">
-        {/* Header */}
-        <View className="flex-row items-center justify-between p-4">
-          <TouchableOpacity onPress={() => router.back()}>
-            <AntDesign
-              name="arrowleft"
-              size={24}
-              color={colorScheme === 'dark' ? '#fff' : '#000'}
-            />
-          </TouchableOpacity>
-          <Image
-            source={colorScheme === 'dark' ? images.SmallLogoDark : images.SmallLogoLight}
-            className="h-8 w-24"
-            resizeMode="contain"
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+      {/* Header */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 }}>
+        <AnimatedPressable onPress={() => router.back()} hitSlop={20} scaleDown={0.88}>
+          <Ionicons name="chevron-back" size={24} color={theme.text} />
+        </AnimatedPressable>
+        <Text style={{ flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '700', color: theme.text }}>
+          Add Partners
+        </Text>
+        <View style={{ width: 24 }} />
+      </View>
+
+      {/* Selected chips */}
+      {selected.length > 0 && (
+        <Animated.View
+          entering={FadeIn.duration(200)}
+          style={{
+            backgroundColor: isDark ? 'rgba(139,92,246,0.08)' : 'rgba(139,92,246,0.05)',
+            borderTopWidth: 1, borderBottomWidth: 1,
+            borderColor: isDark ? 'rgba(139,92,246,0.15)' : 'rgba(139,92,246,0.1)',
+            paddingVertical: 14,
+          }}>
+          <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary, letterSpacing: 1, textTransform: 'uppercase', marginLeft: 16, marginBottom: 12 }}>
+            Selected ({selected.length}) — tap role to switch
+          </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16 }}>
+            {selected.map(u => (
+              <SelectedChip
+                key={u.id}
+                user={u}
+                isDark={isDark}
+                onRemove={handleRemove}
+                onToggleRole={handleToggleRole}
+              />
+            ))}
+          </ScrollView>
+        </Animated.View>
+      )}
+
+      {/* Search bar */}
+      <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 }}>
+        <View style={{
+          flexDirection: 'row', alignItems: 'center',
+          backgroundColor: theme.card, borderRadius: 14,
+          paddingHorizontal: 14, paddingVertical: 11,
+          borderWidth: 1, borderColor: isDark ? theme.border : 'rgba(0,0,0,0.06)',
+        }}>
+          {searchLoading
+            ? <ActivityIndicator size="small" color={ACCENT} style={{ marginRight: 10 }} />
+            : <Ionicons name="search" size={18} color={theme.textSecondary} style={{ marginRight: 10 }} />
+          }
+          <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search your friends…"
+            placeholderTextColor={theme.textSecondary}
+            style={{ flex: 1, fontSize: 15, color: theme.text }}
+            autoCorrect={false}
+            autoCapitalize="none"
           />
-          <View style={{ width: 24 }} />
+          {searchQuery.length > 0 && (
+            <AnimatedPressable onPress={() => setSearchQuery('')} hitSlop={12} scaleDown={0.85}>
+              <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
+            </AnimatedPressable>
+          )}
         </View>
+      </View>
 
-        <ScrollView className="flex-1 px-4">
-          <Animated.View entering={FadeIn} className="space-y-6">
-            {/* Search Section */}
-            <View className="my-2 space-y-2">
-              <Text
-                className="my-2 text-lg font-bold text-text-primary dark:text-text-dark"
-                style={{
-                  fontSize: 18,
-                  lineHeight: 28,
-                  fontFamily: 'Inter-Bold',
-                }}>
-                Add Partners
-              </Text>
-              <View className="flex-row items-center rounded-xl bg-background-default p-2 dark:bg-background-dark-paper">
-                <Ionicons
-                  name="search"
-                  size={20}
-                  color={colorScheme === 'dark' ? '#fff' : '#000'}
-                  className="mr-2"
-                />
-                <TextInput
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  placeholder="Search users..."
-                  className="flex-1 text-text-primary dark:text-text-dark"
-                  placeholderTextColor="#666"
-                />
-              </View>
+      {/* Legend */}
+      <View style={{ flexDirection: 'row', gap: 16, paddingHorizontal: 16, paddingBottom: 12 }}>
+        {(['collaborator', 'accountability'] as const).map(role => {
+          const m = ROLE_META[role];
+          return (
+            <View key={role} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Ionicons name={m.icon as any} size={12} color={m.color} />
+              <Text style={{ fontSize: 11, color: theme.textSecondary, fontWeight: '600' }}>{m.label}</Text>
             </View>
+          );
+        })}
+      </View>
 
-            {/* Selected Users Section */}
-            {selectedUsers.length > 0 && (
-              <View style={{ marginVertical: 8, gap: 8 }}>
-                <Text
-                  style={{
-                    fontSize: 16,
-                    fontWeight: 'bold',
-                    color: colorScheme === 'dark' ? '#fff' : '#000',
-                  }}>
-                  Selected Partners ({selectedUsers.length})
+      {/* List */}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled">
+
+        {friendsLoading && friends.length === 0 ? (
+          <ActivityIndicator style={{ marginTop: 40 }} color={ACCENT} />
+        ) : (
+          <>
+            {/* Friends (filtered) */}
+            {filteredFriends.length > 0 && (
+              <>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>
+                  Friends
                 </Text>
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    flexWrap: 'wrap',
-                    gap: 16,
-                  }}>
-                  {selectedUsers.map((selectedUser) => (
-                    <Animated.View
-                      key={selectedUser.id}
-                      entering={SlideInRight}
-                      style={{
-                        alignItems: 'center',
-                        width: 80,
-                      }}>
-                      <View style={{ position: 'relative' }}>
-                        <Image
-                          source={{ uri: selectedUser.avatar }}
-                          style={{
-                            width: 64,
-                            height: 64,
-                            borderRadius: 32,
-                            backgroundColor: '#f0f0f0',
-                          }}
-                        />
-                        <TouchableOpacity
-                          onPress={() => removeUser(selectedUser.id)}
-                          style={{
-                            position: 'absolute',
-                            right: -8,
-                            top: -8,
-                            backgroundColor: '#ef4444',
-                            borderRadius: 12,
-                            padding: 4,
-                          }}>
-                          <MaterialIcons name="close" size={16} color="#fff" />
-                        </TouchableOpacity>
-                        <View
-                          style={{
-                            position: 'absolute',
-                            bottom: -4,
-                            left: 0,
-                            right: 0,
-                            backgroundColor:
-                              selectedUser.role === 'collaborator' ? '#BE52F2' : '#6B4EFF',
-                            borderRadius: 12,
-                            paddingHorizontal: 4,
-                            paddingVertical: 2,
-                          }}>
-                          <Text
-                            style={{
-                              color: '#fff',
-                              fontSize: 12,
-                              textAlign: 'center',
-                            }}>
-                            {selectedUser.role === 'collaborator' ? 'C' : 'A'}
-                          </Text>
-                        </View>
-                      </View>
-                      <Text
-                        style={{
-                          marginTop: 8,
-                          fontSize: 14,
-                          color: colorScheme === 'dark' ? '#fff' : '#000',
-                          textAlign: 'center',
-                          maxWidth: '100%',
-                        }}
-                        numberOfLines={1}
-                        ellipsizeMode="tail">
-                        {selectedUser.name.split(' ')[0]}
-                      </Text>
-                    </Animated.View>
-                  ))}
-                </View>
-              </View>
+                {filteredFriends.map(f => (
+                  <CandidateRow
+                    key={f.id}
+                    user={f}
+                    isDark={isDark}
+                    isSelected={selectedIds.has(f.id)}
+                    isExisting={existingParticipantIds.has(f.id)}
+                    onAdd={handleAdd}
+                  />
+                ))}
+              </>
             )}
 
-            {/* User List Section */}
-            <View className="my-2 space-y-2">
-              <Text className="text-base font-bold text-text-primary dark:text-text-dark">
-                Available Users
-              </Text>
-              {filteredUsers.map((user) => {
-                const panResponder = createPanResponder(user);
-                return (
-                  <View style={{ position: 'relative' }} key={user.id}>
-                    <RNAnimated.View
-                      key={user.id}
-                      {...panResponder.panHandlers}
-                      style={[
-                        {
-                          transform: [
-                            {
-                              translateX: getSwipeAnimation(user.id),
-                            },
-                          ],
-                        },
-                      ]}>
-                      <View className="my-2 flex-row items-center justify-between rounded-xl bg-background-default p-4 dark:bg-background-dark-paper">
-                        <View
-                          className="flex-row items-center gap-1.5"
-                          style={{
-                            gap: 6,
-                          }}>
-                          <Image source={{ uri: user.avatar }} className="h-12 w-12 rounded-full" />
-                          <View className="ml-3">
-                            <Text className="font-bold text-text-primary dark:text-text-dark">
-                              {user.name}
-                            </Text>
-                            <Text className="text-sm text-gray-500 dark:text-gray-400">
-                              {user.email}
-                            </Text>
-                          </View>
-                        </View>
-                        <Text
-                          style={{
-                            color: '#666',
-                            fontSize: 14,
-                          }}>
-                          Swipe to add
-                        </Text>
-                      </View>
-                    </RNAnimated.View>
+            {/* Non-friend search results */}
+            {nonFriendResults.length > 0 && (
+              <>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary, letterSpacing: 1, textTransform: 'uppercase', marginTop: 16, marginBottom: 10 }}>
+                  Other Users
+                </Text>
+                {nonFriendResults.map(u => (
+                  <CandidateRow
+                    key={u.id}
+                    user={u}
+                    isDark={isDark}
+                    isSelected={selectedIds.has(u.id)}
+                    isExisting={existingParticipantIds.has(u.id)}
+                    onAdd={handleAdd}
+                  />
+                ))}
+              </>
+            )}
 
-                    {/* Left Track (Collaborator) */}
-                    <RNAnimated.View
-                      style={{
-                        position: 'absolute',
-                        left: 0,
-                        top: 8,
-                        bottom: 8,
-                        width: '100%',
-                        backgroundColor: '#BE52F2',
-                        opacity: getSwipeAnimation(user.id).interpolate({
-                          inputRange: [-100, 0],
-                          outputRange: [0.9, 0],
-                          extrapolate: 'clamp',
-                        }),
-                        justifyContent: 'center',
-                        alignItems: 'flex-end',
-                        borderRadius: 12,
-                        zIndex: -1,
-                        paddingRight: 16,
-                      }}>
-                      <Text style={{ color: '#fff', fontWeight: 'bold' }}>Collaborator</Text>
-                    </RNAnimated.View>
+            {/* Empty state */}
+            {filteredFriends.length === 0 && nonFriendResults.length === 0 && !friendsLoading && (
+              <View style={{ alignItems: 'center', paddingVertical: 60 }}>
+                <Ionicons name="people-outline" size={52} color={isDark ? '#374151' : '#d1d5db'} />
+                <Text style={{ marginTop: 12, fontSize: 15, color: theme.textSecondary, textAlign: 'center' }}>
+                  {searchQuery ? 'No users found' : 'No friends yet\nAdd friends to invite them to shards'}
+                </Text>
+              </View>
+            )}
+          </>
+        )}
+      </ScrollView>
 
-                    {/* Right Track (Accountability) */}
-                    <RNAnimated.View
-                      style={{
-                        position: 'absolute',
-                        right: 0,
-                        top: 8,
-                        bottom: 8,
-                        width: '100%',
-                        backgroundColor: '#4135F3',
-                        opacity: getSwipeAnimation(user.id).interpolate({
-                          inputRange: [0, 100],
-                          outputRange: [0, 0.9],
-                          extrapolate: 'clamp',
-                        }),
-                        justifyContent: 'center',
-                        alignItems: 'flex-start',
-                        borderRadius: 12,
-                        paddingLeft: 16,
-                        zIndex: -1,
-                      }}>
-                      <Text style={{ color: '#fff', fontWeight: 'bold' }}>Accountability</Text>
-                    </RNAnimated.View>
-                  </View>
-                );
-              })}
-            </View>
-          </Animated.View>
-        </ScrollView>
-
-        {/* Save Button */}
-        <View className="p-4">
-          <TouchableOpacity
-            onPress={handleSave}
-            className="rounded-xl bg-primary-start p-4"
-            style={{
-              backgroundColor: '#4135F3',
+      {/* Save button */}
+      <View style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        paddingHorizontal: 20, paddingTop: 12, paddingBottom: 28,
+        backgroundColor: theme.bg,
+        borderTopWidth: 1,
+        borderTopColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+      }}>
+        <AnimatedPressable
+          onPress={handleSave}
+          scaleDown={0.96}
+          disabled={saving || selected.length === 0}
+          style={{
+            backgroundColor: selected.length === 0 ? (isDark ? '#2a2a2a' : '#e5e7eb') : ACCENT,
+            borderRadius: 16,
+            paddingVertical: 15,
+            alignItems: 'center',
+            opacity: saving ? 0.7 : 1,
+          }}>
+          {saving ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={{
+              fontSize: 16, fontWeight: '700',
+              color: selected.length === 0 ? theme.textSecondary : '#fff',
             }}>
-            <Text className="text-center text-lg font-bold text-white">Add Partners</Text>
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+              {selected.length === 0
+                ? 'Select partners to add'
+                : `Add ${selected.length} Partner${selected.length > 1 ? 's' : ''}`}
+            </Text>
+          )}
+        </AnimatedPressable>
+      </View>
     </SafeAreaView>
   );
 };

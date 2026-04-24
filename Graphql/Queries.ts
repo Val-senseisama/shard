@@ -319,15 +319,25 @@ export const GET_CHAT = gql`
 `;
 
 export const GET_CHAT_MESSAGES = gql`
-  query GetChatMessages($chatId: ID!, $limit: Int, $skip: Int) {
-    getChatMessages(chatId: $chatId, limit: $limit, skip: $skip) {
+  query GetChatMessages($chatId: ID!, $limit: Int, $skip: Int, $before: ID) {
+    getChatMessages(chatId: $chatId, limit: $limit, skip: $skip, before: $before) {
       success
       message
+      nextCursor
+      hasMore
       messages {
         id
         content
         type
         mediaUrl
+        deleted
+        edited
+        editedAt
+        replyTo
+        reactions {
+          userId
+          emoji
+        }
         sender {
           id
           username
@@ -335,6 +345,34 @@ export const GET_CHAT_MESSAGES = gql`
         }
         readBy
         createdAt
+        mentions {
+          id
+          username
+          profilePic
+        }
+        poll {
+          question
+          multipleAnswers
+          options {
+            text
+            votes {
+              id
+              username
+            }
+          }
+        }
+        minitaskRef {
+          taskId
+          assignedTo {
+            id
+            username
+          }
+        }
+        attachments {
+          url
+          type
+          name
+        }
       }
     }
   }
@@ -347,10 +385,23 @@ export const MY_CHATS = gql`
       chats {
         id
         type
+        name
         participants {
           id
           username
           profilePic
+        }
+        unreadCount
+        lastMessage {
+          id
+          content
+          type
+          sender {
+            id
+            username
+            profilePic
+          }
+          createdAt
         }
         createdAt
         updatedAt
@@ -506,6 +557,22 @@ export const GET_ACHIEVEMENTS = gql`
         rarity
         earned
         pending
+      }
+    }
+  }
+`;
+
+export const MY_CHALLENGES = gql`
+  query MyChallenges {
+    myChallenges {
+      success
+      challenges {
+        id
+        type
+        title
+        description
+        targetDate
+        xpReward
       }
     }
   }

@@ -273,6 +273,21 @@ const Account = () => {
         ],
       },
       {
+        title: 'Quests & Progress',
+        items: [
+          {
+            icon: 'compass-outline',
+            label: 'Side Quests & Challenges',
+            action: () => router.push('/(screens)/side-quests'),
+          },
+          {
+            icon: 'bar-chart-outline',
+            label: 'Productivity Insights',
+            action: () => router.push('/(screens)/productivity'),
+          },
+        ],
+      },
+      {
         title: 'Settings',
         items: [
           {

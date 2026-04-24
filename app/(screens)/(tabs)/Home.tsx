@@ -25,7 +25,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { useUserStore } from '~/store/user.store';
-import { useShardStore } from '~/store/shard.store';
 import { useQuery } from '@apollo/client';
 import { CURRENT_USER, MY_SHARDS } from '~/Graphql/Queries';
 import { avatarUri } from '~/helpers/avatarUri';
@@ -50,7 +49,6 @@ const ShardLogo = ({ color }: { color: string }) => (
 const Home = () => {
   const user = useUserStore((state) => state.user);
   const setUser = useUserStore((state) => state.setUser);
-  const { setSelectedShard } = useShardStore();
   const isDark = useColorScheme() === 'dark';
   const scrollY = useSharedValue(0);
   const shardListRef = useRef<FlatList>(null);
@@ -145,16 +143,49 @@ const Home = () => {
                   <Text style={{ fontSize: 16, fontWeight: '700', color: textColor }}>
                     {user.username}
                   </Text>
+                  {/* XP mini-bar */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 }}>
+                    <View
+                      style={{
+                        width: 64,
+                        height: 4,
+                        borderRadius: 2,
+                        backgroundColor: isDark ? '#2a2a2a' : '#e5e7eb',
+                        overflow: 'hidden',
+                      }}>
+                      <View
+                        style={{
+                          height: 4,
+                          borderRadius: 2,
+                          backgroundColor: ACCENT,
+                          width: `${Math.min(((user.xp || 0) / ((user.level || 1) * 1000)) * 100, 100)}%`,
+                        }}
+                      />
+                    </View>
+                    <Text style={{ fontSize: 10, color: ACCENT, fontWeight: '700' }}>
+                      Lv {user.level || 1}
+                    </Text>
+                  </View>
                 </View>
               </>
             )}
           </Animated.View>
-          <AnimatedPressable
-            onPress={() => router.push('/notifications')}
-            hitSlop={20}
-            scaleDown={0.9}>
-            <FontAwesome name="bell-o" size={20} color={textColor} />
-          </AnimatedPressable>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+            {(user?.currentStreak ?? 0) > 0 && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                <Text style={{ fontSize: 14 }}>🔥</Text>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#f97316' }}>
+                  {user?.currentStreak}
+                </Text>
+              </View>
+            )}
+            <AnimatedPressable
+              onPress={() => router.push('/notifications')}
+              hitSlop={20}
+              scaleDown={0.9}>
+              <FontAwesome name="bell-o" size={20} color={textColor} />
+            </AnimatedPressable>
+          </View>
         </Animated.View>
 
         {/* Main panel */}
@@ -253,7 +284,6 @@ const Home = () => {
                   }
                   completionRate={item.progress?.completion || 0}
                   onPress={() => {
-                    setSelectedShard(item);
                     router.push(`/(screens)/shard/${item.id}`);
                   }}
                 />

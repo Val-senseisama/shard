@@ -4,109 +4,66 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
+  withSequence,
   withTiming,
-  interpolate,
 } from 'react-native-reanimated';
 
 const ShardCardSkeleton: React.FC = () => {
-  const colorScheme = useColorScheme();
-  const shimmerValue = useSharedValue(0);
+  const isDark = useColorScheme() === 'dark';
+  const opacity = useSharedValue(0.4);
 
   useEffect(() => {
-    shimmerValue.value = withRepeat(withTiming(1, { duration: 1500 }), -1, false);
-    return () => {
-      // Cleanup if needed, though reanimated usually handles this
-      shimmerValue.value = 0;
-    };
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.85, { duration: 750 }),
+        withTiming(0.4, { duration: 750 })
+      ),
+      -1,
+      true
+    );
   }, []);
 
-  const shimmerStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(shimmerValue.value, [0, 0.5, 1], [0.3, 0.6, 0.3]);
-    return { opacity };
-  });
-
-  const isDark = colorScheme === 'dark';
+  const anim = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  const bg = isDark ? '#2a2a2a' : '#e5e7eb';
 
   return (
     <View
-      className="my-2 min-w-full flex-row items-center rounded-2xl bg-white p-4 dark:bg-background-dark-paper"
       style={{
+        backgroundColor: isDark ? '#242424' : '#ffffff',
+        borderRadius: 20,
+        marginBottom: 16,
+        overflow: 'hidden',
         shadowColor: '#000',
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 2 },
-        elevation: 2,
+        shadowOpacity: isDark ? 0 : 0.06,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 3,
       }}>
-      {/* Image skeleton */}
-      <Animated.View
-        style={[
-          shimmerStyle,
-          {
-            width: 48,
-            height: 48,
-            borderRadius: 12,
-            backgroundColor: isDark ? '#374151' : '#e5e7eb',
-            marginRight: 12,
-          },
-        ]}
-      />
+      {/* Image area */}
+      <Animated.View style={[{ width: '100%', height: 180, backgroundColor: bg }, anim]} />
 
-      {/* Content skeleton */}
-      <View className="flex-1">
-        {/* Title skeleton */}
+      {/* Content area */}
+      <View style={{ padding: 16 }}>
+        {/* Title */}
         <Animated.View
-          style={[
-            shimmerStyle,
-            {
-              height: 16,
-              borderRadius: 4,
-              backgroundColor: isDark ? '#374151' : '#e5e7eb',
-              marginBottom: 8,
-              width: '70%',
-            },
-          ]}
+          style={[{ height: 18, borderRadius: 6, backgroundColor: bg, width: '65%', marginBottom: 8 }, anim]}
         />
-
-        {/* Summary skeleton */}
+        {/* Description line 1 */}
         <Animated.View
-          style={[
-            shimmerStyle,
-            {
-              height: 12,
-              borderRadius: 4,
-              backgroundColor: isDark ? '#374151' : '#e5e7eb',
-              marginBottom: 12,
-              width: '90%',
-            },
-          ]}
+          style={[{ height: 13, borderRadius: 4, backgroundColor: bg, width: '90%', marginBottom: 5 }, anim]}
         />
-
-        {/* Progress bar skeleton */}
-        <View className="flex-row items-center">
-          <Animated.View
-            style={[
-              shimmerStyle,
-              {
-                flex: 1,
-                height: 8,
-                borderRadius: 8,
-                backgroundColor: isDark ? '#374151' : '#e5e7eb',
-              },
-            ]}
-          />
-          <Animated.View
-            style={[
-              shimmerStyle,
-              {
-                width: 32,
-                height: 12,
-                borderRadius: 4,
-                backgroundColor: isDark ? '#374151' : '#e5e7eb',
-                marginLeft: 8,
-              },
-            ]}
-          />
-        </View>
+        {/* Description line 2 */}
+        <Animated.View
+          style={[{ height: 13, borderRadius: 4, backgroundColor: bg, width: '70%', marginBottom: 14 }, anim]}
+        />
+        {/* Progress bar */}
+        <Animated.View
+          style={[{ height: 6, borderRadius: 6, backgroundColor: bg, width: '100%', marginBottom: 8 }, anim]}
+        />
+        {/* Percentage label */}
+        <Animated.View
+          style={[{ height: 12, borderRadius: 4, backgroundColor: bg, width: '25%' }, anim]}
+        />
       </View>
     </View>
   );

@@ -57,7 +57,7 @@
         "CAMERA",
         "READ_MEDIA_IMAGES"
       ],
-      "googleServicesFile": "./android/app/google-services.json"
+      "googleServicesFile": "./google-services.json"
     },
     "extra": {
       "router": {},

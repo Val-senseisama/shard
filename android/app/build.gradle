@@ -177,3 +177,11 @@ dependencies {
 }
 
 apply plugin: 'com.google.gms.google-services'
+
+// Force androidx.core version 1.15.0 to resolve compileSdk 36 errors
+configurations.all {
+    resolutionStrategy {
+        force 'androidx.core:core:1.15.0'
+        force 'androidx.core:core-ktx:1.15.0'
+    }
+}

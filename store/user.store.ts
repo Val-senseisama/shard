@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export interface User {
   id: string;
@@ -40,15 +42,36 @@ interface UserStore {
   logout: () => void;
 }
 
-export const useUserStore = create<UserStore>((set) => ({
-  user: null,
-
-  setUser: (user) => set({ user }),
-
-  updateUser: (data) =>
-    set((state) => ({
-      user: state.user ? { ...state.user, ...data } : null,
-    })),
-
-  logout: () => set({ user: null }),
-}));
+export const useUserStore = create<UserStore>()(
+  persist(
+    (set) => ({
+      user: null,
+      setUser: (user) => set({ user }),
+      updateUser: (data) =>
+        set((state) => ({
+          user: state.user ? { ...state.user, ...data } : null,
+        })),
+      logout: () => set({ user: null }),
+    }),
+    {
+      name: "shard-user",
+      storage: createJSONStorage(() => AsyncStorage),
+      // Only persist the fields needed for an instant first render.
+      // Dynamic data (xp, level, streak, achievements) is fetched fresh on mount.
+      partialize: (state) => ({
+        user: state.user
+          ? {
+              id: state.user.id,
+              email: state.user.email,
+              username: state.user.username,
+              profilePic: state.user.profilePic,
+              role: state.user.role,
+              subscriptionTier: state.user.subscriptionTier,
+              authProvider: state.user.authProvider,
+              preferences: state.user.preferences,
+            }
+          : null,
+      }),
+    }
+  )
+);
