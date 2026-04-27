@@ -25,10 +25,13 @@ import Animated, {
 } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { useUserStore } from '~/store/user.store';
+import { useShardStore } from '~/store/shard.store';
+import { useAppStore } from '~/store/app.store';
 import { useQuery } from '@apollo/client';
-import { CURRENT_USER, MY_SHARDS } from '~/Graphql/Queries';
+import { CURRENT_USER, MY_SHARDS, MY_CHATS } from '~/Graphql/Queries';
 import { avatarUri } from '~/helpers/avatarUri';
 import { ACCENT } from '~/components/shard/constants';
+import * as syncService from '~/services/syncService';
 
 const AVATAR_ANIMATION_RANGE = 120;
 
@@ -49,25 +52,58 @@ const ShardLogo = ({ color }: { color: string }) => (
 const Home = () => {
   const user = useUserStore((state) => state.user);
   const setUser = useUserStore((state) => state.setUser);
+  const cachedShards = useShardStore((state) => state.shards);
+  const setShards = useShardStore((state) => state.setShards);
   const isDark = useColorScheme() === 'dark';
   const scrollY = useSharedValue(0);
   const shardListRef = useRef<FlatList>(null);
 
   const { refetch: refetchUser } = useQuery(CURRENT_USER, {
     onCompleted: (data) => {
-      if (data?.currentUser?.user) setUser(data.currentUser.user);
+      if (data?.currentUser?.user) {
+        setUser(data.currentUser.user);
+        syncService.saveUser(data.currentUser.user).catch(console.warn);
+      }
     },
   });
 
-  const { data, loading, refetch } = useQuery(MY_SHARDS, { fetchPolicy: 'cache-and-network' });
-  const shards = data?.myShards?.shards || [];
+  const { data, loading, refetch } = useQuery(MY_SHARDS, {
+    fetchPolicy: 'cache-and-network',
+    onCompleted: (data) => {
+      // ONLY update store and sync if the query was truly successful
+      if (data?.myShards?.success && data?.myShards?.shards) {
+        setShards(data.myShards.shards);
+        syncService.saveShards(data.myShards.shards).catch(console.warn);
+      }
+    },
+    onError: (error) => {
+      console.error('Error fetching shards:', error);
+      useAppStore
+        .getState()
+        .addAlert({ str: 'Failed to load shards. Please check your connection.', type: 'error' });
+    },
+  });
+  const shards = data?.myShards?.shards ?? cachedShards;
+
+  // Build chatId → unreadCount map from the chats list.
+  // MY_CHATS is cheap (cached server-side) so we run it here without a loading gate.
+  const { data: chatsData, refetch: refetchChats } = useQuery(MY_CHATS, {
+    fetchPolicy: 'cache-and-network',
+  });
+  const unreadByChat = React.useMemo<Record<string, number>>(() => {
+    const map: Record<string, number> = {};
+    for (const chat of chatsData?.myChats?.chats ?? []) {
+      if (chat.unreadCount > 0) map[chat.id] = chat.unreadCount;
+    }
+    return map;
+  }, [chatsData]);
 
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refetch(), refetchUser()]);
+    await Promise.all([refetch(), refetchUser(), refetchChats()]);
     setRefreshing(false);
-  }, [refetch, refetchUser]);
+  }, [refetch, refetchUser, refetchChats]);
 
   const avatarAnimatedStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
@@ -144,7 +180,8 @@ const Home = () => {
                     {user.username}
                   </Text>
                   {/* XP mini-bar */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 }}>
+                  <View
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 }}>
                     <View
                       style={{
                         width: 64,
@@ -283,6 +320,8 @@ const Home = () => {
                     'https://images.unsplash.com/photo-1499209974431-9dddcece7f88?w=500&auto=format&fit=crop&q=60'
                   }
                   completionRate={item.progress?.completion || 0}
+                  unreadCount={item.chatId ? (unreadByChat[item.chatId] ?? 0) : 0}
+                  participantsCount={item.participantsCount ?? 0}
                   onPress={() => {
                     router.push(`/(screens)/shard/${item.id}`);
                   }}

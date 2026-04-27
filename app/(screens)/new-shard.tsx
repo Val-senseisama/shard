@@ -21,7 +21,7 @@ import { useMutation, useLazyQuery, useQuery } from '@apollo/client';
 import { useUserStore } from '~/store/user.store';
 import { useAppStore } from '~/store/app.store';
 import { CREATE_SHARD, CREATE_SHARD_MANUAL, DELETE_MINI_GOAL } from '~/Graphql/Mutations';
-import { GET_FRIENDS, GET_SIGNED_UPLOAD_URL, GET_AI_USAGE } from '~/Graphql/Queries';
+import { GET_FRIENDS, GET_SIGNED_UPLOAD_URL, GET_AI_USAGE, MY_TEAMS } from '~/Graphql/Queries';
 import { useFriendsStore, Friend } from '~/store/friends.store';
 import AddImageInput from '~/components/AddImageInput';
 import AnimatedPressable from '~/components/AnimatedPressable';
@@ -275,7 +275,8 @@ const AIReviewStep = ({
           marginBottom: 16,
         }}>
         <Ionicons name="warning-outline" size={16} color="#eab308" style={{ marginTop: 1 }} />
-        <Text style={{ flex: 1, color: isDark ? '#fde68a' : '#92400e', fontSize: 12, lineHeight: 18 }}>
+        <Text
+          style={{ flex: 1, color: isDark ? '#fde68a' : '#92400e', fontSize: 12, lineHeight: 18 }}>
           {warning}
         </Text>
       </Animated.View>
@@ -579,6 +580,104 @@ const MiniGoalBuilder = ({
   );
 };
 
+// ─── Team Quick Assign ────────────────────────────────────────────────
+
+const TeamQuickAssign = ({
+  onAssignTeam,
+  isDark,
+}: {
+  onAssignTeam: (memberIds: string[]) => void;
+  isDark: boolean;
+}) => {
+  const [teams, setTeams] = React.useState<any[]>([]);
+  const [expanded, setExpanded] = React.useState(false);
+
+  useQuery(MY_TEAMS, {
+    fetchPolicy: 'cache-and-network',
+    onCompleted: (data) => {
+      if (data?.myTeams?.success) setTeams(data.myTeams.teams || []);
+    },
+  });
+
+  if (teams.length === 0) return null;
+
+  return (
+    <Animated.View entering={FadeInDown.delay(200).duration(400)} style={{ marginBottom: 16 }}>
+      <AnimatedPressable
+        onPress={() => setExpanded(!expanded)}
+        scaleDown={0.98}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          paddingVertical: 10,
+          paddingHorizontal: 14,
+          borderRadius: 14,
+          borderWidth: 1.5,
+          borderStyle: 'dashed',
+          borderColor: isDark ? 'rgba(139,92,246,0.3)' : 'rgba(139,92,246,0.25)',
+          backgroundColor: expanded
+            ? isDark
+              ? 'rgba(139,92,246,0.08)'
+              : 'rgba(139,92,246,0.04)'
+            : 'transparent',
+        }}>
+        <Ionicons name="people-outline" size={18} color="#8b5cf6" />
+        <Text style={{ flex: 1, color: '#8b5cf6', fontWeight: '600', fontSize: 13 }}>
+          Quick-assign a Team
+        </Text>
+        <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color="#8b5cf6" />
+      </AnimatedPressable>
+
+      {expanded && (
+        <View style={{ marginTop: 10, gap: 8 }}>
+          {teams.map((team) => (
+            <AnimatedPressable
+              key={team.id}
+              scaleDown={0.96}
+              onPress={() => {
+                const ids = team.members.map((m: any) => m.id);
+                onAssignTeam(ids);
+                setExpanded(false);
+              }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: isDark ? '#1a1a1a' : '#f6f7fb',
+                borderRadius: 14,
+                padding: 12,
+              }}>
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 12,
+                  backgroundColor: 'rgba(139,92,246,0.15)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 12,
+                }}>
+                <Ionicons name="people" size={18} color="#8b5cf6" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{ fontSize: 14, fontWeight: '600', color: isDark ? '#fff' : '#1a1a1a' }}>
+                  {team.name}
+                </Text>
+                <Text style={{ fontSize: 12, color: '#767575', marginTop: 1 }}>
+                  {team.memberCount} member{team.memberCount !== 1 ? 's' : ''} → all as
+                  collaborators
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#8b5cf6" />
+            </AnimatedPressable>
+          ))}
+        </View>
+      )}
+    </Animated.View>
+  );
+};
+
 // ─── Friend Selection ─────────────────────────────────────────────────
 
 const FriendSelection = ({
@@ -716,6 +815,7 @@ const NewShard = () => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { addAlert } = useAppStore();
+  const currentUserId = useUserStore((state) => state.user?.id);
   const scrollRef = useRef<ScrollView>(null);
 
   const [step, setStep] = useState<1 | 2>(1);
@@ -1269,6 +1369,14 @@ const NewShard = () => {
 
                 {/* Friends */}
                 <View className="mt-6">
+                  <TeamQuickAssign
+                    isDark={isDark}
+                    onAssignTeam={(memberIds) => {
+                      memberIds
+                        .filter((id) => id !== currentUserId)
+                        .forEach((id) => handleFriendSelect(id, 'collaborator'));
+                    }}
+                  />
                   <FriendSelection
                     selectedFriends={selectedFriends}
                     onSelect={handleFriendSelect}

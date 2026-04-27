@@ -1,9 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useFonts } from 'expo-font';
 import { router, SplashScreen, Stack } from 'expo-router';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { getDb } from '@/services/db';
+import * as syncService from '@/services/syncService';
+import * as mutationQueue from '@/services/mutationQueue';
+import { useShardStore } from '@/store/shard.store';
+import { useScheduleStore } from '@/store/schedule.store';
 import '../global.css';
 import {
   ApolloClient,
@@ -93,6 +98,7 @@ import UndoToast from '@/components/UndoToast';
 import UserProvider from '@/components/UserProvider';
 import PushTokenRegistration from '@/components/PushTokenRegistration';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore } from '~/store/app.store';
 import { useColorScheme as useNativeWindColorScheme } from 'nativewind';
 import notificationService from '~/services/notificationService';
@@ -107,6 +113,12 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   const { setColorScheme } = useNativeWindColorScheme();
   const isDarkMode = useAppStore((state) => state.isDarkMode);
+  const isOnline = useAppStore((state) => state.isOnline);
+  const setOnline = useAppStore((state) => state.setOnline);
+  const setShards = useShardStore((state) => state.setShards);
+  const setSchedule = useScheduleStore((state) => state.setSchedule);
+  const wasOfflineRef = useRef(false);
+  const insets = useSafeAreaInsets();
 
   const [fontsLoaded, error] = useFonts({
     'Inter-Thin': require('@/assets/fonts/Inter_18pt-Light.ttf'),
@@ -171,11 +183,23 @@ export default function RootLayout() {
     };
   }, [isUserLoggedIn]);
 
+  // ─── DB init + auth check + seed stores from SQLite ──────────────────────
   useEffect(() => {
     const prepare = async () => {
       try {
+        await getDb(); // runs migrations
         const loggedIn = await isLoggedIn();
         setIsUserLoggedIn(loggedIn);
+
+        if (loggedIn) {
+          // Seed UI from SQLite so the user sees data immediately even offline
+          const [cachedShards, cachedSchedule] = await Promise.all([
+            syncService.getShards(),
+            syncService.getSchedule(),
+          ]);
+          if (cachedShards.length) setShards(cachedShards as any);
+          if (cachedSchedule.tasks.length) setSchedule(cachedSchedule as any);
+        }
       } catch (e) {
         console.warn(e);
       } finally {
@@ -185,6 +209,34 @@ export default function RootLayout() {
 
     prepare();
   }, []);
+
+  // ─── NetInfo — track online state, drain queue on reconnect ──────────────
+  // Imported lazily: @react-native-community/netinfo requires a native build.
+  // The listener simply won't register if the module isn't compiled in yet.
+  useEffect(() => {
+    let unsub: (() => void) | undefined;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const NetInfo = require('@react-native-community/netinfo').default;
+      unsub = NetInfo.addEventListener(async (state: { isConnected: boolean | null }) => {
+        const online = state.isConnected ?? false;
+        setOnline(online);
+
+        if (online && wasOfflineRef.current) {
+          wasOfflineRef.current = false;
+          const pending = await mutationQueue.getPendingCount();
+          if (pending > 0) {
+            await mutationQueue.drain(apolloClient);
+          }
+        }
+
+        if (!online) wasOfflineRef.current = true;
+      });
+    } catch {
+      // Native module not available in this build — offline detection disabled
+    }
+    return () => unsub?.();
+  }, [setOnline]);
 
   useEffect(() => {
     if (isReady && fontsLoaded && !error) {
@@ -247,6 +299,20 @@ export default function RootLayout() {
       <GestureHandlerRootView>
         <ThemeProvider value={isDarkMode ? DarkTheme : DefaultTheme}>
           <StatusBar style={isDarkMode ? 'light' : 'dark'} />
+          {!isOnline && (
+            <View
+              style={{
+                backgroundColor: '#b45309',
+                paddingTop: insets.top + 4,
+                paddingBottom: 6,
+                paddingHorizontal: 16,
+                alignItems: 'center',
+              }}>
+              <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>
+                You're offline — changes will sync when you reconnect
+              </Text>
+            </View>
+          )}
           <UserProvider />
           <PushTokenRegistration />
           <Stack

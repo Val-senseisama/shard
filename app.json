@@ -24,7 +24,8 @@
           "color": "#ffffff",
           "sounds": []
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "orientation": "portrait",
     "icon": "./assets/app-icons/icon.png",

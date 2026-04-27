@@ -7,9 +7,11 @@ type AlertType = "info" | "success" | "warning" | "error" | "default";
 
 interface AppState {
   isDarkMode: boolean;
+  isOnline: boolean;
   addAlert: (params: { str?: string; type?: AlertType; icon?: any }) => void;
   toggleDarkMode: () => void;
   setDarkMode: (isDark: boolean) => void;
+  setOnline: (online: boolean) => void;
 }
 
 const mapToastType = (type: AlertType): "success" | "error" | "info" => {
@@ -27,6 +29,9 @@ export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       isDarkMode: false,
+      isOnline: true,
+
+      setOnline: (online: boolean) => set({ isOnline: online }),
 
       addAlert: ({ str, type = "default", icon } = {}) => {
         if (!str?.trim()) return;
@@ -41,13 +46,12 @@ export const useAppStore = create<AppState>()(
       },
 
       toggleDarkMode: () => set((state) => ({ isDarkMode: !state.isDarkMode })),
-
       setDarkMode: (isDark: boolean) => set({ isDarkMode: isDark }),
     }),
     {
       name: "shard-app-prefs",
       storage: createJSONStorage(() => AsyncStorage),
-      // Only persist user preferences — alerts are ephemeral runtime state
+      // Only persist user preferences — isOnline is runtime state
       partialize: (state) => ({ isDarkMode: state.isDarkMode }),
     }
   )

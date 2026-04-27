@@ -8,6 +8,7 @@ import {
   useColorScheme,
   RefreshControl,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import ConfirmModal from '~/components/ConfirmModal';
 import { Swipeable } from 'react-native-gesture-handler';
@@ -21,9 +22,9 @@ import {
   GET_PENDING_REQUESTS,
   GET_FRIEND_SUGGESTIONS,
   SEARCH_USERS,
+  MY_TEAMS,
 } from '~/Graphql/Queries';
 import Animated, {
-  FadeIn,
   FadeInDown,
   useSharedValue,
   useAnimatedStyle,
@@ -31,8 +32,6 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import { useMutation as useApolloMutation } from '@apollo/client';
-import Toast from 'react-native-toast-message';
 import {
   UNFRIEND,
   BLOCK_USER,
@@ -40,14 +39,18 @@ import {
   REJECT_FRIEND_REQUEST,
   CANCEL_FRIEND_REQUEST,
   SEND_FRIEND_REQUEST,
+  CREATE_TEAM,
+  DELETE_TEAM,
+  LEAVE_TEAM,
 } from '~/Graphql/Mutations';
 import { useUserStore } from '~/store/user.store';
+import { useAppStore } from '~/store/app.store';
 import AnimatedPressable from '~/components/AnimatedPressable';
 import { ACCENT, t } from '~/components/shard/constants';
 import { avatarUri } from '~/helpers/avatarUri';
 import { formatDistanceToNow } from 'date-fns';
 
-type TabType = 'friends' | 'requests' | 'discover';
+type TabType = 'friends' | 'requests' | 'discover' | 'teams';
 type RequestSubTab = 'incoming' | 'outgoing';
 
 interface FriendRequest {
@@ -55,6 +58,22 @@ interface FriendRequest {
   username: string;
   profilePic: string;
   mutualFriends?: number;
+}
+
+interface TeamMember {
+  id: string;
+  username: string;
+  profilePic: string | null;
+}
+
+interface Team {
+  id: string;
+  name: string;
+  memberCount: number;
+  chatId: string | null;
+  createdAt: string;
+  owner: TeamMember;
+  members: TeamMember[];
 }
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -85,10 +104,16 @@ const FriendSkeleton = ({ isDark }: { isDark: boolean }) => {
             padding: 14,
             marginBottom: 10,
           }}>
-          <Animated.View style={[{ width: 48, height: 48, borderRadius: 24, backgroundColor: bg }, anim]} />
+          <Animated.View
+            style={[{ width: 48, height: 48, borderRadius: 24, backgroundColor: bg }, anim]}
+          />
           <View style={{ flex: 1, marginLeft: 12, gap: 8 }}>
-            <Animated.View style={[{ height: 14, borderRadius: 5, backgroundColor: bg, width: '50%' }, anim]} />
-            <Animated.View style={[{ height: 11, borderRadius: 4, backgroundColor: bg, width: '35%' }, anim]} />
+            <Animated.View
+              style={[{ height: 14, borderRadius: 5, backgroundColor: bg, width: '50%' }, anim]}
+            />
+            <Animated.View
+              style={[{ height: 11, borderRadius: 4, backgroundColor: bg, width: '35%' }, anim]}
+            />
           </View>
         </View>
       ))}
@@ -177,9 +202,15 @@ const FriendCard = ({
           />
         </View>
         <View style={{ flex: 1, marginLeft: 12 }}>
-          <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text }}>{friend.username}</Text>
+          <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text }}>
+            {friend.username}
+          </Text>
           <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 2 }}>
-            {friend.isOnline ? 'Online now' : lastActiveText ? `Active ${lastActiveText}` : friend.email}
+            {friend.isOnline
+              ? 'Online now'
+              : lastActiveText
+                ? `Active ${lastActiveText}`
+                : friend.email}
           </Text>
         </View>
         <View
@@ -202,18 +233,15 @@ const RequestCard = ({
   isDark,
   onAccept,
   onDecline,
-  onBlock,
   processing,
 }: {
   request: FriendRequest;
   isDark: boolean;
   onAccept: (id: string) => void;
   onDecline: (id: string) => void;
-  onBlock?: (id: string) => void;
   processing: boolean;
 }) => {
   const theme = t(isDark);
-
   return (
     <Animated.View
       entering={FadeInDown.duration(300)}
@@ -230,7 +258,9 @@ const RequestCard = ({
         style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: ACCENT }}
       />
       <View style={{ flex: 1, marginLeft: 12 }}>
-        <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text }}>{request.username}</Text>
+        <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text }}>
+          {request.username}
+        </Text>
         {(request.mutualFriends ?? 0) > 0 && (
           <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 2 }}>
             {request.mutualFriends} mutual friend{request.mutualFriends !== 1 ? 's' : ''}
@@ -289,7 +319,7 @@ const UserRow = ({
   isDark: boolean;
   actionLabel: string;
   actionColor: string;
-  onAction: (id: string) => void;
+  onAction: (id: string, user: FriendRequest) => void;
   loading: boolean;
   onPress?: () => void;
   disabled?: boolean;
@@ -320,7 +350,7 @@ const UserRow = ({
         )}
       </View>
       <AnimatedPressable
-        onPress={() => onAction(user.id)}
+        onPress={() => onAction(user.id, user)}
         scaleDown={0.9}
         disabled={disabled || loading}
         style={{
@@ -334,7 +364,12 @@ const UserRow = ({
         {loading ? (
           <ActivityIndicator size="small" color="#fff" />
         ) : (
-          <Text style={{ fontSize: 13, fontWeight: '700', color: disabled ? theme.textSecondary : '#fff' }}>
+          <Text
+            style={{
+              fontSize: 13,
+              fontWeight: '700',
+              color: disabled ? theme.textSecondary : '#fff',
+            }}>
             {disabled ? 'Sent' : actionLabel}
           </Text>
         )}
@@ -348,11 +383,386 @@ const UserRow = ({
 const EmptyState = ({ icon, text, isDark }: { icon: string; text: string; isDark: boolean }) => (
   <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 60 }}>
     <Ionicons name={icon as any} size={56} color={isDark ? '#374151' : '#d1d5db'} />
-    <Text style={{ marginTop: 14, fontSize: 15, color: isDark ? '#4b5563' : '#9ca3af', textAlign: 'center' }}>
+    <Text
+      style={{
+        marginTop: 14,
+        fontSize: 15,
+        color: isDark ? '#4b5563' : '#9ca3af',
+        textAlign: 'center',
+      }}>
       {text}
     </Text>
   </View>
 );
+
+// ─── Team Card ────────────────────────────────────────────────────────────────
+
+const TeamCard = ({
+  team,
+  isDark,
+  currentUserId,
+  onPress,
+  onChat,
+  onLeave,
+  onDelete,
+}: {
+  team: Team;
+  isDark: boolean;
+  currentUserId: string;
+  onPress: () => void;
+  onChat: () => void;
+  onLeave: () => void;
+  onDelete: () => void;
+}) => {
+  const theme = t(isDark);
+  const isOwner = team.owner.id === currentUserId;
+  const preview = team.members.slice(0, 3);
+  const extra = team.memberCount - 3;
+
+  return (
+    <Animated.View entering={FadeInDown.duration(300)}>
+      <AnimatedPressable
+        scaleDown={0.98}
+        onPress={onPress}
+        style={{
+          backgroundColor: theme.card,
+          borderRadius: 18,
+          padding: 16,
+          marginBottom: 12,
+          borderWidth: 1,
+          borderColor: isDark ? 'rgba(139,92,246,0.12)' : 'rgba(139,92,246,0.08)',
+        }}>
+        {/* Top row */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+          <View
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 14,
+              backgroundColor: 'rgba(139,92,246,0.15)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 12,
+            }}>
+            <Ionicons name="people" size={22} color={ACCENT} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text }}>{team.name}</Text>
+            <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 2 }}>
+              {team.memberCount} member{team.memberCount !== 1 ? 's' : ''}
+              {isOwner ? '  ·  Owner' : ''}
+            </Text>
+          </View>
+          {/* action buttons */}
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {team.chatId && (
+              <AnimatedPressable
+                onPress={onChat}
+                scaleDown={0.9}
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 17,
+                  backgroundColor: isDark ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.1)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                <Ionicons name="chatbubble-outline" size={16} color="#10b981" />
+              </AnimatedPressable>
+            )}
+            <AnimatedPressable
+              onPress={isOwner ? onDelete : onLeave}
+              scaleDown={0.9}
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 17,
+                backgroundColor: isDark ? 'rgba(239,68,68,0.12)' : 'rgba(239,68,68,0.08)',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+              <Ionicons
+                name={isOwner ? 'trash-outline' : 'exit-outline'}
+                size={16}
+                color="#ef4444"
+              />
+            </AnimatedPressable>
+          </View>
+        </View>
+
+        {/* Members avatars */}
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {preview.map((m, i) => (
+            <View
+              key={m.id}
+              style={{
+                marginLeft: i > 0 ? -10 : 0,
+                borderWidth: 2,
+                borderColor: theme.card,
+                borderRadius: 13,
+                zIndex: 3 - i,
+              }}>
+              <Image
+                source={{ uri: avatarUri(m.profilePic, m.username) }}
+                style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: ACCENT }}
+              />
+            </View>
+          ))}
+          {extra > 0 && (
+            <View
+              style={{
+                marginLeft: -10,
+                width: 26,
+                height: 26,
+                borderRadius: 13,
+                backgroundColor: isDark ? '#2a2a2a' : '#e5e7eb',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 2,
+                borderColor: theme.card,
+              }}>
+              <Text style={{ fontSize: 9, fontWeight: '700', color: theme.textSecondary }}>
+                +{extra}
+              </Text>
+            </View>
+          )}
+        </View>
+      </AnimatedPressable>
+    </Animated.View>
+  );
+};
+
+// ─── Create Team Modal ────────────────────────────────────────────────────────
+
+const CreateTeamModal = ({
+  visible,
+  isDark,
+  friends,
+  onClose,
+  onCreate,
+  loading,
+}: {
+  visible: boolean;
+  isDark: boolean;
+  friends: Friend[];
+  onClose: () => void;
+  onCreate: (name: string, memberIds: string[]) => void;
+  loading: boolean;
+}) => {
+  const [name, setName] = useState('');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState('');
+  const theme = t(isDark);
+
+  const filtered = friends.filter(
+    (f) =>
+      f.username.toLowerCase().includes(search.toLowerCase()) ||
+      f.email?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const toggle = (id: string) => {
+    setSelected((prev) => {
+      const s = new Set(prev);
+      s.has(id) ? s.delete(id) : s.add(id);
+      return s;
+    });
+  };
+
+  const handleCreate = () => {
+    if (!name.trim()) return;
+    onCreate(name.trim(), [...selected]);
+  };
+
+  // Reset on open
+  useEffect(() => {
+    if (visible) {
+      setName('');
+      setSelected(new Set());
+      setSearch('');
+    }
+  }, [visible]);
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: isDark ? '#0f0f0f' : '#f9f9f9' }}>
+        {/* Header */}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingHorizontal: 20,
+            paddingVertical: 18,
+            borderBottomWidth: 1,
+            borderBottomColor: isDark ? '#1e1e1e' : '#f0f0f0',
+          }}>
+          <AnimatedPressable onPress={onClose} scaleDown={0.9}>
+            <Ionicons name="close" size={22} color={theme.textSecondary} />
+          </AnimatedPressable>
+          <Text style={{ fontSize: 17, fontWeight: '700', color: theme.text }}>Create Team</Text>
+          <AnimatedPressable
+            onPress={handleCreate}
+            scaleDown={0.92}
+            disabled={loading || !name.trim()}
+            style={{
+              backgroundColor: name.trim() ? ACCENT : isDark ? '#2a2a2a' : '#e5e7eb',
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              borderRadius: 20,
+            }}>
+            {loading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text
+                style={{
+                  color: name.trim() ? '#fff' : theme.textSecondary,
+                  fontWeight: '700',
+                  fontSize: 14,
+                }}>
+                Create
+              </Text>
+            )}
+          </AnimatedPressable>
+        </View>
+
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
+          {/* Team name */}
+          <Text
+            style={{
+              fontSize: 11,
+              fontWeight: '700',
+              color: theme.textSecondary,
+              letterSpacing: 1,
+              textTransform: 'uppercase',
+              marginBottom: 10,
+            }}>
+            Team Name
+          </Text>
+          <View
+            style={{
+              backgroundColor: theme.card,
+              borderRadius: 14,
+              paddingHorizontal: 16,
+              paddingVertical: 14,
+              marginBottom: 24,
+              borderWidth: 1,
+              borderColor: isDark ? '#2a2a2a' : 'rgba(0,0,0,0.06)',
+            }}>
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              placeholder="e.g. Study Squad, Dev Team…"
+              placeholderTextColor={theme.textSecondary}
+              style={{ fontSize: 16, color: theme.text }}
+              autoFocus
+              maxLength={50}
+            />
+          </View>
+
+          {/* Member selection */}
+          <Text
+            style={{
+              fontSize: 11,
+              fontWeight: '700',
+              color: theme.textSecondary,
+              letterSpacing: 1,
+              textTransform: 'uppercase',
+              marginBottom: 10,
+            }}>
+            Add Members {selected.size > 0 ? `(${selected.size} selected)` : ''}
+          </Text>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: theme.card,
+              borderRadius: 12,
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              marginBottom: 14,
+              borderWidth: 1,
+              borderColor: isDark ? '#2a2a2a' : 'rgba(0,0,0,0.06)',
+            }}>
+            <Ionicons
+              name="search"
+              size={16}
+              color={theme.textSecondary}
+              style={{ marginRight: 8 }}
+            />
+            <TextInput
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search friends…"
+              placeholderTextColor={theme.textSecondary}
+              style={{ flex: 1, fontSize: 14, color: theme.text }}
+              autoCorrect={false}
+            />
+          </View>
+
+          {filtered.length === 0 ? (
+            <Text style={{ textAlign: 'center', color: theme.textSecondary, marginTop: 20 }}>
+              No friends to add
+            </Text>
+          ) : (
+            filtered.map((f) => {
+              const checked = selected.has(f.id);
+              return (
+                <AnimatedPressable
+                  key={f.id}
+                  scaleDown={0.97}
+                  onPress={() => toggle(f.id)}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: checked
+                      ? isDark
+                        ? 'rgba(139,92,246,0.1)'
+                        : 'rgba(139,92,246,0.06)'
+                      : theme.card,
+                    borderRadius: 14,
+                    padding: 12,
+                    marginBottom: 8,
+                    borderWidth: 1.5,
+                    borderColor: checked ? ACCENT : 'transparent',
+                  }}>
+                  <Image
+                    source={{ uri: avatarUri(f.profilePic, f.username) }}
+                    style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: ACCENT }}
+                  />
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: theme.text }}>
+                      {f.username}
+                    </Text>
+                    {f.email && (
+                      <Text style={{ fontSize: 12, color: theme.textSecondary }}>{f.email}</Text>
+                    )}
+                  </View>
+                  <View
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: 11,
+                      borderWidth: 2,
+                      borderColor: checked ? ACCENT : isDark ? '#3a3a3a' : '#d1d5db',
+                      backgroundColor: checked ? ACCENT : 'transparent',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                    {checked && <Ionicons name="checkmark" size={13} color="#fff" />}
+                  </View>
+                </AnimatedPressable>
+              );
+            })
+          )}
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+};
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
@@ -360,11 +770,16 @@ const Friends = () => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const theme = t(isDark);
+  const { user } = useUserStore();
+  const { addAlert } = useAppStore();
+  const currentUserId = user?.id ?? '';
 
   const [activeTab, setActiveTab] = useState<TabType>('friends');
   const [requestSubTab, setRequestSubTab] = useState<RequestSubTab>('incoming');
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showCreateTeam, setShowCreateTeam] = useState(false);
+  const [teams, setTeams] = useState<Team[]>([]);
 
   const [incomingRequests, setIncomingRequests] = useState<FriendRequest[]>([]);
   const [outgoingRequests, setOutgoingRequests] = useState<FriendRequest[]>([]);
@@ -377,13 +792,13 @@ const Friends = () => {
 
   // Confirm modals
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
-  const [confirmBlockId, setConfirmBlockId] = useState<string | null>(null);
-  const confirmRemoveFriend = incomingRequests.find(r => r.id === confirmRemoveId) ??
-    suggestions.find(r => r.id === confirmRemoveId) ??
-    { username: '' };
+  const [confirmTeamAction, setConfirmTeamAction] = useState<{
+    teamId: string;
+    action: 'delete' | 'leave';
+    name: string;
+  } | null>(null);
 
   const { friends, setFriends } = useFriendsStore();
-
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Mutations
@@ -393,9 +808,16 @@ const Friends = () => {
   const [rejectFriendRequest] = useMutation(REJECT_FRIEND_REQUEST);
   const [cancelFriendRequest] = useMutation(CANCEL_FRIEND_REQUEST);
   const [sendFriendRequest] = useMutation(SEND_FRIEND_REQUEST);
+  const [createTeamMut, { loading: creatingTeam }] = useMutation(CREATE_TEAM);
+  const [deleteTeamMut] = useMutation(DELETE_TEAM);
+  const [leaveTeamMut] = useMutation(LEAVE_TEAM);
 
   // Queries
-  const { data: friendsData, loading: friendsLoading, refetch: refetchFriends } = useQuery(GET_FRIENDS, {
+  const {
+    data: friendsData,
+    loading: friendsLoading,
+    refetch: refetchFriends,
+  } = useQuery(GET_FRIENDS, {
     fetchPolicy: 'cache-and-network',
   });
   const { refetch: refetchRequests } = useQuery(GET_PENDING_REQUESTS, {
@@ -405,6 +827,12 @@ const Friends = () => {
   const { refetch: refetchSuggestions } = useQuery(GET_FRIEND_SUGGESTIONS, {
     fetchPolicy: 'cache-and-network',
     onCompleted: applySuggestions,
+  });
+  const { refetch: refetchTeams } = useQuery(MY_TEAMS, {
+    fetchPolicy: 'cache-and-network',
+    onCompleted: (data) => {
+      if (data?.myTeams?.success) setTeams(data.myTeams.teams || []);
+    },
   });
 
   const [searchUsers, { loading: searchLoading }] = useLazyQuery(SEARCH_USERS);
@@ -417,48 +845,74 @@ const Friends = () => {
 
   function applyRequests(data: any) {
     if (data?.getPendingRequests?.success) {
-      setIncomingRequests((data.getPendingRequests.incoming || []).map((u: any) => ({
-        id: u.id, username: u.username, profilePic: u.profilePic,
-      })));
-      setOutgoingRequests((data.getPendingRequests.outgoing || []).map((u: any) => ({
-        id: u.id, username: u.username, profilePic: u.profilePic,
-      })));
+      setIncomingRequests(
+        (data.getPendingRequests.incoming || []).map((u: any) => ({
+          id: u.id,
+          username: u.username,
+          profilePic: u.profilePic,
+        }))
+      );
+      setOutgoingRequests(
+        (data.getPendingRequests.outgoing || []).map((u: any) => ({
+          id: u.id,
+          username: u.username,
+          profilePic: u.profilePic,
+        }))
+      );
     }
   }
 
   function applySuggestions(data: any) {
     if (data?.getFriendSuggestions?.success) {
-      setSuggestions((data.getFriendSuggestions.suggestions || []).map((u: any) => ({
-        id: u.id, username: u.username, profilePic: u.profilePic,
-        mutualFriends: u.mutualFriends || 0,
-      })));
+      setSuggestions(
+        (data.getFriendSuggestions.suggestions || []).map((u: any) => ({
+          id: u.id,
+          username: u.username,
+          profilePic: u.profilePic,
+          mutualFriends: u.mutualFriends || 0,
+        }))
+      );
     }
   }
 
   // Debounced server search
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (searchQuery.trim().length < 3) { setSearchResults([]); return; }
+    if (searchQuery.trim().length < 3) {
+      setSearchResults([]);
+      return;
+    }
     debounceRef.current = setTimeout(async () => {
       try {
         const { data } = await searchUsers({ variables: { query: searchQuery.trim() } });
         if (data?.searchUsers?.success) {
-          setSearchResults((data.searchUsers.users || []).map((u: any) => ({
-            id: u.id, username: u.username, profilePic: u.profilePic,
-            mutualFriends: u.mutualFriends || 0,
-          })));
+          setSearchResults(
+            (data.searchUsers.users || []).map((u: any) => ({
+              id: u.id,
+              username: u.username,
+              profilePic: u.profilePic,
+              mutualFriends: u.mutualFriends || 0,
+            }))
+          );
         }
-      } catch { /* silent */ }
+      } catch {
+        /* silent */
+      }
     }, 600);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, [searchQuery]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     const [result] = await Promise.all([
       refetchFriends(),
-      refetchRequests().then(r => applyRequests(r.data)),
-      refetchSuggestions().then(r => applySuggestions(r.data)),
+      refetchRequests().then((r) => applyRequests(r.data)),
+      refetchSuggestions().then((r) => applySuggestions(r.data)),
+      refetchTeams().then((r) => {
+        if (r.data?.myTeams?.success) setTeams(r.data.myTeams.teams || []);
+      }),
     ]);
     if (result.data?.getFriends?.success) setFriends(result.data.getFriends.friends);
     setRefreshing(false);
@@ -470,104 +924,200 @@ const Friends = () => {
     try {
       const { data } = await acceptFriendRequest({ variables: { friendId: id } });
       if (data?.acceptFriendRequest?.success) {
-        setIncomingRequests(p => p.filter(r => r.id !== id));
-        refetchFriends().then(r => { if (r.data?.getFriends?.success) setFriends(r.data.getFriends.friends); });
-        Toast.show({ type: 'success', text1: 'Friend request accepted!' });
+        setIncomingRequests((p) => p.filter((r) => r.id !== id));
+        refetchFriends().then((r) => {
+          if (r.data?.getFriends?.success) setFriends(r.data.getFriends.friends);
+        });
+        addAlert({ type: 'success', str: 'Friend request accepted!' });
       } else {
-        Toast.show({ type: 'error', text1: data?.acceptFriendRequest?.message || 'Failed' });
+        addAlert({ type: 'error', str: data?.acceptFriendRequest?.message || 'Failed' });
       }
-    } catch { Toast.show({ type: 'error', text1: 'Something went wrong' }); }
-    finally { setProcessingId(null); }
+    } catch {
+      addAlert({ type: 'error', str: 'Something went wrong' });
+    } finally {
+      setProcessingId(null);
+    }
   }, []);
 
   const handleDecline = useCallback(async (id: string) => {
     try {
       const { data } = await rejectFriendRequest({ variables: { friendId: id } });
       if (data?.rejectFriendRequest?.success) {
-        setIncomingRequests(p => p.filter(r => r.id !== id));
-        Toast.show({ type: 'success', text1: 'Request declined' });
+        setIncomingRequests((p) => p.filter((r) => r.id !== id));
+        addAlert({ type: 'success', str: 'Request declined' });
       }
-    } catch { /* silent */ }
+    } catch {
+      /* silent */
+    }
   }, []);
 
   const handleCancel = useCallback(async (id: string) => {
     try {
       const { data } = await cancelFriendRequest({ variables: { friendId: id } });
       if (data?.cancelFriendRequest?.success) {
-        setOutgoingRequests(p => p.filter(r => r.id !== id));
-        Toast.show({ type: 'success', text1: 'Request cancelled' });
+        setOutgoingRequests((p) => p.filter((r) => r.id !== id));
+        addAlert({ type: 'success', str: 'Request cancelled' });
       }
-    } catch { /* silent */ }
+    } catch {
+      /* silent */
+    }
   }, []);
 
-  const handleUnfriend = useCallback(async (friendId: string) => {
-    try {
-      const { data } = await unfriend({ variables: { friendId } });
-      if (data?.unfriend?.success) {
-        setFriends(friends.filter(f => f.id !== friendId));
-        Toast.show({ type: 'success', text1: 'Friend removed' });
+  const handleUnfriend = useCallback(
+    async (friendId: string) => {
+      try {
+        const { data } = await unfriend({ variables: { friendId } });
+        if (data?.unfriend?.success) {
+          setFriends(friends.filter((f) => f.id !== friendId));
+          addAlert({ type: 'success', str: 'Friend removed' });
+        }
+      } catch {
+        addAlert({ type: 'error', str: 'Failed to remove friend' });
+      } finally {
+        setConfirmRemoveId(null);
       }
-    } catch { Toast.show({ type: 'error', text1: 'Failed to remove friend' }); }
-    finally { setConfirmRemoveId(null); }
-  }, [friends]);
+    },
+    [friends]
+  );
 
-  const handleBlock = useCallback(async (userId: string) => {
-    try {
-      const { data } = await blockUser({ variables: { userId } });
-      if (data?.blockUser?.success) {
-        setFriends(friends.filter(f => f.id !== userId));
-        setIncomingRequests(p => p.filter(r => r.id !== userId));
-        setSuggestions(p => p.filter(s => s.id !== userId));
-        Toast.show({ type: 'success', text1: 'User blocked' });
-      }
-    } catch { Toast.show({ type: 'error', text1: 'Failed to block user' }); }
-    finally { setConfirmBlockId(null); }
-  }, [friends]);
-
-  const handleSend = useCallback(async (userId: string) => {
+  const handleSend = useCallback(async (userId: string, userObj?: FriendRequest) => {
     setLoadingAddId(userId);
     try {
       const { data } = await sendFriendRequest({ variables: { friendId: userId } });
       if (data?.sendFriendRequest?.success) {
-        setSentIds(p => new Set(p).add(userId));
-        Toast.show({ type: 'success', text1: 'Friend request sent!' });
+        setSentIds((p) => new Set(p).add(userId));
+        // Instantly move user from discover/search to outgoing requests list
+        if (userObj) {
+          setOutgoingRequests((prev) => [userObj, ...prev]);
+          setSuggestions((prev) => prev.filter((s) => s.id !== userId));
+          setSearchResults((prev) => prev.filter((s) => s.id !== userId));
+        }
+        addAlert({ type: 'success', str: 'Friend request sent!' });
       } else {
-        Toast.show({ type: 'error', text1: data?.sendFriendRequest?.message || 'Failed' });
+        addAlert({ type: 'error', str: data?.sendFriendRequest?.message || 'Failed' });
       }
-    } catch { Toast.show({ type: 'error', text1: 'Something went wrong' }); }
-    finally { setLoadingAddId(null); }
+    } catch {
+      addAlert({ type: 'error', str: 'Something went wrong' });
+    } finally {
+      setLoadingAddId(null);
+    }
   }, []);
+
+  // Team actions
+  const handleCreateTeam = useCallback(async (name: string, memberIds: string[]) => {
+    try {
+      const { data } = await createTeamMut({ variables: { name, memberIds } });
+      if (data?.createTeam?.success) {
+        setTeams((prev) => [data.createTeam.team, ...prev]);
+        setShowCreateTeam(false);
+        addAlert({ type: 'success', str: 'Team created!' + ' - ' + data.createTeam.team.name });
+      } else {
+        addAlert({ type: 'error', str: data?.createTeam?.message || 'Failed' });
+      }
+    } catch {
+      addAlert({ type: 'error', str: 'Something went wrong' });
+    }
+  }, []);
+
+  const handleTeamConfirm = useCallback(async () => {
+    if (!confirmTeamAction) return;
+    const { teamId, action } = confirmTeamAction;
+    try {
+      if (action === 'delete') {
+        const { data } = await deleteTeamMut({ variables: { teamId } });
+        if (data?.deleteTeam?.success) {
+          setTeams((prev) => prev.filter((t) => t.id !== teamId));
+          addAlert({ type: 'success', str: 'Team deleted' });
+        }
+      } else {
+        const { data } = await leaveTeamMut({ variables: { teamId } });
+        if (data?.leaveTeam?.success) {
+          setTeams((prev) => prev.filter((t) => t.id !== teamId));
+          addAlert({ type: 'success', str: 'Left team' });
+        }
+      }
+    } catch {
+      addAlert({ type: 'error', str: 'Something went wrong' });
+    } finally {
+      setConfirmTeamAction(null);
+    }
+  }, [confirmTeamAction]);
 
   // Derived lists
   const isSearching = searchQuery.trim().length > 0;
   const localFiltered = isSearching
-    ? friends.filter(f =>
-        f.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        f.email?.toLowerCase().includes(searchQuery.toLowerCase())
+    ? friends.filter(
+        (f) =>
+          f.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          f.email?.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : friends;
-  const serverResults = searchResults.filter(u => !friends.some(f => f.id === u.id));
-  const filteredSuggestions = suggestions.filter(s => !friends.some(f => f.id === s.id));
+  const serverResults = searchResults.filter((u) => !friends.some((f) => f.id === u.id));
+  const filteredSuggestions = suggestions.filter((s) => !friends.some((f) => f.id === s.id));
+
+  const TABS: { key: TabType; label: string; badge?: number }[] = [
+    { key: 'friends', label: 'Friends' },
+    { key: 'requests', label: 'Requests', badge: incomingRequests.length },
+    { key: 'discover', label: 'Discover' },
+    { key: 'teams', label: 'Teams', badge: teams.length },
+  ];
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       {/* Header */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 14 }}>
-        <Text style={{ fontSize: 24, fontWeight: '800', color: ACCENT, letterSpacing: -0.5 }}>Friends</Text>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: 20,
+          paddingVertical: 14,
+        }}>
+        <Text style={{ fontSize: 24, fontWeight: '800', color: ACCENT, letterSpacing: -0.5 }}>
+          Friends
+        </Text>
+        {activeTab === 'teams' && (
+          <AnimatedPressable
+            onPress={() => setShowCreateTeam(true)}
+            scaleDown={0.92}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              backgroundColor: ACCENT,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              borderRadius: 20,
+            }}>
+            <Ionicons name="add" size={16} color="#fff" />
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>New Team</Text>
+          </AnimatedPressable>
+        )}
       </View>
 
       {/* Search */}
       <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
-        <View style={{
-          flexDirection: 'row', alignItems: 'center',
-          backgroundColor: theme.card, borderRadius: 14,
-          paddingHorizontal: 14, paddingVertical: 11,
-          borderWidth: 1, borderColor: isDark ? theme.border : 'rgba(0,0,0,0.06)',
-        }}>
-          {searchLoading
-            ? <ActivityIndicator size="small" color={ACCENT} style={{ marginRight: 10 }} />
-            : <Ionicons name="search" size={18} color={theme.textSecondary} style={{ marginRight: 10 }} />
-          }
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: theme.card,
+            borderRadius: 14,
+            paddingHorizontal: 14,
+            paddingVertical: 11,
+            borderWidth: 1,
+            borderColor: isDark ? theme.border : 'rgba(0,0,0,0.06)',
+          }}>
+          {searchLoading ? (
+            <ActivityIndicator size="small" color={ACCENT} style={{ marginRight: 10 }} />
+          ) : (
+            <Ionicons
+              name="search"
+              size={18}
+              color={theme.textSecondary}
+              style={{ marginRight: 10 }}
+            />
+          )}
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -587,62 +1137,107 @@ const Friends = () => {
 
       {/* Tabs — hidden when actively searching */}
       {!isSearching && (
-        <View style={{ flexDirection: 'row', marginHorizontal: 16, marginBottom: 14, backgroundColor: isDark ? '#1a1a1a' : '#f3f4f6', borderRadius: 12, padding: 4 }}>
-          {(['friends', 'requests', 'discover'] as const).map((tab) => {
-            const badge = tab === 'requests' ? incomingRequests.length : 0;
-            return (
-              <AnimatedPressable
-                key={tab}
-                onPress={() => setActiveTab(tab)}
-                scaleDown={0.95}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 14, gap: 8 }}
+          style={{ flexGrow: 0 }}>
+          {TABS.map(({ key, label, badge }) => (
+            <AnimatedPressable
+              key={key}
+              onPress={() => setActiveTab(key)}
+              scaleDown={0.95}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                paddingVertical: 9,
+                paddingHorizontal: 16,
+                borderRadius: 22,
+                backgroundColor: activeTab === key ? ACCENT : isDark ? '#1a1a1a' : '#f3f4f6',
+              }}>
+              <Text
                 style={{
-                  flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 10,
-                  backgroundColor: activeTab === tab ? ACCENT : 'transparent',
-                  flexDirection: 'row', justifyContent: 'center', gap: 5,
+                  fontSize: 13,
+                  fontWeight: '600',
+                  color: activeTab === key ? '#fff' : theme.textSecondary,
                 }}>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: activeTab === tab ? '#fff' : theme.textSecondary, textTransform: 'capitalize' }}>
-                  {tab === 'friends' ? 'Friends' : tab === 'requests' ? 'Requests' : 'Discover'}
-                </Text>
-                {badge > 0 && (
-                  <View style={{ backgroundColor: '#ef4444', borderRadius: 8, minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}>
-                    <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{badge}</Text>
-                  </View>
-                )}
-              </AnimatedPressable>
-            );
-          })}
-        </View>
+                {label}
+              </Text>
+              {!!badge && badge > 0 && (
+                <View
+                  style={{
+                    backgroundColor: activeTab === key ? 'rgba(255,255,255,0.3)' : '#ef4444',
+                    borderRadius: 8,
+                    minWidth: 16,
+                    height: 16,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingHorizontal: 4,
+                  }}>
+                  <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{badge}</Text>
+                </View>
+              )}
+            </AnimatedPressable>
+          ))}
+        </ScrollView>
       )}
 
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ACCENT} colors={[ACCENT]} />}>
-
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={ACCENT}
+            colors={[ACCENT]}
+          />
+        }>
         {/* ── Search results ── */}
         {isSearching ? (
           <>
-            {/* Local matches */}
             {localFiltered.length > 0 && (
               <>
-                <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: '700',
+                    color: theme.textSecondary,
+                    letterSpacing: 1,
+                    textTransform: 'uppercase',
+                    marginBottom: 10,
+                  }}>
                   Your Friends
                 </Text>
-                {localFiltered.map(f => (
-                  <FriendCard key={f.id} friend={f} isDark={isDark} onMenuPress={(fr) => setConfirmRemoveId(fr.id)} />
+                {localFiltered.map((f) => (
+                  <FriendCard
+                    key={f.id}
+                    friend={f}
+                    isDark={isDark}
+                    onMenuPress={(fr) => setConfirmRemoveId(fr.id)}
+                  />
                 ))}
               </>
             )}
-            {/* Server results (non-friends) */}
             {searchQuery.trim().length >= 3 && (
               <>
                 {serverResults.length > 0 && (
                   <>
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary, letterSpacing: 1, textTransform: 'uppercase', marginTop: 12, marginBottom: 10 }}>
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontWeight: '700',
+                        color: theme.textSecondary,
+                        letterSpacing: 1,
+                        textTransform: 'uppercase',
+                        marginTop: 12,
+                        marginBottom: 10,
+                      }}>
                       Add People
                     </Text>
-                    {serverResults.map(u => (
+                    {serverResults.map((u) => (
                       <UserRow
                         key={u.id}
                         user={u}
@@ -662,7 +1257,11 @@ const Friends = () => {
               </>
             )}
             {localFiltered.length === 0 && searchQuery.trim().length < 3 && (
-              <EmptyState icon="search-outline" text="Type at least 3 characters to search" isDark={isDark} />
+              <EmptyState
+                icon="search-outline"
+                text="Type at least 3 characters to search"
+                isDark={isDark}
+              />
             )}
           </>
         ) : activeTab === 'friends' ? (
@@ -670,11 +1269,19 @@ const Friends = () => {
             {friendsLoading && friends.length === 0 ? (
               <FriendSkeleton isDark={isDark} />
             ) : friends.length === 0 ? (
-              <EmptyState icon="people-outline" text={"No friends yet\nDiscover people in the Discover tab"} isDark={isDark} />
+              <EmptyState
+                icon="people-outline"
+                text={'No friends yet\nDiscover people in the Discover tab'}
+                isDark={isDark}
+              />
             ) : (
               friends.map((f, i) => (
                 <Animated.View key={f.id} entering={FadeInDown.delay(i * 40).duration(300)}>
-                  <FriendCard friend={f} isDark={isDark} onMenuPress={(fr) => setConfirmRemoveId(fr.id)} />
+                  <FriendCard
+                    friend={f}
+                    isDark={isDark}
+                    onMenuPress={(fr) => setConfirmRemoveId(fr.id)}
+                  />
                 </Animated.View>
               ))
             )}
@@ -682,9 +1289,17 @@ const Friends = () => {
         ) : activeTab === 'requests' ? (
           <>
             {/* Sub-tabs */}
-            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                gap: 16,
+                marginBottom: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: isDark ? '#2a2a2a' : '#e5e7eb',
+              }}>
               {(['incoming', 'outgoing'] as const).map((sub) => {
-                const count = sub === 'incoming' ? incomingRequests.length : outgoingRequests.length;
+                const count =
+                  sub === 'incoming' ? incomingRequests.length : outgoingRequests.length;
                 const active = requestSubTab === sub;
                 return (
                   <AnimatedPressable
@@ -692,12 +1307,18 @@ const Friends = () => {
                     scaleDown={0.95}
                     onPress={() => setRequestSubTab(sub)}
                     style={{
-                      flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 12,
-                      borderWidth: 1.5,
-                      borderColor: active ? ACCENT : isDark ? '#374151' : '#e5e7eb',
-                      backgroundColor: active ? isDark ? 'rgba(124,58,237,0.15)' : 'rgba(124,58,237,0.08)' : 'transparent',
+                      alignItems: 'center',
+                      paddingVertical: 10,
+                      paddingHorizontal: 8,
+                      borderBottomWidth: 2,
+                      borderBottomColor: active ? ACCENT : 'transparent',
                     }}>
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: active ? ACCENT : theme.textSecondary }}>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: active ? '700' : '600',
+                        color: active ? ACCENT : theme.textSecondary,
+                      }}>
                       {sub === 'incoming' ? 'Incoming' : 'Sent'} {count > 0 ? `(${count})` : ''}
                     </Text>
                   </AnimatedPressable>
@@ -707,7 +1328,7 @@ const Friends = () => {
 
             {requestSubTab === 'incoming' ? (
               incomingRequests.length > 0 ? (
-                incomingRequests.map(r => (
+                incomingRequests.map((r) => (
                   <RequestCard
                     key={r.id}
                     request={r}
@@ -720,48 +1341,113 @@ const Friends = () => {
               ) : (
                 <EmptyState icon="mail-outline" text="No incoming requests" isDark={isDark} />
               )
+            ) : outgoingRequests.length > 0 ? (
+              outgoingRequests.map((r) => (
+                <UserRow
+                  key={r.id}
+                  user={r}
+                  isDark={isDark}
+                  actionLabel="Cancel"
+                  actionColor="#6b7280"
+                  onAction={handleCancel}
+                  loading={false}
+                />
+              ))
             ) : (
-              outgoingRequests.length > 0 ? (
-                outgoingRequests.map(r => (
-                  <UserRow
-                    key={r.id}
-                    user={r}
-                    isDark={isDark}
-                    actionLabel="Cancel"
-                    actionColor="#6b7280"
-                    onAction={handleCancel}
-                    loading={false}
-                  />
-                ))
-              ) : (
-                <EmptyState icon="paper-plane-outline" text="No outgoing requests" isDark={isDark} />
-              )
+              <EmptyState icon="paper-plane-outline" text="No outgoing requests" isDark={isDark} />
             )}
           </>
-        ) : (
-          /* Discover */
-          filteredSuggestions.length > 0 ? (
-            <>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>
-                People You May Know
+        ) : activeTab === 'teams' ? (
+          /* ── Teams tab ── */
+          teams.length === 0 ? (
+            <View style={{ alignItems: 'center', paddingVertical: 60 }}>
+              <Ionicons
+                name="people-circle-outline"
+                size={56}
+                color={isDark ? '#374151' : '#d1d5db'}
+              />
+              <Text
+                style={{
+                  marginTop: 14,
+                  fontSize: 15,
+                  color: isDark ? '#4b5563' : '#9ca3af',
+                  textAlign: 'center',
+                }}>
+                {'No teams yet\nCreate one to work with friends'}
               </Text>
-              {filteredSuggestions.map((s, i) => (
-                <Animated.View key={s.id} entering={FadeInDown.delay(i * 50).duration(300)}>
-                  <UserRow
-                    user={s}
-                    isDark={isDark}
-                    actionLabel="Add"
-                    actionColor={ACCENT}
-                    onAction={handleSend}
-                    loading={loadingAddId === s.id}
-                    disabled={sentIds.has(s.id)}
-                  />
-                </Animated.View>
+              <AnimatedPressable
+                onPress={() => setShowCreateTeam(true)}
+                scaleDown={0.94}
+                style={{
+                  marginTop: 20,
+                  backgroundColor: ACCENT,
+                  paddingHorizontal: 24,
+                  paddingVertical: 12,
+                  borderRadius: 22,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                }}>
+                <Ionicons name="add" size={18} color="#fff" />
+                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Create Team</Text>
+              </AnimatedPressable>
+            </View>
+          ) : (
+            <>
+              {teams.map((team) => (
+                <TeamCard
+                  key={team.id}
+                  team={team}
+                  isDark={isDark}
+                  currentUserId={currentUserId}
+                  onPress={() =>
+                    router.push({ pathname: '/team-detail', params: { teamId: team.id } })
+                  }
+                  onChat={() => team.chatId && router.push(`/shard/${team.chatId}/chat` as any)}
+                  onLeave={() =>
+                    setConfirmTeamAction({ teamId: team.id, action: 'leave', name: team.name })
+                  }
+                  onDelete={() =>
+                    setConfirmTeamAction({ teamId: team.id, action: 'delete', name: team.name })
+                  }
+                />
               ))}
             </>
-          ) : (
-            <EmptyState icon="compass-outline" text={"No suggestions right now\nAdd friends to get recommendations"} isDark={isDark} />
           )
+        ) : /* Discover */
+        filteredSuggestions.length > 0 ? (
+          <>
+            <Text
+              style={{
+                fontSize: 11,
+                fontWeight: '700',
+                color: theme.textSecondary,
+                letterSpacing: 1,
+                textTransform: 'uppercase',
+                marginBottom: 12,
+              }}>
+              People You May Know
+            </Text>
+            {filteredSuggestions.map((s, i) => (
+              <Animated.View key={s.id} entering={FadeInDown.delay(i * 50).duration(300)}>
+                <UserRow
+                  user={s}
+                  isDark={isDark}
+                  actionLabel="Add"
+                  actionColor={ACCENT}
+                  onAction={handleSend}
+                  loading={loadingAddId === s.id}
+                  disabled={sentIds.has(s.id)}
+                />
+              </Animated.View>
+            ))}
+          </>
+        ) : (
+          <EmptyState
+            icon="compass-outline"
+            text={'No suggestions right now\nAdd friends to get recommendations'}
+            isDark={isDark}
+          />
         )}
       </ScrollView>
 
@@ -771,22 +1457,36 @@ const Friends = () => {
         onClose={() => setConfirmRemoveId(null)}
         onConfirm={() => confirmRemoveId && handleUnfriend(confirmRemoveId)}
         title="Remove Friend?"
-        message={`Remove ${friends.find(f => f.id === confirmRemoveId)?.username ?? ''} from your friends?`}
+        message={`Remove ${friends.find((f) => f.id === confirmRemoveId)?.username ?? ''} from your friends?`}
         confirmLabel="Remove"
         icon="person-remove-outline"
         destructive
       />
-      {/* Block confirmation */}
+
+      {/* Team action confirmation */}
       <ConfirmModal
-        visible={!!confirmBlockId}
-        onClose={() => setConfirmBlockId(null)}
-        onConfirm={() => confirmBlockId && handleBlock(confirmBlockId)}
-        title="Block User?"
-        message="They won't be able to see your profile or send you requests."
-        confirmLabel="Block"
-        icon="ban-outline"
-        confirmColor="#991b1b"
+        visible={!!confirmTeamAction}
+        onClose={() => setConfirmTeamAction(null)}
+        onConfirm={handleTeamConfirm}
+        title={confirmTeamAction?.action === 'delete' ? 'Delete Team?' : 'Leave Team?'}
+        message={
+          confirmTeamAction?.action === 'delete'
+            ? `Delete "${confirmTeamAction?.name}"? This will also delete the team chat.`
+            : `Leave "${confirmTeamAction?.name}"?`
+        }
+        confirmLabel={confirmTeamAction?.action === 'delete' ? 'Delete' : 'Leave'}
+        icon={confirmTeamAction?.action === 'delete' ? 'trash-outline' : 'exit-outline'}
         destructive
+      />
+
+      {/* Create Team Sheet */}
+      <CreateTeamModal
+        visible={showCreateTeam}
+        isDark={isDark}
+        friends={friends}
+        onClose={() => setShowCreateTeam(false)}
+        onCreate={handleCreateTeam}
+        loading={creatingTeam}
       />
     </SafeAreaView>
   );

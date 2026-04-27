@@ -7,6 +7,7 @@ class WebSocketService {
   private isConnected = false;
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   private activeChats = new Set<string>();
+  private netInfoUnsub: (() => void) | null = null;
 
   async connect() {
     if (this.socket?.connected) {
@@ -25,8 +26,23 @@ class WebSocketService {
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionDelay: 1000,
-        reconnectionAttempts: 5,
+        reconnectionAttempts: Infinity,
       });
+
+      // Register exactly one NetInfo listener for the lifetime of this socket.
+      // Wrapped in try/catch — the native module requires a dev build.
+      this.netInfoUnsub?.();
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const NetInfo = require('@react-native-community/netinfo').default;
+        this.netInfoUnsub = NetInfo.addEventListener((state: { isConnected: boolean | null }) => {
+          if (state.isConnected && !this.socket?.connected) {
+            this.socket?.connect();
+          }
+        });
+      } catch {
+        // Native module not compiled in — reconnect on network change unavailable
+      }
 
       this.socket.on('connect', () => {
         console.log('✅ WebSocket connected');
@@ -74,6 +90,8 @@ class WebSocketService {
 
   disconnect() {
     this.stopHeartbeat();
+    this.netInfoUnsub?.();
+    this.netInfoUnsub = null;
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;

@@ -744,3 +744,74 @@ export const DELETE_MESSAGE = gql`
     }
   }
 `;
+
+// ─── Team mutations ───────────────────────────────────────────────────
+
+export const CREATE_TEAM = gql`
+  mutation CreateTeam($name: String!, $memberIds: [ID!]!) {
+    createTeam(name: $name, memberIds: $memberIds) {
+      success
+      message
+      team {
+        id
+        name
+        memberCount
+        chatId
+        createdAt
+        owner {
+          id
+          username
+          profilePic
+        }
+        members {
+          id
+          username
+          profilePic
+        }
+      }
+    }
+  }
+`;
+
+export const UPDATE_TEAM = gql`
+  mutation UpdateTeam($teamId: ID!, $name: String, $addMemberIds: [ID!], $removeMemberIds: [ID!]) {
+    updateTeam(teamId: $teamId, name: $name, addMemberIds: $addMemberIds, removeMemberIds: $removeMemberIds) {
+      success
+      message
+      team {
+        id
+        name
+        memberCount
+        chatId
+        owner {
+          id
+          username
+          profilePic
+        }
+        members {
+          id
+          username
+          profilePic
+        }
+      }
+    }
+  }
+`;
+
+export const DELETE_TEAM = gql`
+  mutation DeleteTeam($teamId: ID!) {
+    deleteTeam(teamId: $teamId) {
+      success
+      message
+    }
+  }
+`;
+
+export const LEAVE_TEAM = gql`
+  mutation LeaveTeam($teamId: ID!) {
+    leaveTeam(teamId: $teamId) {
+      success
+      message
+    }
+  }
+`;

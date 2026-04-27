@@ -16,8 +16,12 @@ export const isLoggedIn = async () => {
         console.log("decoded", decoded);
 
         const isExpired = decoded.exp <= Math.floor(Date.now() / 1000);
-        if (isExpired || !decoded.id) {
-            return false;
+        if (!decoded.id) return false;
+        if (isExpired) {
+            // Access token expired — check for a refresh token so Apollo can rotate
+            // on the first live request rather than dropping the session offline.
+            const refresh = await Session.getCookie('x-refresh-token');
+            if (!refresh) return false;
         }
         setUser(decoded as User);
     } catch (err) {

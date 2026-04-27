@@ -10,10 +10,13 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useQuery, useMutation } from '@apollo/client';
+import { useQuery } from '@apollo/client';
 import { Ionicons } from '@expo/vector-icons';
 import { GET_MY_SCHEDULE } from '~/Graphql/Queries';
 import { COMPLETE_TASK } from '~/Graphql/Mutations';
+import { useOfflineMutation } from '~/hooks/useOfflineMutation';
+import { useScheduleStore } from '~/store/schedule.store';
+import * as syncService from '~/services/syncService';
 import Toast from 'react-native-toast-message';
 import AnimatedPressable from '~/components/AnimatedPressable';
 import { ACCENT, ACCENT_COLORS, t, useSkeletonOpacity } from '~/components/shard/constants';
@@ -290,8 +293,28 @@ const Schedule = () => {
   );
 
   const [refreshing, setRefreshing] = useState(false);
-  const { data, loading, error, refetch } = useQuery(GET_MY_SCHEDULE);
-  const [completeTask] = useMutation(COMPLETE_TASK);
+  const cachedTasksByDate = useScheduleStore((state) => state.tasksByDate);
+  const setSchedule = useScheduleStore((state) => state.setSchedule);
+  const markLocalComplete = useScheduleStore((state) => state.markTaskComplete);
+
+  const { data, loading, error, refetch } = useQuery(GET_MY_SCHEDULE, {
+    onCompleted: (d) => {
+      if (d?.getMySchedule) {
+        setSchedule(d.getMySchedule);
+        const all = d.getMySchedule.tasks ?? [];
+        if (all.length) syncService.saveSchedule(all).catch(console.warn);
+      }
+    },
+  });
+
+  const [completeTask] = useOfflineMutation('COMPLETE_TASK', COMPLETE_TASK, {
+    onCompleted: (result) => {
+      if (result?.completeTask?.success) {
+        Toast.show({ type: 'success', text1: result.completeTask.message || 'Task completed!' });
+        refetch();
+      }
+    },
+  });
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -331,26 +354,26 @@ const Schedule = () => {
     async (task: any) => {
       if (task.completed) return;
       const [miniGoalId, taskIndexStr] = task.id.split('-');
+      const taskIndex = parseInt(taskIndexStr, 10);
+      // Optimistic update — marks it done in the store immediately
+      markLocalComplete(task.id);
       try {
-        const { data: result } = await completeTask({
-          variables: {
-            shardId: task.shardId,
-            miniGoalId,
-            taskIndex: parseInt(taskIndexStr, 10),
-          },
+        await completeTask({
+          shardId: task.shardId,
+          miniGoalId,
+          taskIndex,
         });
-        if (result?.completeTask?.success) {
-          Toast.show({ type: 'success', text1: result.completeTask.message || 'Task completed!' });
-          refetch();
-        }
       } catch (err) {
         console.error('Task completion error:', err);
       }
     },
-    [completeTask, refetch]
+    [completeTask, markLocalComplete]
   );
 
-const tasksForSelectedDate = data?.getMySchedule?.tasksByDate?.[selectedDateKey] || [];
+  const tasksForSelectedDate =
+    data?.getMySchedule?.tasksByDate?.[selectedDateKey] ??
+    cachedTasksByDate?.[selectedDateKey] ??
+    [];
 
   const groupedTasks = useMemo(
     () =>

@@ -420,6 +420,8 @@ export const MY_SHARDS = gql`
         description
         image
         status
+        chatId
+        participantsCount
         progress {
           completion
           xpEarned
@@ -603,6 +605,57 @@ export const MY_SUBSCRIPTION_HISTORY = gql`
       currency
       details
       timestamp
+    }
+  }
+`;
+
+export const MY_TEAMS = gql`
+  query MyTeams {
+    myTeams {
+      success
+      teams {
+        id
+        name
+        memberCount
+        chatId
+        createdAt
+        owner {
+          id
+          username
+          profilePic
+        }
+        members {
+          id
+          username
+          profilePic
+        }
+      }
+    }
+  }
+`;
+
+export const GET_TEAM = gql`
+  query GetTeam($teamId: ID!) {
+    getTeam(teamId: $teamId) {
+      success
+      message
+      team {
+        id
+        name
+        memberCount
+        chatId
+        createdAt
+        owner {
+          id
+          username
+          profilePic
+        }
+        members {
+          id
+          username
+          profilePic
+        }
+      }
     }
   }
 `;

@@ -29,6 +29,7 @@ export default function ScreensLayout() {
         }}
       />
       <Stack.Screen name="shard-info" />
+      <Stack.Screen name="team-detail" />
       <Stack.Screen name="backlog" />
       <Stack.Screen name="edit-profile" />
       <Stack.Screen name="subscribe-pro" />
