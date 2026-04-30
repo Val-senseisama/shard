@@ -33,7 +33,7 @@
     "splash": {
       "image": "./assets/app-icons/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0a0a0f"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -49,7 +49,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/app-icons/icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#0a0a0f"
       },
       "package": "com.xavitech.shard",
       "permissions": [

@@ -362,10 +362,14 @@ export const GET_CHAT_MESSAGES = gql`
           }
         }
         minitaskRef {
+          miniGoalId
           taskId
+          miniGoalTitle
+          taskTitle
           assignedTo {
             id
             username
+            profilePic
           }
         }
         attachments {

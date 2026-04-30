@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import AppSplashScreen from '~/components/AppSplashScreen';
 import { useFonts } from 'expo-font';
 import { router, SplashScreen, Stack } from 'expo-router';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
@@ -251,7 +252,7 @@ export default function RootLayout() {
   }, [isReady, fontsLoaded, error, isUserLoggedIn]);
 
   if (!isReady || !fontsLoaded || error) {
-    return null;
+    return <AppSplashScreen />;
   }
 
   const toastConfig = {

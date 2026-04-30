@@ -54,6 +54,7 @@ import { Audio } from 'expo-av';
 import * as DocumentPicker from 'expo-document-picker';
 import ConfirmModal from '~/components/ConfirmModal';
 import AnimatedPressable from '~/components/AnimatedPressable';
+import MiniTaskAssignmentCard from '~/components/MiniTaskAssignmentCard';
 
 // ─── Chat skeleton ────────────────────────────────────────────────────────────
 
@@ -156,8 +157,11 @@ interface Message {
     multipleAnswers: boolean;
   };
   minitaskRef?: {
+    miniGoalId: string;
     taskId: string;
-    assignedTo: { id: string; username: string };
+    miniGoalTitle?: string | null;
+    taskTitle?: string | null;
+    assignedTo: { id: string; username: string; profilePic?: string };
   };
 }
 
@@ -1034,6 +1038,19 @@ const ShardChat = () => {
         ? messagesRef.current.find((m) => m.id === item.replyTo) ?? null
         : null;
 
+      // Minitask assignment card — rendered centered, not inside a bubble
+      if (isTask && item.minitaskRef) {
+        return (
+          <MiniTaskAssignmentCard
+            sender={item.sender}
+            minitaskRef={item.minitaskRef}
+            isAssignee={item.minitaskRef.assignedTo.id === user?.id}
+            isDark={colorScheme === 'dark'}
+            createdAt={item.createdAt}
+          />
+        );
+      }
+
       // System / summary messages
       if (isSystem) {
         return (
@@ -1200,17 +1217,6 @@ const ShardChat = () => {
                   </View>
                 );
               })()}
-
-              {isTask && item.minitaskRef && (
-                <View className="items-center py-2">
-                  <View className="w-full items-center rounded-lg bg-yellow-100 p-3 dark:bg-yellow-900/30">
-                    <Ionicons name="clipboard" size={24} color="#eab308" />
-                    <Text className="mt-2 text-center text-xs font-bold text-yellow-800 dark:text-yellow-200">
-                      TASK ASSIGNED TO @{item.minitaskRef.assignedTo.username}
-                    </Text>
-                  </View>
-                </View>
-              )}
 
               {isImage && item.mediaUrl ? (
                 <View>

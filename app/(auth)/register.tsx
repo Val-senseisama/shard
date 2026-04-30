@@ -173,7 +173,7 @@ const Register = () => {
       console.log('Starting Google Sign-In flow...');
 
       const config = {
-        webClientId: getClientId(),
+        webClientId: WEB_CLIENT_ID,
         iosClientId: getClientId(),
         scopes: ['profile', 'email'],
         offlineAccess: true,
