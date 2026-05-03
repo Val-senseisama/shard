@@ -302,6 +302,18 @@ const SCHEMA_V1 = `
     last_error     TEXT
   );
 
+  CREATE TABLE IF NOT EXISTS error_logs (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    task        TEXT NOT NULL,
+    error       TEXT NOT NULL,
+    severity    TEXT DEFAULT 'medium',
+    userId      TEXT,
+    metadata    TEXT,
+    platform    TEXT,
+    version     TEXT,
+    created_at  TEXT NOT NULL
+  );
+
   CREATE INDEX IF NOT EXISTS idx_mini_goals_shard       ON mini_goals(shard_id);
   CREATE INDEX IF NOT EXISTS idx_tasks_mini_goal        ON tasks(mini_goal_id);
   CREATE INDEX IF NOT EXISTS idx_tasks_shard            ON tasks(shard_id);

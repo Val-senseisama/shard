@@ -24,6 +24,7 @@ import { onError } from '@apollo/client/link/error';
 import { jwtDecode } from 'jwt-decode';
 import Session from '@/helpers/Session';
 import { CONFIG } from '@/config';
+import { logger } from '@/helpers/Logger';
 
 // ─── Apollo client — created once at module level ─────────────────────────────
 // IMPORTANT: must not be inside the component or the cache resets on every render.
@@ -78,11 +79,21 @@ const afterwareLink = new ApolloLink((operation, forward) =>
   })
 );
 
-const errorLink = onError(({ graphQLErrors, networkError }) => {
-  graphQLErrors?.forEach(({ message, locations, path }) =>
-    console.log(`[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`)
-  );
-  if (networkError) console.log('[Network error]:', networkError);
+const errorLink = onError(({ graphQLErrors, networkError, operation }) => {
+  if (graphQLErrors) {
+    graphQLErrors.forEach(({ message, locations, path }) => {
+      logger.log('graphql-error', message, 'high', {
+        operation: operation.operationName,
+        path,
+        locations,
+      });
+    });
+  }
+  if (networkError) {
+    logger.log('network-error', networkError.message, 'medium', {
+      operation: operation.operationName,
+    });
+  }
 });
 
 const httpLink = new HttpLink({ uri: CONFIG.GRAPHQL_ENDPOINT, credentials: 'omit' });
@@ -107,6 +118,15 @@ import * as Notifications from 'expo-notifications';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
+
+// Global Error Handling for Mobile
+if (!__DEV__) {
+  const originalErrorHandler = ErrorUtils.getGlobalHandler();
+  ErrorUtils.setGlobalHandler((error, isFatal) => {
+    logger.log('fatal-error', error, isFatal ? 'critical' : 'high', { isFatal });
+    originalErrorHandler(error, isFatal);
+  });
+}
 
 export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
