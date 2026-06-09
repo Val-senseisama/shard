@@ -19,18 +19,36 @@ import AnimatedCrystal from '../AnimatedCrystal';
 
 // ─── Floating orb ─────────────────────────────────────────────────────────────
 
-const Orb = ({ x, y, size, color, delay }: { x: any; y: any; size: number; color: string; delay: number }) => {
+const Orb = ({
+  x,
+  y,
+  size,
+  color,
+  delay,
+}: {
+  x: any;
+  y: any;
+  size: number;
+  color: string;
+  delay: number;
+}) => {
   const opacity = useSharedValue(0.15);
   const scale = useSharedValue(1);
 
   useEffect(() => {
     opacity.value = withRepeat(
-      withSequence(withTiming(0.4, { duration: 2500 + delay }), withTiming(0.15, { duration: 2500 + delay })),
+      withSequence(
+        withTiming(0.4, { duration: 2500 + delay }),
+        withTiming(0.15, { duration: 2500 + delay })
+      ),
       -1,
       true
     );
     scale.value = withRepeat(
-      withSequence(withTiming(1.15, { duration: 3000 + delay }), withTiming(1, { duration: 3000 + delay })),
+      withSequence(
+        withTiming(1.15, { duration: 3000 + delay }),
+        withTiming(1, { duration: 3000 + delay })
+      ),
       -1,
       true
     );
@@ -44,7 +62,15 @@ const Orb = ({ x, y, size, color, delay }: { x: any; y: any; size: number; color
   return (
     <Animated.View
       style={[
-        { position: 'absolute', left: x, top: y, width: size, height: size, borderRadius: size / 2, backgroundColor: color },
+        {
+          position: 'absolute',
+          left: x,
+          top: y,
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: color,
+        },
         style,
       ]}
     />
@@ -81,24 +107,43 @@ export default function WelcomeScreen() {
           paddingHorizontal: 28,
           paddingTop: insets.top + 36,
           paddingBottom: insets.bottom + 32,
-          justifyContent: 'space-between',
         }}>
-
         {/* Logo */}
-        <Animated.View entering={FadeIn.duration(600)} style={{ alignItems: 'center' }}>
-          <Text style={{ fontSize: 30, fontWeight: '900', letterSpacing: 5, color: '#fff' }}>
-            SH<Text style={{ color: '#7c3aed' }}>▲</Text>RD
-          </Text>
-        </Animated.View>
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Animated.View entering={FadeIn.duration(600)}>
+            <Text style={{ fontSize: 30, fontWeight: '900', letterSpacing: 5, color: '#fff' }}>
+              SH<Text style={{ color: '#7c3aed' }}>▲</Text>RD
+            </Text>
+          </Animated.View>
+        </View>
 
         {/* Crystal + tagline */}
-        <View style={{ alignItems: 'center' }}>
+        <View
+          style={{
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: 40,
+          }}>
           <Animated.View entering={FadeIn.duration(800).delay(200)} style={{ marginBottom: 32 }}>
             <AnimatedCrystal />
           </Animated.View>
 
-          <Animated.View entering={FadeInDown.duration(600).delay(400)} style={{ alignItems: 'center' }}>
-            <Text style={{ fontSize: 34, fontWeight: '900', color: '#fff', textAlign: 'center', letterSpacing: -0.5, lineHeight: 40, marginBottom: 12 }}>
+          <Animated.View
+            entering={FadeInDown.duration(600).delay(400)}
+            style={{ alignItems: 'center' }}>
+            <Text
+              style={{
+                fontSize: 34,
+                fontWeight: '900',
+                color: '#fff',
+                textAlign: 'center',
+                letterSpacing: -0.5,
+                lineHeight: 40,
+                marginBottom: 12,
+              }}>
               Goals become{'\n'}
               <Text style={{ color: '#7c3aed' }}>quests.</Text>
             </Text>
@@ -109,7 +154,8 @@ export default function WelcomeScreen() {
         </View>
 
         {/* Buttons */}
-        <Animated.View entering={FadeInUp.duration(600).delay(600)} style={{ gap: 14 }}>
+        <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+          <Animated.View entering={FadeInUp.duration(600).delay(600)} style={{ gap: 14 }}>
           <AnimatedPressable
             onPress={() => router.push('/(auth)/register')}
             scaleDown={0.97}
@@ -118,7 +164,12 @@ export default function WelcomeScreen() {
               colors={['#7c3aed', '#6d28d9']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={{ height: 56, alignItems: 'center', justifyContent: 'center', borderRadius: 18 }}>
+              style={{
+                height: 56,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 18,
+              }}>
               <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700', letterSpacing: 0.2 }}>
                 Create Account
               </Text>
@@ -129,15 +180,18 @@ export default function WelcomeScreen() {
             onPress={() => router.push('/(auth)/login')}
             scaleDown={0.97}
             style={{
-              height: 56, borderRadius: 18,
+              height: 56,
+              borderRadius: 18,
               borderWidth: 1.5,
               borderColor: 'rgba(124,58,237,0.4)',
               backgroundColor: 'rgba(124,58,237,0.08)',
-              alignItems: 'center', justifyContent: 'center',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}>
             <Text style={{ fontSize: 17, fontWeight: '600', color: '#7c3aed' }}>Log In</Text>
           </AnimatedPressable>
         </Animated.View>
+        </View>
       </View>
     </View>
   );

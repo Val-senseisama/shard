@@ -2,7 +2,7 @@
   "expo": {
     "name": "shard",
     "slug": "shard",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "scheme": "shard",
     "web": {
       "favicon": "./assets/favicon.png"
@@ -25,7 +25,8 @@
           "sounds": []
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-updates"
     ],
     "orientation": "portrait",
     "icon": "./assets/app-icons/icon.png",
@@ -52,14 +53,18 @@
         "backgroundColor": "#0a0a0f"
       },
       "package": "com.xavitech.shard",
+      "versionCode": 2,
       "permissions": [
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
-        "CAMERA",
-        "READ_MEDIA_IMAGES"
+        "CAMERA"
       ],
       "googleServicesFile": "./google-services.json"
     },
+    "updates": {
+      "url": "https://u.expo.dev/531fcf58-99c3-489a-8d13-6f738e65b42d",
+      "enabled": true,
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": "1.0.0",
     "extra": {
       "router": {},
       "eas": {

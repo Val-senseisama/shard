@@ -35,6 +35,13 @@ class Logger {
 
   public async log(task: string, error: any, severity: Severity = 'medium', metadata: any = {}) {
     const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    // Ignore standard network connectivity errors to prevent SQLite pollution and log spamming
+    if (task === 'network-error' && (errorMessage === 'Network request failed' || errorMessage.includes('Failed to fetch'))) {
+      console.warn(`[OFFLINE/CONN] Ignored network log: ${errorMessage}`);
+      return;
+    }
+
     const stack = error instanceof Error ? error.stack : undefined;
     
     // Get current user if possible
