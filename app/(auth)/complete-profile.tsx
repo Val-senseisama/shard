@@ -47,7 +47,9 @@ const CompleteProfile = () => {
   const [completeProfile, { loading }] = useMutation(UPDATE_PROFILE, {
     onCompleted: (data) => {
       if (data.updateProfile?.success) {
-        router.replace('/(screens)/Home');
+        // Onboarding paywall anchor: introduce Pro + the active 7-day trial.
+        // The paywall's "Continue with my free trial" button proceeds to Home.
+        router.replace({ pathname: '/subscribe-pro', params: { source: 'onboarding' } });
       } else {
         addAlert({ str: data.updateProfile?.message || 'Failed to complete profile', type: 'error' });
       }

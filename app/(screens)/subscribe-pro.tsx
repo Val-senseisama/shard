@@ -7,7 +7,7 @@ import {
   useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@apollo/client';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,6 +19,7 @@ import { useUserStore } from '@/store/user.store';
 import AnimatedPressable from '~/components/AnimatedPressable';
 import { ACCENT, t } from '~/components/shard/constants';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { track } from '@/helpers/analytics';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -42,11 +43,29 @@ const PLAN_META: Record<string, { label: string; period: string; badge?: string 
   lifetime:{ label: 'Lifetime',period: 'one-time payment' },
 };
 
+// Reason-specific line shown when the paywall is opened from a cap-hit.
+const SOURCE_REASON: Record<string, string> = {
+  ai_credits: "You're out of free AI quests this month.",
+  shard_limit: "You've reached your 3-shard free limit.",
+  collaborator_limit: 'Your free plan includes 1 collaborator per shard.',
+  team_limit: 'Upgrade to create larger teams.',
+};
+
+const dayLabel = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function SubscribeToProPage() {
   const isDark = useColorScheme() === 'dark';
   const theme = t(isDark);
+  const { source } = useLocalSearchParams<{ source?: string }>();
+  const reason = source ? SOURCE_REASON[source] : undefined;
+  const user = useUserStore((state) => state.user);
+  const isOnboarding = source === 'onboarding';
+  const trialDaysLeft = user?.trialEndsAt
+    ? Math.max(0, Math.ceil((new Date(user.trialEndsAt).getTime() - Date.now()) / 86400000))
+    : 0;
+  const inTrial = !!user?.isInTrial && trialDaysLeft > 0;
 
   const [selectedPkgId, setSelectedPkgId] = useState<string>('yearly');
   const [purchasing, setPurchasing] = useState(false);
@@ -63,6 +82,7 @@ export default function SubscribeToProPage() {
     if (!selectedPkgId || purchaseInFlight.current) return;
     purchaseInFlight.current = true;
     setPurchasing(true);
+    track('upgrade_tap', { source: source || undefined, props: { packageId: selectedPkgId } });
     try {
       const rcOfferings = await purchasesService.getOfferings();
       if (!rcOfferings) {
@@ -78,12 +98,17 @@ export default function SubscribeToProPage() {
 
       const success = await purchasesService.purchasePackage(pkg);
       if (success) {
+        track('purchase_completed', { source: source || undefined, props: { packageId: selectedPkgId } });
         updateUser({ subscriptionTier: 'pro' });
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Toast.show({ type: 'success', text1: 'Welcome to Shard Pro!', text2: 'All features unlocked.' });
         router.replace('/(screens)/(tabs)/Home');
       }
     } catch (e: any) {
+      track('purchase_cancelled', {
+        source: source || undefined,
+        props: { packageId: selectedPkgId, reason: e.userCancelled ? 'cancelled' : 'failed' },
+      });
       if (!e.userCancelled) {
         Toast.show({ type: 'error', text1: 'Purchase Failed', text2: e.message || 'Please try again.' });
       }
@@ -136,10 +161,25 @@ export default function SubscribeToProPage() {
             <Ionicons name="flash" size={36} color="#fff" />
           </LinearGradient>
           <Text style={{ fontSize: 28, fontWeight: '800', color: theme.text, textAlign: 'center', letterSpacing: -0.5 }}>
-            Unlock Shard Pro
+            {isOnboarding ? 'Your Pro trial is live' : 'Unlock Shard Pro'}
           </Text>
+          {inTrial ? (
+            <View style={{ backgroundColor: 'rgba(124,58,237,0.12)', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8, marginTop: 12 }}>
+              <Text style={{ fontSize: 14, color: ACCENT, textAlign: 'center', fontWeight: '600' }}>
+                🎉 {dayLabel(trialDaysLeft)} of Pro, on the house — everything below is unlocked.
+              </Text>
+            </View>
+          ) : reason ? (
+            <View style={{ backgroundColor: 'rgba(124,58,237,0.12)', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8, marginTop: 12 }}>
+              <Text style={{ fontSize: 14, color: ACCENT, textAlign: 'center', fontWeight: '600' }}>
+                {reason}
+              </Text>
+            </View>
+          ) : null}
           <Text style={{ fontSize: 15, color: theme.textSecondary, textAlign: 'center', marginTop: 8, lineHeight: 22 }}>
-            Supercharge your productivity with unlimited access to all features.
+            {isOnboarding
+              ? 'Keep unlimited AI, advanced analytics and your AI coach after the trial — lock in Pro now.'
+              : 'Supercharge your productivity with unlimited access to all features.'}
           </Text>
         </Animated.View>
 
@@ -235,6 +275,18 @@ export default function SubscribeToProPage() {
             )}
           </LinearGradient>
         </AnimatedPressable>
+
+        {/* Onboarding skip — the trial is already active, so let them explore first */}
+        {isOnboarding && (
+          <AnimatedPressable
+            onPress={() => router.replace('/(screens)/(tabs)/Home')}
+            scaleDown={0.94}
+            style={{ alignItems: 'center', paddingVertical: 12, marginBottom: 4 }}>
+            <Text style={{ color: theme.textSecondary, fontSize: 15, fontWeight: '600' }}>
+              Continue with my free trial →
+            </Text>
+          </AnimatedPressable>
+        )}
 
         {/* Restore */}
         <AnimatedPressable onPress={handleRestore} disabled={restoring} scaleDown={0.94} style={{ alignItems: 'center', paddingVertical: 10, marginBottom: 16 }}>

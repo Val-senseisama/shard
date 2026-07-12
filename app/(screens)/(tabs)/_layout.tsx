@@ -1,18 +1,48 @@
 import React from 'react';
-import { View, useColorScheme, StyleSheet, Platform } from 'react-native';
+import { View, useColorScheme, StyleSheet } from 'react-native';
 import { Tabs, router } from 'expo-router';
 import { Ionicons, AntDesign } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { hud, FONT, SHARD_GRADIENT } from '~/components/hud';
+
+// Active-tab HUD tick — a short bright bar riding the top facet edge of the slab.
+const TabIcon = ({
+  focused,
+  color,
+  isDark,
+  render,
+}: {
+  focused: boolean;
+  color: string;
+  isDark: boolean;
+  render: (color: string) => React.ReactNode;
+}) => {
+  const c = hud(isDark);
+  return (
+    <View style={{ alignItems: 'center', justifyContent: 'center', width: 48 }}>
+      <View
+        style={{
+          position: 'absolute',
+          top: -11,
+          width: 22,
+          height: 2,
+          backgroundColor: focused ? c.violet : 'transparent',
+        }}
+      />
+      {render(color)}
+    </View>
+  );
+};
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const isDark = colorScheme === 'dark';
+  const c = hud(isDark);
 
-  const activeColor = '#7c3aed';
-  const inactiveColor = isDark ? '#6b7280' : '#9ca3af';
+  const activeColor = c.violet;
+  const inactiveColor = c.textFaint;
   const bottomPadding = Math.max(insets.bottom, 14);
 
   return (
@@ -26,88 +56,44 @@ export default function TabLayout() {
           bottom: 0,
           left: 0,
           right: 0,
-          height: 72 + bottomPadding,
+          height: 68 + bottomPadding,
           paddingBottom: bottomPadding,
-          paddingTop: 10,
-          backgroundColor: 'transparent',
-          borderTopWidth: 0,
+          paddingTop: 11,
+          backgroundColor: c.bgElev,
+          borderTopWidth: 1,
+          borderTopColor: c.panelBorder,
           elevation: 0,
           shadowOpacity: 0,
         },
         tabBarBackground: () => (
-          <View style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
-            {/* Main blur — cranked up high */}
-            <BlurView
-              intensity={Platform.OS === 'android' ? 25 : 100}
-              tint={isDark ? 'dark' : 'light'}
-              experimentalBlurMethod="dimezisBlurView"
-              style={StyleSheet.absoluteFill}
-            />
-
-            {/* Tinted glass overlay — very translucent */}
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                {
-                  backgroundColor: isDark
-                    ? 'rgba(15, 20, 35, 0.35)'
-                    : 'rgba(255, 255, 255, 0.25)',
-                },
-              ]}
-            />
-
-            {/* Top highlight edge — the glass shine */}
-            <View
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                height: 1,
-                backgroundColor: isDark
-                  ? 'rgba(255, 255, 255, 0.15)'
-                  : 'rgba(255, 255, 255, 0.8)',
-              }}
-            />
-
-            {/* Inner glow gradient at top */}
-            <LinearGradient
-              colors={
-                isDark
-                  ? ['rgba(255, 255, 255, 0.06)', 'transparent']
-                  : ['rgba(255, 255, 255, 0.5)', 'transparent']
-              }
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                height: 20,
-              }}
-            />
+          <View style={StyleSheet.absoluteFill}>
+            {/* Thin violet facet highlight riding the top edge of the slab */}
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, backgroundColor: c.violet, opacity: 0.35 }} />
           </View>
         ),
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
-          marginTop: 4,
+          fontFamily: FONT.mono,
+          fontSize: 9,
+          letterSpacing: 1.2,
+          textTransform: 'uppercase',
+          marginTop: 5,
         },
       }}>
       <Tabs.Screen
         name="Home"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => (
-            <AntDesign name="home" size={22} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon focused={focused} color={color} isDark={isDark} render={(cl) => <AntDesign name="home" size={21} color={cl} />} />
           ),
         }}
       />
       <Tabs.Screen
         name="schedule"
         options={{
-          title: 'Schedule',
-          tabBarIcon: ({ color }) => (
-            <AntDesign name="calendar" size={22} color={color} />
+          title: 'Log',
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon focused={focused} color={color} isDark={isDark} render={(cl) => <AntDesign name="calendar" size={21} color={cl} />} />
           ),
         }}
       />
@@ -116,14 +102,16 @@ export default function TabLayout() {
         options={{
           title: '',
           tabBarIcon: () => (
-            <View style={styles.createButtonOuter}>
-              <View style={[styles.createButtonGlow, isDark && styles.createButtonGlowDark]} />
+            <View style={styles.createOuter}>
+              {/* Crystalline shard — a rotated cut, not a soft glowing circle */}
               <LinearGradient
-                colors={['#8b5cf6', '#7c3aed', '#6d28d9']}
+                colors={SHARD_GRADIENT}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.createGradient}>
-                <Ionicons name="add" size={30} color="#fff" />
+                style={[styles.shard, { borderColor: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.5)' }]}>
+                <View style={styles.shardInner}>
+                  <Ionicons name="add" size={26} color="#fff" />
+                </View>
               </LinearGradient>
             </View>
           ),
@@ -139,18 +127,18 @@ export default function TabLayout() {
       <Tabs.Screen
         name="friends"
         options={{
-          title: 'Friends',
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="people-outline" size={22} color={color} />
+          title: 'Party',
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon focused={focused} color={color} isDark={isDark} render={(cl) => <Ionicons name="people-outline" size={21} color={cl} />} />
           ),
         }}
       />
       <Tabs.Screen
         name="account"
         options={{
-          title: 'Account',
-          tabBarIcon: ({ color }) => (
-            <AntDesign name="user" size={22} color={color} />
+          title: 'You',
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon focused={focused} color={color} isDark={isDark} render={(cl) => <AntDesign name="user" size={21} color={cl} />} />
           ),
         }}
       />
@@ -159,33 +147,31 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  createButtonOuter: {
-    top: -22,
-    width: 60,
-    height: 60,
+  createOuter: {
+    top: -18,
+    width: 54,
+    height: 54,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  createButtonGlow: {
-    position: 'absolute',
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: 'rgba(124, 58, 237, 0.2)',
-  },
-  createButtonGlowDark: {
-    backgroundColor: 'rgba(139, 92, 246, 0.3)',
-  },
-  createGradient: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    justifyContent: 'center',
+  // 45°-rotated square reads as a cut shard; inner counter-rotates the icon upright.
+  shard: {
+    width: 46,
+    height: 46,
+    borderRadius: 12,
+    transform: [{ rotate: '45deg' }],
     alignItems: 'center',
-    elevation: 10,
+    justifyContent: 'center',
+    borderWidth: 1,
+    elevation: 8,
     shadowColor: '#7c3aed',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.45,
+    shadowRadius: 9,
+  },
+  shardInner: {
+    transform: [{ rotate: '-45deg' }],
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, Image, ScrollView, useColorScheme, Switch } from 'react-native';
+import { View, Text, Image, ScrollView, useColorScheme, Switch, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +15,7 @@ import Session from '~/helpers/Session';
 import Toast from 'react-native-toast-message';
 import RevenueCatUI from 'react-native-purchases-ui';
 import { purchasesService } from '~/services/purchasesService';
+import { openPaywall } from '~/helpers/paywall';
 
 // ─── Radar Chart ─────────────────────────────────────────────────────
 
@@ -259,17 +260,16 @@ const Account = () => {
             label: 'Purchase History',
             action: () => router.push('/(screens)/purchase-history'),
           },
-          {
-            icon: user?.subscriptionTier === 'pro' ? 'settings-outline' : 'star-outline',
-            label: user?.subscriptionTier === 'pro' ? 'Manage Subscription' : 'Subscribe to Pro',
-            action: () => {
-              if (user?.subscriptionTier === 'pro') {
-                RevenueCatUI.presentCustomerCenter();
-              } else {
-                router.push('/subscribe-pro');
-              }
-            },
-          },
+          // Free users get the prominent upsell card above; Pro users manage here.
+          ...(user?.subscriptionTier === 'pro'
+            ? [
+                {
+                  icon: 'settings-outline',
+                  label: 'Manage Subscription',
+                  action: () => RevenueCatUI.presentCustomerCenter(),
+                },
+              ]
+            : []),
         ],
       },
       {
@@ -331,7 +331,7 @@ const Account = () => {
         ],
       },
     ],
-    [isDarkMode, toggleDarkMode]
+    [isDarkMode, toggleDarkMode, user?.subscriptionTier]
   );
 
   const handleLogout = async () => {
@@ -590,6 +590,95 @@ const Account = () => {
             </View>
           </AnimatedPressable>
         </Animated.View>
+
+        {/* ── Pro Upsell (free users only) ── */}
+        {user?.subscriptionTier !== 'pro' && (
+          <Animated.View entering={FadeInDown.delay(150).duration(400)} className="mx-5 mt-5">
+            <AnimatedPressable onPress={() => openPaywall('account')} scaleDown={0.97}>
+              <LinearGradient
+                colors={['#7c3aed', '#6d28d9']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{
+                  borderRadius: 18,
+                  padding: 18,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 14,
+                }}>
+                <View
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    backgroundColor: 'rgba(255,255,255,0.2)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                  <Ionicons name="flash" size={24} color="#fff" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 17, fontWeight: '800', color: '#fff' }}>
+                    {user?.isInTrial && user?.trialEndsAt
+                      ? `${Math.max(0, Math.ceil((new Date(user.trialEndsAt).getTime() - Date.now()) / 86400000))} days of Pro left`
+                      : 'Unlock Shard Pro'}
+                  </Text>
+                  <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+                    {user?.isInTrial
+                      ? 'Lock in Pro before your free trial ends'
+                      : 'Unlimited shards, AI quests & analytics'}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={22} color="#fff" />
+              </LinearGradient>
+            </AnimatedPressable>
+          </Animated.View>
+        )}
+
+        {/* ── Invite friends (referral) ── */}
+        {user?.referralCode && (
+          <Animated.View entering={FadeInDown.delay(180).duration(400)} className="mx-5 mt-4">
+            <AnimatedPressable
+              onPress={() => {
+                Share.share({
+                  message: `Join me on Shard — turn your goals into quests. Use my code ${user.referralCode} when you sign up and we both get bonus AI credits!`,
+                }).catch(() => {});
+              }}
+              scaleDown={0.97}>
+              <View
+                style={{
+                  borderRadius: 18,
+                  padding: 18,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 14,
+                  backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF',
+                  borderWidth: 1,
+                  borderColor: isDark ? '#484847' : '#d1d5db',
+                }}>
+                <View
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    backgroundColor: 'rgba(124,58,237,0.12)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                  <Ionicons name="gift" size={22} color="#7c3aed" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '800', color: isDark ? '#fff' : '#1A1A1A' }}>Invite friends</Text>
+                  <Text style={{ fontSize: 13, color: isDark ? '#B9B9B9' : '#666666', marginTop: 2 }}>
+                    Your code <Text style={{ color: '#7c3aed', fontWeight: '800' }}>{user.referralCode}</Text> · you both get bonus credits
+                    {(user.referralCount ?? 0) > 0 ? ` · ${user.referralCount} joined` : ''}
+                  </Text>
+                </View>
+                <Ionicons name="share-social-outline" size={22} color={isDark ? '#B9B9B9' : '#666666'} />
+              </View>
+            </AnimatedPressable>
+          </Animated.View>
+        )}
 
         {/* ── Settings Sections ── */}
         {settingsSections.map((section, sectionIndex) => (

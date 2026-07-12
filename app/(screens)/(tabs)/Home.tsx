@@ -13,6 +13,7 @@ import AnimatedPressable from '@/components/AnimatedPressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AntDesign from '@expo/vector-icons/AntDesign';
+import { LinearGradient } from 'expo-linear-gradient';
 import ShardCard from '@/components/ShardCard';
 import ShardCardSkeleton from '@/components/ShardCardSkeleton';
 import HeaderSkeleton from '@/components/HeaderSkeleton';
@@ -31,23 +32,24 @@ import { useQuery } from '@apollo/client';
 import { CURRENT_USER, MY_SHARDS, MY_CHATS } from '~/Graphql/Queries';
 import { avatarUri } from '~/helpers/avatarUri';
 import { ACCENT } from '~/components/shard/constants';
+import { hud, FONT, HudLabel, Mono, ShardBar } from '~/components/hud';
 import * as syncService from '~/services/syncService';
 
 const AVATAR_ANIMATION_RANGE = 120;
 
-const ShardLogo = ({ color }: { color: string }) => (
-  <Text
-    style={{
-      fontSize: 26,
-      fontWeight: '900',
-      textAlign: 'center',
-      letterSpacing: 3,
-      color,
-      paddingVertical: 16,
-    }}>
-    SH<Text style={{ color: ACCENT }}>▲</Text>RD
-  </Text>
-);
+// Quest-log section header — reads like an RPG log, not a centered logo.
+const QuestLogHeader = ({ count, isDark }: { count: number; isDark: boolean }) => {
+  const c = hud(isDark);
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 18, paddingBottom: 12 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Text style={{ color: c.violet, fontSize: 13 }}>◇</Text>
+        <HudLabel color={c.textDim} size={11}>Active Quests</HudLabel>
+      </View>
+      <Mono color={c.textFaint} size={11}>{String(count).padStart(2, '0')}</Mono>
+    </View>
+  );
+};
 
 const Home = () => {
   const user = useUserStore((state) => state.user);
@@ -130,10 +132,13 @@ const Home = () => {
     },
   });
 
-  const outerBg = isDark ? '#0f0f0f' : '#eaeaf5';
-  const panelBg = isDark ? '#1a1a1a' : '#ffffff';
-  const textColor = isDark ? '#ffffff' : '#1a1a1a';
-  const subColor = isDark ? '#9ca3af' : '#6b7280';
+  const c = hud(isDark);
+  const outerBg = c.bg;
+  const panelBg = c.bgElev;
+  const textColor = c.text;
+  const subColor = c.textDim;
+  const xpNeeded = (user?.level || 1) * 1000;
+  const xpProgress = Math.min((user?.xp || 0) / xpNeeded, 1);
 
   return (
     <View style={{ flex: 1, backgroundColor: outerBg }}>
@@ -162,46 +167,23 @@ const Home = () => {
                   resizeMode="cover"
                 />
                 <View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <Text style={{ fontSize: 13, color: subColor }}>Welcome,</Text>
-                    {user?.subscriptionTier === 'pro' && (
-                      <View
-                        style={{
-                          backgroundColor: '#FFD700',
-                          paddingHorizontal: 4,
-                          paddingVertical: 1,
-                          borderRadius: 4,
-                        }}>
-                        <Text style={{ fontSize: 8, fontWeight: '900', color: '#000' }}>PRO</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <HudLabel color={subColor} size={9}>Welcome back</HudLabel>
+                    {(user?.subscriptionTier === 'pro' || user?.isInTrial) && (
+                      <View style={{ borderWidth: 1, borderColor: c.ember, paddingHorizontal: 4, paddingVertical: 0.5, borderRadius: 3 }}>
+                        <Text style={{ fontSize: 8, fontFamily: FONT.mono, letterSpacing: 1, color: c.ember }}>
+                          {user?.subscriptionTier === 'pro' ? 'PRO' : 'TRIAL'}
+                        </Text>
                       </View>
                     )}
                   </View>
-                  <Text style={{ fontSize: 16, fontWeight: '700', color: textColor }}>
+                  <Text style={{ fontSize: 17, fontFamily: FONT.extrabold, color: textColor, letterSpacing: -0.3, marginTop: 1 }}>
                     {user.username}
                   </Text>
-                  {/* XP mini-bar */}
-                  <View
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 }}>
-                    <View
-                      style={{
-                        width: 64,
-                        height: 4,
-                        borderRadius: 2,
-                        backgroundColor: isDark ? '#2a2a2a' : '#e5e7eb',
-                        overflow: 'hidden',
-                      }}>
-                      <View
-                        style={{
-                          height: 4,
-                          borderRadius: 2,
-                          backgroundColor: ACCENT,
-                          width: `${Math.min(((user.xp || 0) / ((user.level || 1) * 1000)) * 100, 100)}%`,
-                        }}
-                      />
-                    </View>
-                    <Text style={{ fontSize: 10, color: ACCENT, fontWeight: '700' }}>
-                      Lv {user.level || 1}
-                    </Text>
+                  {/* XP HUD strip */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 5 }}>
+                    <Mono color={c.violet} size={10}>LV {user.level || 1}</Mono>
+                    <ShardBar progress={xpProgress} isDark={isDark} height={4} style={{ width: 72 }} />
                   </View>
                 </View>
               </>
@@ -209,18 +191,16 @@ const Home = () => {
           </Animated.View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
             {(user?.currentStreak ?? 0) > 0 && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                <Text style={{ fontSize: 14 }}>🔥</Text>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: '#f97316' }}>
-                  {user?.currentStreak}
-                </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Text style={{ fontSize: 13 }}>🔥</Text>
+                <Mono color={c.ember} size={12}>{user?.currentStreak}</Mono>
               </View>
             )}
             <AnimatedPressable
               onPress={() => router.push('/notifications')}
               hitSlop={20}
               scaleDown={0.9}>
-              <FontAwesome name="bell-o" size={20} color={textColor} />
+              <FontAwesome name="bell-o" size={20} color={subColor} />
             </AnimatedPressable>
           </View>
         </Animated.View>
@@ -230,13 +210,16 @@ const Home = () => {
           style={{
             flex: 1,
             backgroundColor: panelBg,
-            borderTopLeftRadius: 24,
-            borderTopRightRadius: 24,
+            borderTopLeftRadius: 14,
+            borderTopRightRadius: 14,
+            borderTopWidth: 1,
+            borderColor: c.panelBorder,
             overflow: 'hidden',
           }}>
+          <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, backgroundColor: c.violet, opacity: 0.3 }} />
           {loading && shards.length === 0 ? (
             <View style={{ paddingHorizontal: 16 }}>
-              <ShardLogo color={textColor} />
+              <QuestLogHeader count={0} isDark={isDark} />
               <ShardCardSkeleton />
               <ShardCardSkeleton />
               <ShardCardSkeleton />
@@ -258,51 +241,50 @@ const Home = () => {
                   colors={[ACCENT]}
                 />
               }>
-              <View style={{ marginBottom: 16 }}>
+              <View style={{ marginBottom: 20 }}>
                 <AnimatedCrystal />
               </View>
+              <HudLabel color={c.violet} style={{ marginBottom: 12 }}>Quest log empty</HudLabel>
               <Text
                 style={{
-                  fontSize: 22,
-                  fontWeight: '700',
+                  fontSize: 26,
+                  fontFamily: FONT.extrabold,
                   color: textColor,
                   textAlign: 'center',
-                  marginBottom: 12,
+                  letterSpacing: -0.5,
+                  marginBottom: 10,
                 }}>
-                Start Your Journey
+                Forge your first Shard
               </Text>
               <Text
                 style={{
                   fontSize: 15,
+                  fontFamily: FONT.regular,
                   color: subColor,
                   textAlign: 'center',
                   lineHeight: 22,
-                  marginBottom: 32,
+                  marginBottom: 30,
                 }}>
-                Create your first Shard to begin tracking your goals and achievements. Break down
-                big dreams into actionable steps!
+                Name a goal and the AI breaks it into quests, tasks and XP. Big dreams, one shard at a time.
               </Text>
-              <AnimatedPressable
-                onPress={() => router.push('/new-shard')}
-                scaleDown={0.95}
-                style={{
-                  backgroundColor: ACCENT,
-                  borderRadius: 50,
-                  paddingHorizontal: 32,
-                  paddingVertical: 16,
-                  shadowColor: ACCENT,
-                  shadowOpacity: 0.3,
-                  shadowRadius: 16,
-                  shadowOffset: { width: 0, height: 4 },
-                  elevation: 6,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 8,
-                }}>
-                <AntDesign name="plus" size={20} color="#fff" />
-                <Text style={{ fontSize: 15, fontWeight: '600', color: '#fff' }}>
-                  Create Your First Shard
-                </Text>
+              <AnimatedPressable onPress={() => router.push('/new-shard')} scaleDown={0.95}>
+                <LinearGradient
+                  colors={['#8b5cf6', '#6d28d9']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{
+                    borderRadius: 8,
+                    paddingHorizontal: 28,
+                    paddingVertical: 15,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 9,
+                  }}>
+                  <AntDesign name="plus" size={17} color="#fff" />
+                  <Text style={{ fontSize: 13, fontFamily: FONT.mono, letterSpacing: 1.5, textTransform: 'uppercase', color: '#fff' }}>
+                    Forge first shard
+                  </Text>
+                </LinearGradient>
               </AnimatedPressable>
             </ScrollView>
           ) : (
@@ -310,7 +292,7 @@ const Home = () => {
               ref={shardListRef}
               data={shards}
               keyExtractor={(item) => item.id}
-              ListHeaderComponent={<ShardLogo color={textColor} />}
+              ListHeaderComponent={<QuestLogHeader count={shards.length} isDark={isDark} />}
               renderItem={({ item }) => (
                 <ShardCard
                   title={item.title}
@@ -342,7 +324,7 @@ const Home = () => {
           )}
         </View>
 
-        {/* FAB — only when there are shards */}
+        {/* FAB — crisp shard shortcut, only when there are quests */}
         {shards.length > 0 && (
           <AnimatedPressable
             onPress={() => router.push('/new-shard')}
@@ -351,19 +333,19 @@ const Home = () => {
               position: 'absolute',
               bottom: 24,
               right: 24,
-              width: 56,
-              height: 56,
-              borderRadius: 28,
-              backgroundColor: ACCENT,
-              alignItems: 'center',
-              justifyContent: 'center',
-              shadowColor: ACCENT,
+              shadowColor: '#7c3aed',
               shadowOpacity: 0.4,
               shadowRadius: 12,
               shadowOffset: { width: 0, height: 4 },
               elevation: 8,
             }}>
-            <AntDesign name="plus" size={24} color="#fff" />
+            <LinearGradient
+              colors={['#8b5cf6', '#6d28d9']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{ width: 54, height: 54, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>
+              <AntDesign name="plus" size={24} color="#fff" />
+            </LinearGradient>
           </AnimatedPressable>
         )}
       </SafeAreaView>

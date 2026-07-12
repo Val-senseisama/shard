@@ -24,6 +24,10 @@ export const CURRENT_USER = gql`
         profilePic
         role
         subscriptionTier
+        trialEndsAt
+        isInTrial
+        referralCode
+        referralCount
         emailVerified
         xp
         level
@@ -633,6 +637,25 @@ export const MY_TEAMS = gql`
           username
           profilePic
         }
+      }
+    }
+  }
+`;
+
+export const GET_LEADERBOARD = gql`
+  query GetLeaderboard($scope: String, $limit: Int) {
+    getLeaderboard(scope: $scope, limit: $limit) {
+      success
+      scope
+      myRank
+      entries {
+        id
+        username
+        profilePic
+        xp
+        level
+        rank
+        isMe
       }
     }
   }

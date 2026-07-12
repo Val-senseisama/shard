@@ -37,8 +37,8 @@ export const LOGIN = gql`
 `;
 
 export const GOOGLE_SIGN_IN = gql`
-  mutation GoogleSignIn($idToken: String!) {
-    googleSignIn(idToken: $idToken) {
+  mutation GoogleSignIn($idToken: String!, $referralCode: String) {
+    googleSignIn(idToken: $idToken, referralCode: $referralCode) {
       success
       message
       accessToken

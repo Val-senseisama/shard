@@ -24,70 +24,13 @@ import { useAppStore } from '~/store/app.store';
 import AnimatedPressable from '~/components/AnimatedPressable';
 import icons from '@/constants/icons';
 import { Image } from 'react-native';
-
-// ─── Inline field ─────────────────────────────────────────────────────────────
-
-const AuthField = ({
-  label,
-  value,
-  onChange,
-  placeholder,
-  isPassword,
-  isDark,
-  keyboardType,
-  autoCapitalize,
-}: {
-  label: string;
-  value: string;
-  onChange: (t: string) => void;
-  placeholder: string;
-  isPassword?: boolean;
-  isDark: boolean;
-  keyboardType?: any;
-  autoCapitalize?: any;
-}) => {
-  const [show, setShow] = useState(false);
-  const [focused, setFocused] = useState(false);
-  const border = focused ? '#7c3aed' : isDark ? '#374151' : '#e5e7eb';
-
-  return (
-    <View style={{ marginBottom: 14 }}>
-      <Text style={{ fontSize: 12, fontWeight: '700', color: isDark ? '#9ca3af' : '#6b7280', letterSpacing: 0.5, marginBottom: 6 }}>
-        {label.toUpperCase()}
-      </Text>
-      <View style={{
-        flexDirection: 'row', alignItems: 'center',
-        backgroundColor: isDark ? '#1a1a1a' : '#f9fafb',
-        borderRadius: 12, borderWidth: 1.5, borderColor: border,
-        paddingHorizontal: 14, paddingVertical: 12,
-      }}>
-        <TextInput
-          value={value}
-          onChangeText={onChange}
-          placeholder={placeholder}
-          placeholderTextColor={isDark ? '#6b7280' : '#9ca3af'}
-          secureTextEntry={isPassword && !show}
-          keyboardType={keyboardType}
-          autoCapitalize={autoCapitalize ?? (isPassword ? 'none' : 'none')}
-          autoCorrect={false}
-          style={{ flex: 1, fontSize: 15, color: isDark ? '#fff' : '#1a1a1a' }}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-        />
-        {isPassword && (
-          <TouchableOpacity onPress={() => setShow(s => !s)} hitSlop={12}>
-            <Ionicons name={show ? 'eye-off-outline' : 'eye-outline'} size={20} color={isDark ? '#6b7280' : '#9ca3af'} />
-          </TouchableOpacity>
-        )}
-      </View>
-    </View>
-  );
-};
+import { hud, FONT, HudField, HudLabel, WordMark, CornerBrackets } from '~/components/hud';
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 const Login = () => {
-  const isDark = useColorScheme() === 'dark';
+  // Auth flow is always obsidian — one cohesive dark world with welcome/onboarding.
+  const c = hud(true);
   const { setUser } = useUserStore();
   const { addAlert } = useAppStore();
 
@@ -95,9 +38,6 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [googleInProgress, setGoogleInProgress] = useState(false);
   const isSigningIn = useRef(false);
-
-  const outerBg = isDark ? '#0f0f0f' : '#eaeaf5';
-  const cardBg = isDark ? '#1a1a1a' : '#ffffff';
 
   // ─── Email/password login ──────────────────────────────────────────────────
 
@@ -242,61 +182,78 @@ const Login = () => {
   const isLoading = loginLoading || googleLoading || googleInProgress;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: outerBg }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: c.bg }}>
+      {/* Ambient facet wash at the top edge */}
+      <LinearGradient
+        colors={['rgba(124,58,237,0.16)', 'transparent']}
+        start={{ x: 0.2, y: 0 }}
+        end={{ x: 0.8, y: 1 }}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 260 }}
+      />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
-          {/* Logo + title */}
-          <View style={{ alignItems: 'center', marginBottom: 36 }}>
-            <Text style={{ fontSize: 32, fontWeight: '900', letterSpacing: 4, color: isDark ? '#fff' : '#1a1a1a', marginBottom: 8 }}>
-              SH<Text style={{ color: '#7c3aed' }}>▲</Text>RD
-            </Text>
-            <Text style={{ fontSize: 16, color: isDark ? '#9ca3af' : '#6b7280' }}>Welcome back</Text>
+          {/* Wordmark + status line */}
+          <View style={{ alignItems: 'center', marginBottom: 30 }}>
+            <WordMark size={34} color={c.text} accent={c.violet} />
+            <HudLabel color={c.textDim} style={{ marginTop: 12 }}>◇ Welcome back, adventurer</HudLabel>
           </View>
 
-          {/* Card */}
-          <View style={{ backgroundColor: cardBg, borderRadius: 24, padding: 24, shadowColor: '#000', shadowOpacity: isDark ? 0 : 0.08, shadowRadius: 20, shadowOffset: { width: 0, height: 4 }, elevation: 4 }}>
+          {/* Access panel */}
+          <View
+            style={{
+              backgroundColor: c.panel,
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: c.panelBorder,
+              padding: 22,
+              paddingTop: 26,
+            }}>
+            <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, backgroundColor: c.violet, opacity: 0.85 }} />
+            <CornerBrackets color={c.panelBorderStrong} inset={8} size={13} />
 
-            <AuthField label="Email" value={email} onChange={setEmail} placeholder="you@example.com" isDark={isDark} keyboardType="email-address" />
-            <AuthField label="Password" value={password} onChange={setPassword} placeholder="Your password" isPassword isDark={isDark} />
+            <HudLabel color={c.textFaint} style={{ marginBottom: 18 }}>Sign in</HudLabel>
 
-            {/* Login button */}
-            <AnimatedPressable onPress={handleSubmit} scaleDown={0.96} disabled={isLoading} style={{ marginTop: 4, marginBottom: 16 }}>
-              <LinearGradient colors={['#7c3aed', '#6d28d9']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center' }}>
+            <HudField label="Email" value={email} onChange={setEmail} placeholder="you@example.com" keyboardType="email-address" />
+            <HudField label="Password" value={password} onChange={setPassword} placeholder="Your password" isPassword />
+
+            {/* Primary */}
+            <AnimatedPressable onPress={handleSubmit} scaleDown={0.96} disabled={isLoading} style={{ marginTop: 6, marginBottom: 18 }}>
+              <LinearGradient colors={['#8b5cf6', '#6d28d9']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ borderRadius: 8, height: 52, alignItems: 'center', justifyContent: 'center' }}>
                 {loginLoading ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Log In</Text>
+                  <Text style={{ color: '#fff', fontSize: 13, fontFamily: FONT.mono, letterSpacing: 2, textTransform: 'uppercase' }}>Log in</Text>
                 )}
               </LinearGradient>
             </AnimatedPressable>
 
             {/* Divider */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-              <View style={{ flex: 1, height: 1, backgroundColor: isDark ? '#2a2a2a' : '#e5e7eb' }} />
-              <Text style={{ marginHorizontal: 12, fontSize: 13, color: isDark ? '#6b7280' : '#9ca3af' }}>or</Text>
-              <View style={{ flex: 1, height: 1, backgroundColor: isDark ? '#2a2a2a' : '#e5e7eb' }} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 18 }}>
+              <View style={{ flex: 1, height: 1, backgroundColor: c.panelBorder }} />
+              <HudLabel color={c.textFaint} style={{ marginHorizontal: 12 }}>or</HudLabel>
+              <View style={{ flex: 1, height: 1, backgroundColor: c.panelBorder }} />
             </View>
 
-            {/* Google button */}
-            <TouchableOpacity onPress={handleGooglePress} disabled={isLoading} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 52, borderRadius: 14, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', marginBottom: 20, gap: 10, elevation: 2, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } }}>
+            {/* Google */}
+            <TouchableOpacity onPress={handleGooglePress} disabled={isLoading} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 52, borderRadius: 8, backgroundColor: c.bgElev, borderWidth: 1, borderColor: c.panelBorder, gap: 10 }}>
               {googleInProgress || googleLoading ? (
-                <ActivityIndicator color="#6b7280" />
+                <ActivityIndicator color={c.textDim} />
               ) : (
                 <>
                   <Image source={icons.google} style={{ width: 20, height: 20 }} resizeMode="contain" />
-                  <Text style={{ fontSize: 15, fontWeight: '600', color: '#1a1a1a' }}>Continue with Google</Text>
+                  <Text style={{ fontSize: 13, fontFamily: FONT.mono, letterSpacing: 1.5, textTransform: 'uppercase', color: c.text }}>Continue with Google</Text>
                 </>
               )}
             </TouchableOpacity>
-
-            <Text style={{ textAlign: 'center', fontSize: 14, color: isDark ? '#9ca3af' : '#6b7280' }}>
-              Don't have an account?{' '}
-              <Text onPress={() => router.replace('/(auth)/register')} style={{ color: '#7c3aed', fontWeight: '700' }}>
-                Sign up
-              </Text>
-            </Text>
           </View>
+
+          <Text style={{ textAlign: 'center', fontSize: 14, fontFamily: FONT.regular, color: c.textDim, marginTop: 22 }}>
+            New here?{' '}
+            <Text onPress={() => router.replace('/(auth)/register')} style={{ color: c.violet, fontFamily: FONT.bold }}>
+              Create an account
+            </Text>
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

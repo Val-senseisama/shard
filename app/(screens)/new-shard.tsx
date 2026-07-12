@@ -23,6 +23,8 @@ import { useAppStore } from '~/store/app.store';
 import { CREATE_SHARD, CREATE_SHARD_MANUAL, DELETE_MINI_GOAL } from '~/Graphql/Mutations';
 import { GET_FRIENDS, GET_SIGNED_UPLOAD_URL, GET_AI_USAGE, MY_TEAMS } from '~/Graphql/Queries';
 import { useFriendsStore, Friend } from '~/store/friends.store';
+import { openPaywall } from '~/helpers/paywall';
+import { hud, FONT, HudLabel, Mono } from '~/components/hud';
 import AddImageInput from '~/components/AddImageInput';
 import AnimatedPressable from '~/components/AnimatedPressable';
 
@@ -66,48 +68,33 @@ const formatDueDate = (iso?: string | null) => {
 
 // ─── Step Indicator ──────────────────────────────────────────────────
 
-const StepIndicator = ({ step, isDark }: { step: 1 | 2; isDark: boolean }) => (
-  <View
-    style={{
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: 20,
-    }}>
-    {[1, 2].map((s, i) => (
-      <React.Fragment key={s}>
-        <View
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: 14,
-            backgroundColor: step >= s ? '#8b5cf6' : isDark ? '#2c2c2c' : '#e5e7eb',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
-          <Text
-            style={{
-              color: step >= s ? '#fff' : isDark ? '#666' : '#999',
-              fontSize: 12,
-              fontWeight: '700',
-            }}>
-            {s}
-          </Text>
-        </View>
-        {i === 0 && (
+const StepIndicator = ({ step, isDark }: { step: 1 | 2; isDark: boolean }) => {
+  const c = hud(isDark);
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+      {[1, 2].map((s, i) => (
+        <React.Fragment key={s}>
           <View
             style={{
-              width: 40,
-              height: 2,
-              backgroundColor: step === 2 ? '#8b5cf6' : isDark ? '#2c2c2c' : '#e5e7eb',
-              marginHorizontal: 6,
-            }}
-          />
-        )}
-      </React.Fragment>
-    ))}
-  </View>
-);
+              width: 26,
+              height: 26,
+              borderRadius: 5,
+              backgroundColor: step >= s ? c.violet : 'transparent',
+              borderWidth: 1,
+              borderColor: step >= s ? c.violet : c.panelBorderStrong,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+            <Text style={{ color: step >= s ? '#fff' : c.textFaint, fontSize: 11, fontFamily: FONT.mono }}>
+              {String(s).padStart(2, '0')}
+            </Text>
+          </View>
+          {i === 0 && <View style={{ width: 40, height: 1.5, backgroundColor: step === 2 ? c.violet : c.panelBorderStrong, marginHorizontal: 8 }} />}
+        </React.Fragment>
+      ))}
+    </View>
+  );
+};
 
 // ─── Mode Selector ───────────────────────────────────────────────────
 
@@ -119,53 +106,37 @@ const ModeSelector = ({
   mode: CreationMode;
   onSelect: (m: CreationMode) => void;
   isDark: boolean;
-}) => (
-  <View
-    className="mb-6 flex-row gap-3 rounded-2xl p-1.5"
-    style={{ backgroundColor: isDark ? '#131313' : '#f0f0f0' }}>
-    {(['ai', 'manual'] as const).map((m) => (
-      <AnimatedPressable
-        key={m}
-        onPress={() => onSelect(m)}
-        className="flex-1 flex-row items-center justify-center rounded-xl px-4 py-3.5"
-        style={
-          mode === m
-            ? {
-                backgroundColor: isDark ? '#2c2c2c' : '#fff',
-                shadowColor: '#8b5cf6',
-                shadowOpacity: 0.1,
-                shadowRadius: 15,
-                elevation: 3,
-              }
-            : {}
-        }>
-        {m === 'ai' ? (
-          <Ionicons
-            name="sparkles"
-            size={16}
-            color={mode === 'ai' ? '#8b5cf6' : '#767575'}
-            style={{ marginRight: 6 }}
-          />
-        ) : (
-          <MaterialIcons
-            name="edit"
-            size={16}
-            color={mode === 'manual' ? '#8b5cf6' : '#767575'}
-            style={{ marginRight: 6 }}
-          />
-        )}
-        <Text
-          style={{
-            fontSize: 13,
-            fontWeight: '600',
-            color: mode === m ? '#8b5cf6' : isDark ? '#adaaaa' : '#666',
-          }}>
-          {m === 'ai' ? 'AI-Assisted' : 'Manual'}
-        </Text>
-      </AnimatedPressable>
-    ))}
-  </View>
-);
+}) => {
+  const c = hud(isDark);
+  return (
+      <View style={{ marginBottom: 22, flexDirection: 'row', gap: 8, backgroundColor: c.bgElev, borderRadius: 8, borderWidth: 1, borderColor: c.panelBorder, padding: 5 }}>
+        {(['ai', 'manual'] as const).map((m) => {
+          const active = mode === m;
+          return (
+            <AnimatedPressable
+              key={m}
+              onPress={() => onSelect(m)}
+              className="flex-1 flex-row items-center justify-center px-4 py-3"
+              style={{
+                borderRadius: 5,
+                backgroundColor: active ? 'rgba(139,92,246,0.14)' : 'transparent',
+                borderWidth: 1,
+                borderColor: active ? c.violet : 'transparent',
+              }}>
+              {m === 'ai' ? (
+                <Ionicons name="sparkles" size={15} color={active ? c.violet : c.textDim} style={{ marginRight: 7 }} />
+              ) : (
+                <MaterialIcons name="edit" size={15} color={active ? c.violet : c.textDim} style={{ marginRight: 7 }} />
+              )}
+              <Text style={{ fontSize: 11, fontFamily: FONT.mono, letterSpacing: 1, textTransform: 'uppercase', color: active ? c.violet : c.textDim }}>
+                {m === 'ai' ? 'AI Forge' : 'Manual'}
+              </Text>
+            </AnimatedPressable>
+          );
+        })}
+      </View>
+  );
+};
 
 // ─── AI Loading Overlay ──────────────────────────────────────────────
 
@@ -814,9 +785,18 @@ const MediaDateGrid = ({
 const NewShard = () => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const c = hud(isDark);
   const { addAlert } = useAppStore();
   const currentUserId = useUserStore((state) => state.user?.id);
+  // Trial users get Pro access too (server treats an unexpired trial as pro).
+  const isPro = useUserStore(
+    (state) => state.user?.subscriptionTier === 'pro' || !!state.user?.isInTrial
+  );
   const scrollRef = useRef<ScrollView>(null);
+
+  // Free tier allows 1 collaborator per shard; Pro is unlimited. Server enforces
+  // the source of truth — this is a client guard to trigger the paywall early.
+  const FREE_COLLABORATOR_LIMIT = 1;
 
   const [step, setStep] = useState<1 | 2>(1);
   const [mode, setMode] = useState<CreationMode>('ai');
@@ -853,6 +833,8 @@ const NewShard = () => {
   // AI credit count
   const [aiRemaining, setAiRemaining] = useState<number | null>(null);
   const [aiWarning, setAiWarning] = useState<string | null>(null);
+  // 0 = free tier exhausted; -1 = unlimited (Pro). Gate AI generation on this.
+  const outOfCredits = mode === 'ai' && aiRemaining === 0;
 
   const { setFriends } = useFriendsStore();
 
@@ -881,12 +863,26 @@ const NewShard = () => {
   ) => {
     if (!role) {
       setSelectedFriends((prev) => prev.filter((f) => f.userId !== userId));
-    } else {
-      setSelectedFriends((prev) => {
-        const filtered = prev.filter((f) => f.userId !== userId);
-        return [...filtered, { userId, role }];
-      });
+      return;
     }
+
+    // Free-tier collaborator cap → paywall. Only counts the 'collaborator' role,
+    // and ignores the case where the user is just switching an existing selection.
+    if (!isPro && role === 'collaborator') {
+      const alreadySelectedAsCollaborator = selectedFriends.some(
+        (f) => f.userId === userId && f.role === 'collaborator'
+      );
+      const collaboratorCount = selectedFriends.filter((f) => f.role === 'collaborator').length;
+      if (!alreadySelectedAsCollaborator && collaboratorCount >= FREE_COLLABORATOR_LIMIT) {
+        openPaywall('collaborator_limit');
+        return;
+      }
+    }
+
+    setSelectedFriends((prev) => {
+      const filtered = prev.filter((f) => f.userId !== userId);
+      return [...filtered, { userId, role }];
+    });
   };
 
   const uploadImage = async (localUri: string) => {
@@ -923,6 +919,10 @@ const NewShard = () => {
   // ── AI flow ──
 
   const handleAIContinue = async () => {
+    if (outOfCredits) {
+      openPaywall('ai_credits');
+      return;
+    }
     if (!aiGoal.trim()) {
       addAlert({ str: 'Please describe your goal', type: 'error' });
       return;
@@ -953,6 +953,7 @@ const NewShard = () => {
       if (data?.createShard?.needsUpgrade) {
         addAlert({ str: data.createShard.message, type: 'warning' });
         setStep(1);
+        openPaywall('ai_credits');
         return;
       }
 
@@ -1056,15 +1057,15 @@ const NewShard = () => {
   };
 
   const glassStyle = {
-    backgroundColor: isDark ? 'rgba(26, 26, 26, 0.6)' : 'rgba(255, 255, 255, 0.8)',
-    borderColor: isDark ? 'rgba(72,72,71,0.15)' : 'rgba(0,0,0,0.06)',
+    backgroundColor: c.panel,
+    borderColor: c.panelBorder,
     borderWidth: 1,
-    borderRadius: 28,
-    padding: 24,
+    borderRadius: 8,
+    padding: 22,
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-background-paper dark:bg-background-dark-default">
+    <SafeAreaView className="flex-1" style={{ backgroundColor: c.bg }}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1">
@@ -1074,12 +1075,15 @@ const NewShard = () => {
             onPress={step === 2 ? handleBack : () => router.back()}
             hitSlop={20}
             scaleDown={0.9}>
-            <AntDesign name="arrowleft" size={24} color={isDark ? '#8b5cf6' : '#1a1a1a'} />
+            <AntDesign name="arrowleft" size={22} color={c.textDim} />
           </AnimatedPressable>
-          <Text className="text-2xl font-bold tracking-tight" style={{ color: '#8b5cf6' }}>
-            {step === 1 ? 'New Quest' : mode === 'ai' ? 'Review' : 'Mini-Goals'}
-          </Text>
-          <View style={{ width: 24 }} />
+          <View style={{ alignItems: 'center' }}>
+            <HudLabel color={c.textFaint} size={9}>{`Step ${String(step).padStart(2, '0')} / 02`}</HudLabel>
+            <Text style={{ fontFamily: FONT.extrabold, fontSize: 19, letterSpacing: -0.3, color: c.text, marginTop: 2 }}>
+              {step === 1 ? 'New Quest' : mode === 'ai' ? 'Review' : 'Mini-Goals'}
+            </Text>
+          </View>
+          <View style={{ width: 22 }} />
         </View>
 
         <ScrollView
@@ -1184,7 +1188,10 @@ const NewShard = () => {
                 {/* AI credit count */}
                 {mode === 'ai' && aiRemaining !== null && (
                   <Animated.View entering={FadeInDown.duration(300)}>
-                    <View
+                    <AnimatedPressable
+                      onPress={outOfCredits ? () => openPaywall('ai_credits') : undefined}
+                      disabled={!outOfCredits}
+                      scaleDown={outOfCredits ? 0.97 : 1}
                       style={{
                         flexDirection: 'row',
                         alignItems: 'center',
@@ -1204,32 +1211,25 @@ const NewShard = () => {
                         {aiRemaining === -1
                           ? 'Unlimited AI calls (Pro)'
                           : aiRemaining === 0
-                            ? 'No AI credits remaining — upgrade to Pro'
+                            ? 'No AI credits remaining'
                             : `${aiRemaining} AI credit${aiRemaining !== 1 ? 's' : ''} remaining`}
                       </Text>
-                    </View>
+                      {outOfCredits && (
+                        <Text style={{ fontSize: 12, fontWeight: '800', color: '#8b5cf6' }}>
+                          Upgrade →
+                        </Text>
+                      )}
+                    </AnimatedPressable>
                   </Animated.View>
                 )}
 
                 {/* AI Form */}
                 {mode === 'ai' && (
                   <View style={glassStyle}>
-                    <View
-                      style={{
-                        position: 'absolute',
-                        top: -40,
-                        right: -40,
-                        width: 120,
-                        height: 120,
-                        borderRadius: 60,
-                        backgroundColor: 'rgba(139,92,246,0.08)',
-                      }}
-                    />
-                    <Text
-                      className="mb-4 text-xs font-bold uppercase tracking-widest"
-                      style={{ color: isDark ? '#adaaaa' : '#666' }}>
+                    <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, backgroundColor: c.violet, opacity: 0.85 }} />
+                    <HudLabel color={c.textDim} style={{ marginBottom: 12 }}>
                       What do you want to achieve?
-                    </Text>
+                    </HudLabel>
                     <TextInput
                       value={aiGoal}
                       onChangeText={setAiGoal}
@@ -1238,14 +1238,14 @@ const NewShard = () => {
                       numberOfLines={4}
                       style={{
                         fontSize: 18,
-                        fontWeight: '600',
-                        borderBottomWidth: 2,
-                        borderBottomColor: aiGoal ? '#8b5cf6' : isDark ? '#484847' : '#d1d5db',
+                        fontFamily: FONT.semibold,
+                        borderBottomWidth: 1.5,
+                        borderBottomColor: aiGoal ? c.violet : c.panelBorderStrong,
                         paddingVertical: 12,
                         minHeight: 100,
-                        color: isDark ? '#fff' : '#1a1a1a',
+                        color: c.text,
                       }}
-                      placeholderTextColor={isDark ? 'rgba(118,117,117,0.5)' : 'rgba(0,0,0,0.25)'}
+                      placeholderTextColor={c.textFaint}
                       textAlignVertical="top"
                     />
                     <View className="mt-6">
@@ -1409,14 +1409,15 @@ const NewShard = () => {
                     onPress={mode === 'ai' ? handleAIContinue : handleManualContinue}
                     disabled={loading}
                     scaleDown={0.95}
-                    className="flex-row items-center justify-center gap-3 rounded-2xl py-5"
+                    className="flex-row items-center justify-center gap-3 py-4"
                     style={{
-                      backgroundColor: '#8b5cf6',
-                      shadowColor: '#8b5cf6',
-                      shadowOpacity: 0.3,
-                      shadowRadius: 20,
+                      backgroundColor: c.violet,
+                      borderRadius: 8,
+                      shadowColor: '#7c3aed',
+                      shadowOpacity: 0.35,
+                      shadowRadius: 14,
                       shadowOffset: { width: 0, height: 4 },
-                      elevation: 8,
+                      elevation: 6,
                       opacity: loading ? 0.7 : 1,
                     }}>
                     {loading ? (
@@ -1424,12 +1425,12 @@ const NewShard = () => {
                     ) : (
                       <>
                         <Ionicons
-                          name={mode === 'ai' ? 'flash' : 'arrow-forward'}
-                          size={20}
+                          name={outOfCredits ? 'lock-open' : mode === 'ai' ? 'flash' : 'arrow-forward'}
+                          size={18}
                           color="#fff"
                         />
-                        <Text className="text-lg font-extrabold text-white">
-                          {mode === 'ai' ? 'Generate Quest with AI' : 'Continue →'}
+                        <Text style={{ color: '#fff', fontFamily: FONT.mono, fontSize: 13, letterSpacing: 1.5, textTransform: 'uppercase' }}>
+                          {outOfCredits ? 'Unlock AI · Go Pro' : mode === 'ai' ? 'Forge Quest' : 'Continue'}
                         </Text>
                       </>
                     )}
@@ -1485,22 +1486,23 @@ const NewShard = () => {
                     onPress={handleManualCreate}
                     disabled={loading}
                     scaleDown={0.95}
-                    className="flex-row items-center justify-center gap-3 rounded-2xl py-5"
+                    className="flex-row items-center justify-center gap-3 py-4"
                     style={{
-                      backgroundColor: '#8b5cf6',
-                      shadowColor: '#8b5cf6',
-                      shadowOpacity: 0.3,
-                      shadowRadius: 20,
+                      backgroundColor: c.violet,
+                      borderRadius: 8,
+                      shadowColor: '#7c3aed',
+                      shadowOpacity: 0.35,
+                      shadowRadius: 14,
                       shadowOffset: { width: 0, height: 4 },
-                      elevation: 8,
+                      elevation: 6,
                       opacity: loading ? 0.7 : 1,
                     }}>
                     {loading ? (
                       <ActivityIndicator color="#fff" />
                     ) : (
                       <>
-                        <Ionicons name="checkmark-circle" size={20} color="#fff" />
-                        <Text className="text-lg font-extrabold text-white">Create Quest</Text>
+                        <Ionicons name="checkmark-circle" size={18} color="#fff" />
+                        <Text style={{ color: '#fff', fontFamily: FONT.mono, fontSize: 13, letterSpacing: 1.5, textTransform: 'uppercase' }}>Create Quest</Text>
                       </>
                     )}
                   </AnimatedPressable>

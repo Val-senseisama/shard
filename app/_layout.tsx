@@ -150,6 +150,8 @@ export default function RootLayout() {
     'Inter-Black': require('@/assets/fonts/Inter_24pt-Black.ttf'),
     'Inter-Bold': require('@/assets/fonts/Inter_24pt-Bold.ttf'),
     'Inter-ExtraBold': require('@/assets/fonts/Inter_24pt-ExtraBold.ttf'),
+    // HUD utility face — mono caps for labels, stats, XP, quest codes.
+    'SpaceMono': require('@/assets/fonts/SpaceMono-Regular.ttf'),
   });
 
   // Apply dark mode from app store

@@ -1076,23 +1076,38 @@ const Friends = () => {
         <Text style={{ fontSize: 24, fontWeight: '800', color: ACCENT, letterSpacing: -0.5 }}>
           Friends
         </Text>
-        {activeTab === 'teams' && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <AnimatedPressable
-            onPress={() => setShowCreateTeam(true)}
-            scaleDown={0.92}
+            onPress={() => router.push('/(screens)/leaderboard')}
+            scaleDown={0.9}
             style={{
-              flexDirection: 'row',
+              width: 38,
+              height: 38,
+              borderRadius: 19,
+              backgroundColor: 'rgba(124,58,237,0.12)',
               alignItems: 'center',
-              gap: 6,
-              backgroundColor: ACCENT,
-              paddingHorizontal: 14,
-              paddingVertical: 8,
-              borderRadius: 20,
+              justifyContent: 'center',
             }}>
-            <Ionicons name="add" size={16} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>New Team</Text>
+            <Ionicons name="trophy" size={19} color={ACCENT} />
           </AnimatedPressable>
-        )}
+          {activeTab === 'teams' && (
+            <AnimatedPressable
+              onPress={() => setShowCreateTeam(true)}
+              scaleDown={0.92}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                backgroundColor: ACCENT,
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                borderRadius: 20,
+              }}>
+              <Ionicons name="add" size={16} color="#fff" />
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>New Team</Text>
+            </AnimatedPressable>
+          )}
+        </View>
       </View>
 
       {/* Search */}

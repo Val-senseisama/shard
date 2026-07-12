@@ -9,6 +9,10 @@ export interface User {
   profilePic: string;
   role: "user" | "admin";
   subscriptionTier?: 'free' | 'pro' | 'enterprise';
+  trialEndsAt?: string | null;
+  isInTrial?: boolean;
+  referralCode?: string;
+  referralCount?: number;
   emailVerified: boolean;
   authProvider: "google" | "password";
   isNewUser: boolean;
