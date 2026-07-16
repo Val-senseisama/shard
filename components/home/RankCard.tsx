@@ -6,7 +6,7 @@ import { router } from 'expo-router';
 import { GET_LEADERBOARD } from '~/Graphql/Queries';
 import { avatarUri } from '~/helpers/avatarUri';
 import AnimatedPressable from '~/components/AnimatedPressable';
-import { hud, FONT, HudLabel, Num } from '~/components/hud';
+import { hud, FONT, HudLabel, Num, HudSkeleton } from '~/components/hud';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
@@ -35,11 +35,15 @@ const RankCard = ({ isDark: isDarkProp }: { isDark?: boolean }) => {
   // top-3 preview returns myRank:null for anyone outside the top 3. 50 also
   // matches what /leaderboard requests, so they share one cache entry and the
   // tap-through is instant.
-  const { data } = useQuery(GET_LEADERBOARD, {
+  const { data, loading } = useQuery(GET_LEADERBOARD, {
     variables: { scope: 'friends', limit: 50 },
     fetchPolicy: 'cache-and-network',
     nextFetchPolicy: 'cache-first',
   });
+
+  // Only the very first fetch (no cached data at all) should show a skeleton —
+  // background refetches (pull-to-refresh, post-task-complete) must not blank the card.
+  const initialLoading = loading && data === undefined;
 
   const board = data?.getLeaderboard;
   const entries: Entry[] = useMemo(() => board?.entries ?? [], [board?.entries]);
@@ -54,6 +58,39 @@ const RankCard = ({ isDark: isDarkProp }: { isDark?: boolean }) => {
   // Solo: you're the only entry (no accepted friends). A dead end here is a
   // wasted slot, so send them to add friends.
   const isSolo = entries.length <= 1;
+
+  if (initialLoading) {
+    return (
+      <View
+        style={{
+          backgroundColor: c.panel,
+          borderRadius: 16,
+          borderWidth: 1,
+          borderColor: c.panelBorder,
+          padding: 16,
+          marginTop: 12,
+        }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <HudLabel color={c.text} size={15}>
+            Rank
+          </HudLabel>
+          <HudSkeleton isDark={isDark} width={70} height={12} radius={4} />
+        </View>
+        <View style={{ marginTop: 14, gap: 10 }}>
+          {[0, 1, 2].map((i) => (
+            <View key={i} style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <HudSkeleton isDark={isDark} width={14} height={14} radius={4} style={{ marginRight: 8 }} />
+              <HudSkeleton isDark={isDark} width={24} height={24} radius={12} style={{ marginRight: 9 }} />
+              <View style={{ flex: 1, marginRight: 12 }}>
+                <HudSkeleton isDark={isDark} width={i === 0 ? '50%' : '35%'} height={13} radius={4} />
+              </View>
+              <HudSkeleton isDark={isDark} width={44} height={12} radius={4} />
+            </View>
+          ))}
+        </View>
+      </View>
+    );
+  }
 
   if (isSolo) {
     return (

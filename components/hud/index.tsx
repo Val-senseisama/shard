@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import AnimatedPressable from '../AnimatedPressable';
 import { hud, FONT, RADIUS, SHARD_GRADIENT } from './tokens';
 
@@ -309,6 +310,40 @@ export const HudField = ({
         )}
       </View>
     </View>
+  );
+};
+
+/**
+ * Shimmering placeholder block for loading states — same track color and radius
+ * scale as everything else, so a skeleton reads as "this panel, not yet filled"
+ * rather than a generic gray box.
+ */
+export const HudSkeleton = ({
+  width,
+  height,
+  radius = RADIUS.xs,
+  isDark,
+  style,
+}: {
+  width: number | `${number}%`;
+  height: number;
+  radius?: number;
+  isDark: boolean;
+  style?: StyleProp<ViewStyle>;
+}) => {
+  const c = hud(isDark);
+  const opacity = useSharedValue(0.4);
+
+  useEffect(() => {
+    opacity.value = withRepeat(withSequence(withTiming(0.85, { duration: 750 }), withTiming(0.4, { duration: 750 })), -1, true);
+  }, [opacity]);
+
+  const anim = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
+  return (
+    <Animated.View
+      style={[{ width: width as any, height, borderRadius: radius, backgroundColor: c.track }, anim, style]}
+    />
   );
 };
 

@@ -13,7 +13,7 @@ import { groupTasksByLocalDate, todayKey } from '~/helpers/dateKeys';
 import { canUndo } from '~/helpers/undo';
 import AnimatedPressable from '~/components/AnimatedPressable';
 import CelebrationOverlay from '~/components/CelebrationOverlay';
-import { hud, FONT, HudLabel, Num, ShardBar } from '~/components/hud';
+import { hud, FONT, HudLabel, Num, ShardBar, HudSkeleton } from '~/components/hud';
 
 const MAX_ROWS = 4;
 
@@ -116,10 +116,14 @@ const TodayCard = ({ isDark: isDarkProp }: { isDark?: boolean }) => {
   const markLocalIncomplete = useScheduleStore((s) => s.markTaskIncomplete);
   const updateUser = useUserStore((s) => s.updateUser);
 
-  const { data, refetch } = useQuery(GET_MY_SCHEDULE, {
+  const { data, loading, refetch } = useQuery(GET_MY_SCHEDULE, {
     fetchPolicy: 'cache-and-network',
     nextFetchPolicy: 'cache-first',
   });
+
+  // Only the very first fetch (no cached data at all) should show a skeleton —
+  // background refetches (pull-to-refresh, post-toggle) must not blank the card.
+  const initialLoading = loading && data === undefined;
 
   // Sync query → store on every result. Using `onCompleted` here would miss
   // refetches (e.g. pull-to-refresh via client.refetchQueries), leaving the
@@ -248,18 +252,30 @@ const TodayCard = ({ isDark: isDarkProp }: { isDark?: boolean }) => {
           <HudLabel color={c.text} size={15}>
             Today
           </HudLabel>
-          {total > 0 && (
+          {!initialLoading && total > 0 && (
             <Num color={allDone ? c.violet : c.textDim} size={12}>
               {doneCount} / {total}
             </Num>
           )}
         </View>
 
-        {total > 0 && (
+        {!initialLoading && total > 0 && (
           <ShardBar progress={doneCount / total} isDark={isDark} height={5} style={{ marginTop: 10 }} />
         )}
 
-        {total === 0 ? (
+        {initialLoading ? (
+          <View style={{ marginTop: 14, gap: 4 }}>
+            {[0, 1, 2].map((i) => (
+              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10 }}>
+                <HudSkeleton isDark={isDark} width={22} height={22} radius={11} />
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <HudSkeleton isDark={isDark} width={i === 1 ? '55%' : '75%'} height={14} radius={4} />
+                </View>
+                <HudSkeleton isDark={isDark} width={40} height={12} radius={4} style={{ marginLeft: 12 }} />
+              </View>
+            ))}
+          </View>
+        ) : total === 0 ? (
           <AnimatedPressable
             scaleDown={0.98}
             onPress={() => router.push('/(screens)/(tabs)/schedule')}

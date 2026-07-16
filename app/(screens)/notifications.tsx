@@ -27,6 +27,7 @@ import Animated, {
 import { formatDistanceToNow, isToday, isYesterday, isThisWeek } from 'date-fns';
 import { t, ACCENT } from '~/components/shard/constants';
 import AnimatedPressable from '~/components/AnimatedPressable';
+import notificationService from '~/services/notificationService';
 
 const { width } = Dimensions.get('window');
 
@@ -131,6 +132,30 @@ const Notifications = () => {
   const [markRead] = useMutation(MARK_NOTIFICATION_READ);
   const [markAllRead] = useMutation(MARK_ALL_NOTIFICATIONS_READ);
 
+  // The FCM push sets the app icon badge, but there's no push to CLEAR it —
+  // opening this screen and reading things is the only other moment the badge
+  // can be corrected, so sync it to server truth on mount and after every
+  // read action rather than leaving it stuck at the last push's count.
+  const { refetch: refetchUnreadCount } = useQuery(GET_UNREAD_NOTIFICATION_COUNT, {
+    fetchPolicy: 'network-only',
+    onCompleted: (d) => {
+      if (d?.getUnreadNotificationCount?.success) {
+        notificationService.setBadgeCount(d.getUnreadNotificationCount.count).catch(() => {});
+      }
+    },
+  });
+
+  const syncBadge = async () => {
+    try {
+      const { data: fresh } = await refetchUnreadCount();
+      if (fresh?.getUnreadNotificationCount?.success) {
+        await notificationService.setBadgeCount(fresh.getUnreadNotificationCount.count);
+      }
+    } catch {
+      // best-effort — a stale badge self-corrects on the next push or screen visit
+    }
+  };
+
   // Group notifications by date
   const groupedNotifications = useMemo(() => {
     const notifications = data?.getNotifications?.notifications || [];
@@ -193,6 +218,7 @@ const Notifications = () => {
     try {
       await markAllRead();
       refetch();
+      syncBadge();
     } catch (err) {
       console.error('Error marking all as read:', err);
     }
@@ -203,6 +229,7 @@ const Notifications = () => {
       try {
         await markRead({ variables: { notificationId: notification.id } });
         refetch();
+        syncBadge();
       } catch (err) {
         console.error('Error marking notification as read:', err);
       }
