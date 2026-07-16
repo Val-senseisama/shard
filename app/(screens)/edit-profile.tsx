@@ -218,7 +218,7 @@ export default function EditProfilePage() {
 
         {/* Email (read-only) */}
         <View style={{ gap: 6 }}>
-          <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 1.5, textTransform: 'uppercase', color: theme.textSecondary }}>
+          <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 0.2, color: theme.textSecondary }}>
             Email
           </Text>
           <View style={{
@@ -233,7 +233,7 @@ export default function EditProfilePage() {
 
         {/* Username */}
         <View style={{ gap: 6 }}>
-          <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 1.5, textTransform: 'uppercase', color: theme.textSecondary }}>
+          <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 0.2, color: theme.textSecondary }}>
             Username
           </Text>
           <View style={{
@@ -266,7 +266,7 @@ export default function EditProfilePage() {
 
         {/* Bio */}
         <View style={{ gap: 6 }}>
-          <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 1.5, textTransform: 'uppercase', color: theme.textSecondary }}>
+          <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 0.2, color: theme.textSecondary }}>
             Bio
           </Text>
           <TextInput
@@ -289,7 +289,7 @@ export default function EditProfilePage() {
 
         {/* Birthdate */}
         <View style={{ gap: 6 }}>
-          <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 1.5, textTransform: 'uppercase', color: theme.textSecondary }}>
+          <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 0.2, color: theme.textSecondary }}>
             Birthday
           </Text>
           <AnimatedPressable
@@ -331,7 +331,7 @@ export default function EditProfilePage() {
 
         {/* Timezone (auto-detected, read-only) */}
         <View style={{ gap: 6 }}>
-          <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 1.5, textTransform: 'uppercase', color: theme.textSecondary }}>
+          <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 0.2, color: theme.textSecondary }}>
             Timezone
           </Text>
           <View style={{

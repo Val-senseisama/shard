@@ -10,12 +10,14 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useQuery } from '@apollo/client';
+import { useQuery, useMutation } from '@apollo/client';
 import { Ionicons } from '@expo/vector-icons';
 import { GET_MY_SCHEDULE } from '~/Graphql/Queries';
-import { COMPLETE_TASK } from '~/Graphql/Mutations';
+import { COMPLETE_TASK, UNCOMPLETE_TASK } from '~/Graphql/Mutations';
 import { useOfflineMutation } from '~/hooks/useOfflineMutation';
 import { useScheduleStore } from '~/store/schedule.store';
+import { canUndo } from '~/helpers/undo';
+import { toLocalDateKey, groupTasksByLocalDate } from '~/helpers/dateKeys';
 import * as syncService from '~/services/syncService';
 import Toast from 'react-native-toast-message';
 import AnimatedPressable from '~/components/AnimatedPressable';
@@ -26,10 +28,6 @@ const DAY_ITEM_WIDTH = 56;
 const DAY_ITEM_MARGIN = 4;
 const DAY_ITEM_TOTAL = DAY_ITEM_WIDTH + DAY_ITEM_MARGIN * 2;
 const TODAY_INDEX = 30;
-
-// Always use local date to avoid UTC offset shifting the day
-const toLocalDateKey = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 // ─── Day Pill ─────────────────────────────────────────────────────
 // Uses Pressable (not AnimatedPressable) — each AnimatedPressable creates
@@ -76,7 +74,7 @@ const DayItem = React.memo(
           style={{
             fontSize: 10,
             fontWeight: '700',
-            letterSpacing: 1,
+            letterSpacing: 0.2,
             color: isSelected ? 'rgba(255,255,255,0.7)' : theme.textSecondary,
             marginBottom: 4,
           }}>
@@ -293,9 +291,10 @@ const Schedule = () => {
   );
 
   const [refreshing, setRefreshing] = useState(false);
-  const cachedTasksByDate = useScheduleStore((state) => state.tasksByDate);
+  const cachedTasks = useScheduleStore((state) => state.tasks);
   const setSchedule = useScheduleStore((state) => state.setSchedule);
   const markLocalComplete = useScheduleStore((state) => state.markTaskComplete);
+  const markLocalIncomplete = useScheduleStore((state) => state.markTaskIncomplete);
 
   const { data, loading, error, refetch } = useQuery(GET_MY_SCHEDULE, {
     onCompleted: (d) => {
@@ -314,6 +313,18 @@ const Schedule = () => {
         refetch();
       }
     },
+  });
+
+  const [uncompleteTask] = useMutation(UNCOMPLETE_TASK, {
+    onCompleted: (result: any) => {
+      const res = result?.uncompleteTask;
+      Toast.show({
+        type: res?.success ? 'success' : 'error',
+        text1: res?.success ? 'Task undone' : res?.message || 'Could not undo that task.',
+      });
+      refetch();
+    },
+    onError: () => Toast.show({ type: 'error', text1: 'Could not undo that task.' }),
   });
 
   const onRefresh = useCallback(async () => {
@@ -352,28 +363,41 @@ const Schedule = () => {
 
   const handleTaskToggle = useCallback(
     async (task: any) => {
-      if (task.completed) return;
       const [miniGoalId, taskIndexStr] = task.id.split('-');
       const taskIndex = parseInt(taskIndexStr, 10);
+      const vars = { shardId: task.shardId, miniGoalId, taskIndex };
+
+      // Completed tasks can be taken back, but only inside the undo window;
+      // outside it they're inert. The server is the authority either way.
+      if (task.completed) {
+        if (!canUndo(task)) return;
+        markLocalIncomplete(task.id);
+        try {
+          await uncompleteTask({ variables: vars });
+        } catch (err) {
+          console.error('Task undo error:', err);
+        }
+        return;
+      }
+
       // Optimistic update — marks it done in the store immediately
       markLocalComplete(task.id);
       try {
-        await completeTask({
-          shardId: task.shardId,
-          miniGoalId,
-          taskIndex,
-        });
+        await completeTask(vars);
       } catch (err) {
         console.error('Task completion error:', err);
       }
     },
-    [completeTask, markLocalComplete]
+    [completeTask, uncompleteTask, markLocalComplete, markLocalIncomplete]
   );
 
-  const tasksForSelectedDate =
-    data?.getMySchedule?.tasksByDate?.[selectedDateKey] ??
-    cachedTasksByDate?.[selectedDateKey] ??
-    [];
+  // Read from the STORE, not the Apollo cache: `markTaskComplete` writes to the
+  // store, so rendering from Apollo would leave the box unticked after a tap.
+  // Also re-bucket against the LOCAL clock — the server's `tasksByDate` keys are
+  // UTC, so a local-key lookup shifts tasks a day off UTC. See helpers/dateKeys.ts.
+  const tasksByLocalDate = useMemo(() => groupTasksByLocalDate(cachedTasks), [cachedTasks]);
+
+  const tasksForSelectedDate = tasksByLocalDate[selectedDateKey] ?? [];
 
   const groupedTasks = useMemo(
     () =>
@@ -420,8 +444,7 @@ const Schedule = () => {
           paddingHorizontal: 20,
           fontSize: 11,
           fontWeight: '800',
-          letterSpacing: 1.5,
-          textTransform: 'uppercase',
+          letterSpacing: 0.2,
           color: theme.textSecondary,
         }}>
         {selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
@@ -467,8 +490,7 @@ const Schedule = () => {
               style={{
                 fontSize: 11,
                 fontWeight: '800',
-                letterSpacing: 1.5,
-                textTransform: 'uppercase',
+                letterSpacing: 0.2,
                 color: theme.textSecondary,
               }}>
               {isViewingToday ? "Today's Goals" : 'Scheduled Goals'}

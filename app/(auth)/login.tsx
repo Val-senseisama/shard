@@ -24,7 +24,7 @@ import { useAppStore } from '~/store/app.store';
 import AnimatedPressable from '~/components/AnimatedPressable';
 import icons from '@/constants/icons';
 import { Image } from 'react-native';
-import { hud, FONT, HudField, HudLabel, WordMark, CornerBrackets } from '~/components/hud';
+import { hud, FONT, HudField, HudLabel, WordMark } from '~/components/hud';
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -203,14 +203,13 @@ const Login = () => {
           <View
             style={{
               backgroundColor: c.panel,
-              borderRadius: 8,
+              borderRadius: 20,
               borderWidth: 1,
               borderColor: c.panelBorder,
               padding: 22,
               paddingTop: 26,
             }}>
             <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, backgroundColor: c.violet, opacity: 0.85 }} />
-            <CornerBrackets color={c.panelBorderStrong} inset={8} size={13} />
 
             <HudLabel color={c.textFaint} style={{ marginBottom: 18 }}>Sign in</HudLabel>
 
@@ -219,11 +218,11 @@ const Login = () => {
 
             {/* Primary */}
             <AnimatedPressable onPress={handleSubmit} scaleDown={0.96} disabled={isLoading} style={{ marginTop: 6, marginBottom: 18 }}>
-              <LinearGradient colors={['#8b5cf6', '#6d28d9']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ borderRadius: 8, height: 52, alignItems: 'center', justifyContent: 'center' }}>
+              <LinearGradient colors={['#8b5cf6', '#6d28d9']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ borderRadius: 16, height: 52, alignItems: 'center', justifyContent: 'center' }}>
                 {loginLoading ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={{ color: '#fff', fontSize: 13, fontFamily: FONT.mono, letterSpacing: 2, textTransform: 'uppercase' }}>Log in</Text>
+                  <Text style={{ color: '#fff', fontSize: 15, fontFamily: FONT.bold }}>Log in</Text>
                 )}
               </LinearGradient>
             </AnimatedPressable>
@@ -236,13 +235,13 @@ const Login = () => {
             </View>
 
             {/* Google */}
-            <TouchableOpacity onPress={handleGooglePress} disabled={isLoading} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 52, borderRadius: 8, backgroundColor: c.bgElev, borderWidth: 1, borderColor: c.panelBorder, gap: 10 }}>
+            <TouchableOpacity onPress={handleGooglePress} disabled={isLoading} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 52, borderRadius: 16, backgroundColor: c.bgElev, borderWidth: 1, borderColor: c.panelBorder, gap: 10 }}>
               {googleInProgress || googleLoading ? (
                 <ActivityIndicator color={c.textDim} />
               ) : (
                 <>
                   <Image source={icons.google} style={{ width: 20, height: 20 }} resizeMode="contain" />
-                  <Text style={{ fontSize: 13, fontFamily: FONT.mono, letterSpacing: 1.5, textTransform: 'uppercase', color: c.text }}>Continue with Google</Text>
+                  <Text style={{ fontSize: 15, fontFamily: FONT.bold, color: c.text }}>Continue with Google</Text>
                 </>
               )}
             </TouchableOpacity>

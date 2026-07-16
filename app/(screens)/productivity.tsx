@@ -64,8 +64,7 @@ const BarChart = ({
           fontSize: 11,
           fontWeight: '700',
           color: theme.textSecondary,
-          letterSpacing: 1,
-          textTransform: 'uppercase',
+          letterSpacing: 0.2,
           marginBottom: 12,
         }}>
         {label}
@@ -355,8 +354,7 @@ const ProductivityScreen = () => {
                     fontSize: 11,
                     fontWeight: '700',
                     color: theme.textSecondary,
-                    letterSpacing: 1,
-                    textTransform: 'uppercase',
+                    letterSpacing: 0.2,
                     marginBottom: 12,
                   }}>
                   AI Insights
@@ -375,8 +373,7 @@ const ProductivityScreen = () => {
                     fontSize: 11,
                     fontWeight: '700',
                     color: theme.textSecondary,
-                    letterSpacing: 1,
-                    textTransform: 'uppercase',
+                    letterSpacing: 0.2,
                     marginBottom: 12,
                   }}>
                   Areas to Improve

@@ -1,11 +1,11 @@
 export const CONFIG = {
   // --- Option 1: Android Emulator (host machine localhost) ---
-  // GRAPHQL_ENDPOINT: 'http://10.0.2.2:4000/graphql',
-  // WS_ENDPOINT: 'ws://10.0.2.2:4000',
+  GRAPHQL_ENDPOINT: 'http://10.0.2.2:4000/graphql',
+  WS_ENDPOINT: 'ws://10.0.2.2:4000',
 
   // --- Option 2: Remote server (production / public URL) ---
-  GRAPHQL_ENDPOINT: 'https://shard-server-production.up.railway.app/graphql',
-  WS_ENDPOINT: 'wss://shard-server-production.up.railway.app',
+  // GRAPHQL_ENDPOINT: 'https://shard-server-production.up.railway.app/graphql',
+  // WS_ENDPOINT: 'wss://shard-server-production.up.railway.app',
 
   // --- Option 3: Phone hotspot (laptop connected to phone's hotspot) ---
   // GRAPHQL_ENDPOINT: 'http://10.84.67.1:4000/graphql',

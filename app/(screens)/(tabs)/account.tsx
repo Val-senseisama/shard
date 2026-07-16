@@ -123,7 +123,7 @@ const LevelThermometer = ({
           fontSize: 10,
           fontWeight: '700',
           color: isDark ? '#adaaaa' : '#767575',
-          letterSpacing: 1,
+          letterSpacing: 0.2,
         }}>
         Level
       </Text>
@@ -691,8 +691,7 @@ const Account = () => {
                 fontSize: 10,
                 fontWeight: '700',
                 color: isDark ? '#adaaaa' : '#767575',
-                letterSpacing: 1.5,
-                textTransform: 'uppercase',
+                letterSpacing: 0.2,
                 marginBottom: 8,
               }}>
               {section.title}

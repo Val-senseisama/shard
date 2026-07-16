@@ -178,7 +178,7 @@ const NotificationSettings = () => {
         {/* Granular groups */}
         {TOGGLE_GROUPS.map((group, gi) => (
           <Animated.View key={group.title} entering={FadeInDown.delay((gi + 1) * 80).duration(350)} style={{ marginBottom: 20 }}>
-            <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10, paddingLeft: 4 }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary, letterSpacing: 0.2, marginBottom: 10, paddingLeft: 4 }}>
               {group.title}
             </Text>
             <View style={{ backgroundColor: theme.card, borderRadius: 16, borderWidth: 1, borderColor: isDark ? theme.border : 'rgba(0,0,0,0.05)', overflow: 'hidden' }}>
@@ -217,7 +217,7 @@ const NotificationSettings = () => {
 
         {/* Quiet Hours */}
         <Animated.View entering={FadeInDown.delay(240).duration(350)} style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10, paddingLeft: 4 }}>
+          <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary, letterSpacing: 0.2, marginBottom: 10, paddingLeft: 4 }}>
             Quiet Hours
           </Text>
           <View style={{ backgroundColor: theme.card, borderRadius: 16, borderWidth: 1, borderColor: isDark ? theme.border : 'rgba(0,0,0,0.05)', overflow: 'hidden' }}>

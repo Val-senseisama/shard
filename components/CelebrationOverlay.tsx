@@ -1,5 +1,7 @@
 import React, { useEffect } from 'react';
-import { View, Text, useWindowDimensions, StyleSheet } from 'react-native';
+import { View, Text, Pressable, useWindowDimensions, StyleSheet, useColorScheme } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { hud, FONT, Num, SHARD_GRADIENT } from './hud';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -31,6 +33,7 @@ const CelebrationOverlay: React.FC<CelebrationOverlayProps> = ({
   onClose,
 }) => {
   const { width, height } = useWindowDimensions();
+  const c = hud(useColorScheme() === 'dark');
   const opacity = useSharedValue(0);
   const scale = useSharedValue(0.5);
 
@@ -66,29 +69,52 @@ const CelebrationOverlay: React.FC<CelebrationOverlayProps> = ({
   if (!visible) return null;
 
   return (
-    <Animated.View
-      style={[styles.container, containerStyle]}
-      pointerEvents="none" // Allow touches to pass through if needed, or 'auto' to block
-    >
+    // Blocks the screen behind it — a tap used to fall straight through the
+    // overlay and hit whatever was underneath.
+    <Animated.View style={[styles.container, containerStyle]}>
+      <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
+
       {/* Confetti Particles */}
-      {Array.from({ length: PARTICLE_COUNT }).map((_, i) => (
-        <ConfettiParticle key={i} index={i} width={width} height={height} />
-      ))}
+      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        {Array.from({ length: PARTICLE_COUNT }).map((_, i) => (
+          <ConfettiParticle key={i} index={i} width={width} height={height} />
+        ))}
+      </View>
 
-      <Animated.View style={[styles.content, contentStyle]}>
-        <View style={styles.card}>
-          <Ionicons name="checkmark-circle" size={64} color="#22c55e" />
-          <Text style={styles.title}>Task Completed!</Text>
+      <Animated.View style={[styles.content, contentStyle]} pointerEvents="box-none">
+        <View style={[styles.card, { backgroundColor: c.panel, borderColor: c.panelBorderStrong }]}>
+          {/* The shard mark, not a generic green tick */}
+          <View style={styles.crystalWrap}>
+            <LinearGradient
+              colors={SHARD_GRADIENT}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.crystal}>
+              <View style={{ transform: [{ rotate: '-45deg' }] }}>
+                <Ionicons name="checkmark" size={30} color="#fff" />
+              </View>
+            </LinearGradient>
+          </View>
 
-          <View style={styles.rewardContainer}>
-            <Text style={styles.xpText}>+{xpEarned} XP</Text>
+          <Text style={[styles.title, { color: c.text, fontFamily: FONT.extrabold }]}>
+            {leveledUp ? 'Level up!' : 'Task complete'}
+          </Text>
+
+          <View style={[styles.rewardContainer, { backgroundColor: 'rgba(245,165,36,0.12)', borderColor: 'rgba(245,165,36,0.30)' }]}>
+            <Num color={c.ember} size={18}>
+              +{xpEarned} XP
+            </Num>
           </View>
 
           {leveledUp && (
-            <Animated.View style={styles.levelUpContainer}>
-              <Text style={styles.levelUpText}>LEVEL UP!</Text>
-              <Text style={styles.newLevelText}>Level {newLevel}</Text>
-            </Animated.View>
+            <View style={styles.levelUpContainer}>
+              <Text style={{ fontSize: 14, fontFamily: FONT.regular, color: c.textDim }}>
+                You reached{' '}
+                <Num color={c.violet} size={14}>
+                  Level {newLevel}
+                </Num>
+              </Text>
+            </View>
           )}
         </View>
       </Animated.View>
@@ -147,7 +173,8 @@ const ConfettiParticle = ({
     ],
   }));
 
-  const colors = ['#ef4444', '#3b82f6', '#22c55e', '#eab308', '#8b5cf6', '#ec4899'];
+  // The app's palette — violet / cyan refraction / ember — not generic rainbow.
+  const colors = ['#8B5CF6', '#A78BFA', '#48E0EE', '#F5A524', '#6D28D9', '#FFFFFF'];
   const color = colors[index % colors.length];
 
   return <Animated.View style={[styles.particle, style, { backgroundColor: color }]} />;
@@ -159,56 +186,54 @@ const styles = StyleSheet.create({
     zIndex: 1000,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: 'rgba(0,0,0,0.55)',
   },
   content: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   card: {
-    backgroundColor: 'white',
-    padding: 32,
+    paddingHorizontal: 36,
+    paddingVertical: 32,
     borderRadius: 24,
+    borderWidth: 1,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 12,
+  },
+  crystalWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  crystal: {
+    width: 60,
+    height: 60,
+    borderRadius: 20,
+    transform: [{ rotate: '45deg' }],
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginTop: 16,
-    marginBottom: 8,
+    fontSize: 22,
+    letterSpacing: -0.3,
+    marginTop: 20,
+    marginBottom: 12,
   },
   rewardContainer: {
-    backgroundColor: '#f3f4f6',
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-    marginTop: 8,
-  },
-  xpText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#8b5cf6',
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
   },
   levelUpContainer: {
-    marginTop: 16,
+    marginTop: 14,
     alignItems: 'center',
-  },
-  levelUpText: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#eab308',
-    letterSpacing: 1,
-  },
-  newLevelText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4b5563',
   },
   particle: {
     position: 'absolute',

@@ -230,6 +230,7 @@ export const GET_MY_SCHEDULE = gql`
         title
         dueDate
         completed
+        completedAt
         xpReward
         miniGoalId
         miniGoalTitle
@@ -241,6 +242,7 @@ export const GET_MY_SCHEDULE = gql`
         title
         dueDate
         completed
+        completedAt
         xpReward
         miniGoalId
         miniGoalTitle

@@ -22,8 +22,9 @@ export default function ScreensLayout() {
           presentation: 'formSheet',
           animation: 'slide_from_bottom',
           headerShown: false,
-          sheetAllowedDetents: [0.55, 0.85],
-          sheetInitialDetentIndex: 0,
+          // Sheet is exactly as tall as its content — a fixed fraction either cut
+          // off "Block User" (0.55) or left dead space below it (0.75).
+          sheetAllowedDetents: 'fitToContents',
           sheetCornerRadius: 24,
           sheetExpandsWhenScrolledToEdge: false,
         }}

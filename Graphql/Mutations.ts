@@ -128,6 +128,21 @@ export const COMPLETE_TASK = gql`
   }
 `;
 
+export const UNCOMPLETE_TASK = gql`
+  mutation UncompleteTask($shardId: ID!, $miniGoalId: ID!, $taskIndex: Int!) {
+    uncompleteTask(shardId: $shardId, miniGoalId: $miniGoalId, taskIndex: $taskIndex) {
+      success
+      message
+      xpEarned
+      xpResult {
+        newXP
+        newLevel
+        leveledUp
+      }
+    }
+  }
+`;
+
 export const COMPLETE_MINI_GOAL = gql`
   mutation CompleteMiniGoal($miniGoalId: ID!) {
     completeMiniGoal(miniGoalId: $miniGoalId) {

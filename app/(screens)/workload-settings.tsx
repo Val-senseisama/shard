@@ -110,8 +110,7 @@ const WorkloadSettings = () => {
               style={{
                 fontSize: 11,
                 fontWeight: '800',
-                letterSpacing: 1.5,
-                textTransform: 'uppercase',
+                letterSpacing: 0.2,
                 color: theme.textSecondary,
               }}>
               Intensity Level
@@ -167,8 +166,7 @@ const WorkloadSettings = () => {
                 style={{
                   fontSize: 11,
                   fontWeight: '800',
-                  letterSpacing: 1.5,
-                  textTransform: 'uppercase',
+                  letterSpacing: 0.2,
                   color: theme.textSecondary,
                 }}>
                 Working Days

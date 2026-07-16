@@ -13,7 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@apollo/client';
 import { router } from 'expo-router';
 import { GET_LEADERBOARD } from '~/Graphql/Queries';
-import { t, ACCENT } from '~/components/shard/constants';
+import { avatarUri } from '~/helpers/avatarUri';
+import { hud, FONT, Num } from '~/components/hud';
 
 type Entry = {
   id: string;
@@ -29,9 +30,11 @@ const medal = (rank: number) => (rank === 1 ? '🥇' : rank === 2 ? '🥈' : ran
 
 export default function LeaderboardScreen() {
   const isDark = useColorScheme() === 'dark';
-  const theme = t(isDark);
+  const c = hud(isDark);
   const [scope, setScope] = useState<'friends' | 'global'>('friends');
 
+  // Same variables as Home's RankCard for the friends scope — shared cache
+  // entry, so arriving here from Home renders instantly.
   const { data, loading } = useQuery(GET_LEADERBOARD, {
     variables: { scope, limit: 50 },
     fetchPolicy: 'cache-and-network',
@@ -50,53 +53,78 @@ export default function LeaderboardScreen() {
         paddingVertical: 12,
         marginHorizontal: 16,
         marginBottom: 8,
-        borderRadius: 14,
-        backgroundColor: item.isMe ? 'rgba(124,58,237,0.12)' : theme.card,
-        borderWidth: item.isMe ? 1.5 : 1,
-        borderColor: item.isMe ? ACCENT : theme.border,
+        borderRadius: 16,
+        backgroundColor: item.isMe ? 'rgba(139,92,246,0.12)' : c.panel,
+        borderWidth: 1,
+        borderColor: item.isMe ? c.violet : c.panelBorder,
       }}>
       <View style={{ width: 30, alignItems: 'center' }}>
         {medal(item.rank) ? (
           <Text style={{ fontSize: 20 }}>{medal(item.rank)}</Text>
         ) : (
-          <Text style={{ fontSize: 15, fontWeight: '800', color: theme.textSecondary }}>{item.rank}</Text>
+          <Num color={c.textFaint} size={14}>
+            {item.rank}
+          </Num>
         )}
       </View>
-      {item.profilePic ? (
-        <Image source={{ uri: item.profilePic }} style={{ width: 40, height: 40, borderRadius: 20 }} />
-      ) : (
-        <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: theme.trackBg, alignItems: 'center', justifyContent: 'center' }}>
-          <Ionicons name="person" size={20} color={theme.textSecondary} />
-        </View>
-      )}
+
+      <Image
+        source={{ uri: avatarUri(item.profilePic, item.username) }}
+        style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: c.violet }}
+      />
+
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text }} numberOfLines={1}>
-          {item.username}{item.isMe ? ' (You)' : ''}
+        <Text style={{ fontSize: 15, fontFamily: FONT.bold, color: item.isMe ? c.violet : c.text }} numberOfLines={1}>
+          {item.username}
+          {item.isMe ? ' (You)' : ''}
         </Text>
-        <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 1 }}>Level {item.level}</Text>
+        <Text style={{ fontSize: 12, fontFamily: FONT.regular, color: c.textDim, marginTop: 1 }}>
+          Level <Num color={c.textDim} size={12}>{item.level}</Num>
+        </Text>
       </View>
-      <Text style={{ fontSize: 15, fontWeight: '800', color: ACCENT }}>{item.xp.toLocaleString()} XP</Text>
+
+      <Num color={item.isMe ? c.violet : c.text} size={15}>
+        {item.xp.toLocaleString()} XP
+      </Num>
     </View>
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: c.bg }}>
       {/* Header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 }}>
         <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={26} color={theme.text} />
+          <Ionicons name="chevron-back" size={26} color={c.text} />
         </Pressable>
-        <Text style={{ fontSize: 22, fontWeight: '800', color: theme.text }}>Leaderboard</Text>
+        <Text style={{ fontSize: 22, fontFamily: FONT.extrabold, letterSpacing: -0.4, color: c.text }}>
+          Leaderboard
+        </Text>
       </View>
 
       {/* Scope toggle */}
-      <View style={{ flexDirection: 'row', backgroundColor: theme.card, borderRadius: 12, padding: 4, marginHorizontal: 16, marginBottom: 12, borderWidth: 1, borderColor: theme.border }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          backgroundColor: c.bgElev,
+          borderRadius: 999,
+          padding: 4,
+          marginHorizontal: 16,
+          marginBottom: 12,
+          borderWidth: 1,
+          borderColor: c.panelBorder,
+        }}>
         {(['friends', 'global'] as const).map((s) => (
           <Pressable
             key={s}
             onPress={() => setScope(s)}
-            style={{ flex: 1, paddingVertical: 9, borderRadius: 9, alignItems: 'center', backgroundColor: scope === s ? ACCENT : 'transparent' }}>
-            <Text style={{ fontSize: 14, fontWeight: '700', color: scope === s ? '#fff' : theme.textSecondary }}>
+            style={{
+              flex: 1,
+              paddingVertical: 9,
+              borderRadius: 999,
+              alignItems: 'center',
+              backgroundColor: scope === s ? c.violet : 'transparent',
+            }}>
+            <Text style={{ fontSize: 14, fontFamily: FONT.semibold, color: scope === s ? '#fff' : c.textDim }}>
               {s === 'friends' ? 'Friends' : 'Global'}
             </Text>
           </Pressable>
@@ -104,20 +132,38 @@ export default function LeaderboardScreen() {
       </View>
 
       {board?.myRank != null && (
-        <Text style={{ textAlign: 'center', color: theme.textSecondary, fontSize: 13, marginBottom: 8 }}>
-          You're ranked <Text style={{ color: ACCENT, fontWeight: '800' }}>#{board.myRank}</Text>
+        <Text
+          style={{
+            textAlign: 'center',
+            color: c.textDim,
+            fontSize: 13,
+            fontFamily: FONT.regular,
+            marginBottom: 8,
+          }}>
+          You're ranked{' '}
+          <Num color={c.violet} size={13}>
+            #{board.myRank}
+          </Num>
           {scope === 'friends' ? ' among friends' : ' globally'}
         </Text>
       )}
 
       {loading && entries.length === 0 ? (
-        <ActivityIndicator color={ACCENT} style={{ marginTop: 40 }} />
+        <ActivityIndicator color={c.violet} style={{ marginTop: 40 }} />
       ) : entries.length === 0 ? (
         <View style={{ alignItems: 'center', marginTop: 60, paddingHorizontal: 32 }}>
-          <Ionicons name="trophy-outline" size={48} color={theme.textSecondary} />
-          <Text style={{ color: theme.textSecondary, textAlign: 'center', marginTop: 12, fontSize: 15 }}>
+          <Text style={{ fontSize: 40 }}>🏆</Text>
+          <Text
+            style={{
+              color: c.textDim,
+              textAlign: 'center',
+              marginTop: 14,
+              fontSize: 15,
+              lineHeight: 22,
+              fontFamily: FONT.regular,
+            }}>
             {scope === 'friends'
-              ? 'Add friends to see how you stack up. Earn XP by completing quests!'
+              ? 'Add friends to see how you stack up. Earn XP by completing quests.'
               : 'No rankings yet — complete quests to climb the board.'}
           </Text>
         </View>

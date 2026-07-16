@@ -9,6 +9,8 @@ export interface ScheduleTask {
   title: string;
   dueDate?: string;
   completed: boolean;
+  /** Epoch-millis string. Drives the undo window; null once undone. */
+  completedAt?: string | null;
   xpReward: number;
 }
 
@@ -22,6 +24,7 @@ interface ScheduleStore {
     tasksByDate: Record<string, ScheduleTask[]>;
   }) => void;
   markTaskComplete: (taskId: string) => void;
+  markTaskIncomplete: (taskId: string) => void;
 }
 
 export const useScheduleStore = create<ScheduleStore>((set) => ({
@@ -34,8 +37,25 @@ export const useScheduleStore = create<ScheduleStore>((set) => ({
 
   markTaskComplete: (taskId) =>
     set((state) => {
+      const now = Date.now().toString();
       const update = (list: ScheduleTask[]) =>
-        list.map((t) => (t.id === taskId ? { ...t, completed: true } : t));
+        list.map((t) => (t.id === taskId ? { ...t, completed: true, completedAt: now } : t));
+
+      const nextTasksByDate = Object.fromEntries(
+        Object.entries(state.tasksByDate).map(([k, v]) => [k, update(v)])
+      );
+
+      return {
+        tasks: update(state.tasks),
+        todaysTasks: update(state.todaysTasks),
+        tasksByDate: nextTasksByDate,
+      };
+    }),
+
+  markTaskIncomplete: (taskId) =>
+    set((state) => {
+      const update = (list: ScheduleTask[]) =>
+        list.map((t) => (t.id === taskId ? { ...t, completed: false, completedAt: null } : t));
 
       const nextTasksByDate = Object.fromEntries(
         Object.entries(state.tasksByDate).map(([k, v]) => [k, update(v)])

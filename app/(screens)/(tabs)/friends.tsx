@@ -23,6 +23,7 @@ import {
   GET_FRIEND_SUGGESTIONS,
   SEARCH_USERS,
   MY_TEAMS,
+  GET_LEADERBOARD,
 } from '~/Graphql/Queries';
 import Animated, {
   FadeInDown,
@@ -46,7 +47,8 @@ import {
 import { useUserStore } from '~/store/user.store';
 import { useAppStore } from '~/store/app.store';
 import AnimatedPressable from '~/components/AnimatedPressable';
-import { ACCENT, t } from '~/components/shard/constants';
+
+import { hud, FONT } from '~/components/hud';
 import { avatarUri } from '~/helpers/avatarUri';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -76,9 +78,43 @@ interface Team {
   members: TeamMember[];
 }
 
+// ─── Shared HUD row shell ─────────────────────────────────────────────────────
+// Every list row in this screen is the same crisp obsidian panel, so friends,
+// requests, discover and teams read as one system.
+const cardBase = (c: ReturnType<typeof hud>) =>
+  ({
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: c.panel,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: c.panelBorder,
+    padding: 14,
+    marginBottom: 10,
+  }) as const;
+
+const SectionLabel = ({ text, c, top = 0 }: { text: string; c: ReturnType<typeof hud>; top?: number }) => (
+  <Text
+    style={{
+      fontFamily: FONT.semibold,
+      fontSize: 12,
+      letterSpacing: 0.2,
+      color: c.textFaint,
+      marginTop: top,
+      marginBottom: 12,
+    }}>
+    {text}
+  </Text>
+);
+
+// Long lists shouldn't trickle in — cap the entrance stagger so row 200
+// doesn't animate 8 seconds after row 1.
+const stagger = (i: number) => Math.min(i, 8) * 40;
+
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
 const FriendSkeleton = ({ isDark }: { isDark: boolean }) => {
+  const c = hud(isDark);
   const opacity = useSharedValue(0.35);
   useEffect(() => {
     opacity.value = withRepeat(
@@ -88,31 +124,20 @@ const FriendSkeleton = ({ isDark }: { isDark: boolean }) => {
     );
   }, []);
   const anim = useAnimatedStyle(() => ({ opacity: opacity.value }));
-  const bg = isDark ? '#2a2a2a' : '#e5e7eb';
-  const cardBg = isDark ? '#1e1e1e' : '#fff';
 
   return (
     <>
       {[1, 2, 3, 4, 5].map((i) => (
-        <View
-          key={i}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            backgroundColor: cardBg,
-            borderRadius: 16,
-            padding: 14,
-            marginBottom: 10,
-          }}>
+        <View key={i} style={[cardBase(c), { padding: 14 }]}>
           <Animated.View
-            style={[{ width: 48, height: 48, borderRadius: 24, backgroundColor: bg }, anim]}
+            style={[{ width: 48, height: 48, borderRadius: 24, backgroundColor: c.track }, anim]}
           />
           <View style={{ flex: 1, marginLeft: 12, gap: 8 }}>
             <Animated.View
-              style={[{ height: 14, borderRadius: 5, backgroundColor: bg, width: '50%' }, anim]}
+              style={[{ height: 14, borderRadius: 3, backgroundColor: c.track, width: '50%' }, anim]}
             />
             <Animated.View
-              style={[{ height: 11, borderRadius: 4, backgroundColor: bg, width: '35%' }, anim]}
+              style={[{ height: 11, borderRadius: 3, backgroundColor: c.track, width: '35%' }, anim]}
             />
           </View>
         </View>
@@ -132,7 +157,7 @@ const FriendCard = ({
   isDark: boolean;
   onMenuPress: (friend: Friend) => void;
 }) => {
-  const theme = t(isDark);
+  const c = hud(isDark);
 
   const renderRight = () => (
     <View style={{ flexDirection: 'row' }}>
@@ -174,18 +199,11 @@ const FriendCard = ({
             },
           })
         }
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          backgroundColor: theme.card,
-          borderRadius: 16,
-          padding: 14,
-          marginBottom: 10,
-        }}>
+        style={cardBase(c)}>
         <View style={{ position: 'relative' }}>
           <Image
             source={{ uri: avatarUri(friend.profilePic, friend.username) }}
-            style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: ACCENT }}
+            style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: c.violet }}
           />
           <View
             style={{
@@ -194,18 +212,18 @@ const FriendCard = ({
               right: 1,
               width: 12,
               height: 12,
-              borderRadius: 6,
-              backgroundColor: friend.isOnline ? '#10b981' : '#9ca3af',
+              borderRadius: 12,
+              backgroundColor: friend.isOnline ? '#10b981' : c.textFaint,
               borderWidth: 2,
-              borderColor: theme.card,
+              borderColor: c.panel,
             }}
           />
         </View>
         <View style={{ flex: 1, marginLeft: 12 }}>
-          <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text }}>
+          <Text style={{ fontSize: 15, fontFamily: FONT.bold, color: c.text }}>
             {friend.username}
           </Text>
-          <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 2 }}>
+          <Text style={{ fontSize: 12, fontFamily: FONT.regular, color: friend.isOnline ? '#10b981' : c.textDim, marginTop: 2 }}>
             {friend.isOnline
               ? 'Online now'
               : lastActiveText
@@ -213,14 +231,7 @@ const FriendCard = ({
                 : friend.email}
           </Text>
         </View>
-        <View
-          style={{
-            width: 8,
-            height: 8,
-            borderRadius: 4,
-            backgroundColor: friend.isOnline ? '#10b981' : 'transparent',
-          }}
-        />
+        <Ionicons name="chevron-forward" size={18} color={c.textFaint} />
       </AnimatedPressable>
     </Swipeable>
   );
@@ -241,28 +252,19 @@ const RequestCard = ({
   onDecline: (id: string) => void;
   processing: boolean;
 }) => {
-  const theme = t(isDark);
+  const c = hud(isDark);
   return (
-    <Animated.View
-      entering={FadeInDown.duration(300)}
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: theme.card,
-        borderRadius: 16,
-        padding: 14,
-        marginBottom: 10,
-      }}>
+    <Animated.View entering={FadeInDown.duration(300)} style={cardBase(c)}>
       <Image
         source={{ uri: avatarUri(request.profilePic, request.username) }}
-        style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: ACCENT }}
+        style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: c.violet }}
       />
       <View style={{ flex: 1, marginLeft: 12 }}>
-        <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text }}>
+        <Text style={{ fontSize: 15, fontFamily: FONT.bold, color: c.text }}>
           {request.username}
         </Text>
         {(request.mutualFriends ?? 0) > 0 && (
-          <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 2 }}>
+          <Text style={{ fontSize: 12, fontFamily: FONT.regular, color: c.textDim, marginTop: 2 }}>
             {request.mutualFriends} mutual friend{request.mutualFriends !== 1 ? 's' : ''}
           </Text>
         )}
@@ -274,8 +276,10 @@ const RequestCard = ({
           style={{
             width: 36,
             height: 36,
-            borderRadius: 18,
-            backgroundColor: isDark ? 'rgba(239,68,68,0.15)' : 'rgba(239,68,68,0.08)',
+            borderRadius: 12,
+            backgroundColor: 'rgba(239,68,68,0.14)',
+            borderWidth: 1,
+            borderColor: 'rgba(239,68,68,0.28)',
             alignItems: 'center',
             justifyContent: 'center',
           }}>
@@ -287,8 +291,10 @@ const RequestCard = ({
           style={{
             width: 36,
             height: 36,
-            borderRadius: 18,
-            backgroundColor: isDark ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.08)',
+            borderRadius: 12,
+            backgroundColor: 'rgba(16,185,129,0.14)',
+            borderWidth: 1,
+            borderColor: 'rgba(16,185,129,0.30)',
             alignItems: 'center',
             justifyContent: 'center',
           }}>
@@ -324,27 +330,17 @@ const UserRow = ({
   onPress?: () => void;
   disabled?: boolean;
 }) => {
-  const theme = t(isDark);
+  const c = hud(isDark);
   return (
-    <AnimatedPressable
-      scaleDown={0.98}
-      onPress={onPress}
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: theme.card,
-        borderRadius: 16,
-        padding: 14,
-        marginBottom: 10,
-      }}>
+    <AnimatedPressable scaleDown={0.98} onPress={onPress} style={cardBase(c)}>
       <Image
         source={{ uri: avatarUri(user.profilePic, user.username) }}
-        style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: ACCENT }}
+        style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: c.violet }}
       />
       <View style={{ flex: 1, marginLeft: 12 }}>
-        <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text }}>{user.username}</Text>
+        <Text style={{ fontSize: 15, fontFamily: FONT.bold, color: c.text }}>{user.username}</Text>
         {(user.mutualFriends ?? 0) > 0 && (
-          <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 2 }}>
+          <Text style={{ fontSize: 12, fontFamily: FONT.regular, color: c.textDim, marginTop: 2 }}>
             {user.mutualFriends} mutual
           </Text>
         )}
@@ -355,21 +351,16 @@ const UserRow = ({
         disabled={disabled || loading}
         style={{
           paddingHorizontal: 16,
-          paddingVertical: 8,
-          borderRadius: 20,
-          backgroundColor: disabled ? (isDark ? '#2a2a2a' : '#e5e7eb') : actionColor,
-          minWidth: 72,
+          paddingVertical: 9,
+          borderRadius: 12,
+          backgroundColor: disabled ? c.track : actionColor,
+          minWidth: 76,
           alignItems: 'center',
         }}>
         {loading ? (
           <ActivityIndicator size="small" color="#fff" />
         ) : (
-          <Text
-            style={{
-              fontSize: 13,
-              fontWeight: '700',
-              color: disabled ? theme.textSecondary : '#fff',
-            }}>
+          <Text style={{ fontSize: 13, fontFamily: FONT.bold, color: disabled ? c.textDim : '#fff' }}>
             {disabled ? 'Sent' : actionLabel}
           </Text>
         )}
@@ -380,20 +371,40 @@ const UserRow = ({
 
 // ─── Empty State ──────────────────────────────────────────────────────────────
 
-const EmptyState = ({ icon, text, isDark }: { icon: string; text: string; isDark: boolean }) => (
-  <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 60 }}>
-    <Ionicons name={icon as any} size={56} color={isDark ? '#374151' : '#d1d5db'} />
-    <Text
-      style={{
-        marginTop: 14,
-        fontSize: 15,
-        color: isDark ? '#4b5563' : '#9ca3af',
-        textAlign: 'center',
-      }}>
-      {text}
-    </Text>
-  </View>
-);
+const EmptyState = ({ icon, text, isDark }: { icon: string; text: string; isDark: boolean }) => {
+  const c = hud(isDark);
+  return (
+    <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 60 }}>
+      <View
+        style={{
+          width: 64,
+          height: 64,
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: c.panelBorder,
+          backgroundColor: c.panel,
+          alignItems: 'center',
+          justifyContent: 'center',
+          transform: [{ rotate: '45deg' }],
+        }}>
+        <View style={{ transform: [{ rotate: '-45deg' }] }}>
+          <Ionicons name={icon as any} size={26} color={c.textFaint} />
+        </View>
+      </View>
+      <Text
+        style={{
+          marginTop: 20,
+          fontSize: 14,
+          lineHeight: 21,
+          fontFamily: FONT.regular,
+          color: c.textDim,
+          textAlign: 'center',
+        }}>
+        {text}
+      </Text>
+    </View>
+  );
+};
 
 // ─── Team Card ────────────────────────────────────────────────────────────────
 
@@ -414,7 +425,7 @@ const TeamCard = ({
   onLeave: () => void;
   onDelete: () => void;
 }) => {
-  const theme = t(isDark);
+  const c = hud(isDark);
   const isOwner = team.owner.id === currentUserId;
   const preview = team.members.slice(0, 3);
   const extra = team.memberCount - 3;
@@ -425,30 +436,32 @@ const TeamCard = ({
         scaleDown={0.98}
         onPress={onPress}
         style={{
-          backgroundColor: theme.card,
-          borderRadius: 18,
+          backgroundColor: c.panel,
+          borderRadius: 10,
           padding: 16,
           marginBottom: 12,
           borderWidth: 1,
-          borderColor: isDark ? 'rgba(139,92,246,0.12)' : 'rgba(139,92,246,0.08)',
+          borderColor: c.panelBorder,
         }}>
         {/* Top row */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
           <View
             style={{
-              width: 44,
-              height: 44,
-              borderRadius: 14,
-              backgroundColor: 'rgba(139,92,246,0.15)',
+              width: 40,
+              height: 40,
+              borderRadius: 12,
+              backgroundColor: 'rgba(139,92,246,0.14)',
+              borderWidth: 1,
+              borderColor: 'rgba(139,92,246,0.30)',
               alignItems: 'center',
               justifyContent: 'center',
               marginRight: 12,
             }}>
-            <Ionicons name="people" size={22} color={ACCENT} />
+            <Ionicons name="people" size={20} color={c.violet} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text }}>{team.name}</Text>
-            <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 2 }}>
+            <Text style={{ fontSize: 15, fontFamily: FONT.bold, color: c.text }}>{team.name}</Text>
+            <Text style={{ fontSize: 12, fontFamily: FONT.regular, color: c.textDim, marginTop: 3 }}>
               {team.memberCount} member{team.memberCount !== 1 ? 's' : ''}
               {isOwner ? '  ·  Owner' : ''}
             </Text>
@@ -462,8 +475,10 @@ const TeamCard = ({
                 style={{
                   width: 34,
                   height: 34,
-                  borderRadius: 17,
-                  backgroundColor: isDark ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.1)',
+                  borderRadius: 12,
+                  backgroundColor: 'rgba(16,185,129,0.14)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(16,185,129,0.28)',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}>
@@ -476,8 +491,10 @@ const TeamCard = ({
               style={{
                 width: 34,
                 height: 34,
-                borderRadius: 17,
-                backgroundColor: isDark ? 'rgba(239,68,68,0.12)' : 'rgba(239,68,68,0.08)',
+                borderRadius: 12,
+                backgroundColor: 'rgba(239,68,68,0.12)',
+                borderWidth: 1,
+                borderColor: 'rgba(239,68,68,0.26)',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}>
@@ -498,13 +515,13 @@ const TeamCard = ({
               style={{
                 marginLeft: i > 0 ? -10 : 0,
                 borderWidth: 2,
-                borderColor: theme.card,
+                borderColor: c.panel,
                 borderRadius: 13,
                 zIndex: 3 - i,
               }}>
               <Image
                 source={{ uri: avatarUri(m.profilePic, m.username) }}
-                style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: ACCENT }}
+                style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: c.violet }}
               />
             </View>
           ))}
@@ -515,15 +532,13 @@ const TeamCard = ({
                 width: 26,
                 height: 26,
                 borderRadius: 13,
-                backgroundColor: isDark ? '#2a2a2a' : '#e5e7eb',
+                backgroundColor: c.track,
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderWidth: 2,
-                borderColor: theme.card,
+                borderColor: c.panel,
               }}>
-              <Text style={{ fontSize: 9, fontWeight: '700', color: theme.textSecondary }}>
-                +{extra}
-              </Text>
+              <Text style={{ fontSize: 9, fontFamily: FONT.mono, color: c.textDim }}>+{extra}</Text>
             </View>
           )}
         </View>
@@ -552,7 +567,7 @@ const CreateTeamModal = ({
   const [name, setName] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
-  const theme = t(isDark);
+  const c = hud(isDark);
 
   const filtered = friends.filter(
     (f) =>
@@ -588,7 +603,7 @@ const CreateTeamModal = ({
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: isDark ? '#0f0f0f' : '#f9f9f9' }}>
+      <View style={{ flex: 1, backgroundColor: c.bg }}>
         {/* Header */}
         <View
           style={{
@@ -598,31 +613,26 @@ const CreateTeamModal = ({
             paddingHorizontal: 20,
             paddingVertical: 18,
             borderBottomWidth: 1,
-            borderBottomColor: isDark ? '#1e1e1e' : '#f0f0f0',
+            borderBottomColor: c.panelBorder,
           }}>
           <AnimatedPressable onPress={onClose} scaleDown={0.9}>
-            <Ionicons name="close" size={22} color={theme.textSecondary} />
+            <Ionicons name="close" size={22} color={c.textDim} />
           </AnimatedPressable>
-          <Text style={{ fontSize: 17, fontWeight: '700', color: theme.text }}>Create Team</Text>
+          <Text style={{ fontSize: 16, fontFamily: FONT.bold, color: c.text }}>Create Team</Text>
           <AnimatedPressable
             onPress={handleCreate}
             scaleDown={0.92}
             disabled={loading || !name.trim()}
             style={{
-              backgroundColor: name.trim() ? ACCENT : isDark ? '#2a2a2a' : '#e5e7eb',
+              backgroundColor: name.trim() ? c.violet : c.track,
               paddingHorizontal: 16,
-              paddingVertical: 8,
-              borderRadius: 20,
+              paddingVertical: 9,
+              borderRadius: 12,
             }}>
             {loading ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <Text
-                style={{
-                  color: name.trim() ? '#fff' : theme.textSecondary,
-                  fontWeight: '700',
-                  fontSize: 14,
-                }}>
+              <Text style={{ color: name.trim() ? '#fff' : c.textDim, fontFamily: FONT.bold, fontSize: 14 }}>
                 Create
               </Text>
             )}
@@ -631,80 +641,64 @@ const CreateTeamModal = ({
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
           {/* Team name */}
-          <Text
-            style={{
-              fontSize: 11,
-              fontWeight: '700',
-              color: theme.textSecondary,
-              letterSpacing: 1,
-              textTransform: 'uppercase',
-              marginBottom: 10,
-            }}>
-            Team Name
-          </Text>
+          <SectionLabel text="Team name" c={c} />
           <View
             style={{
-              backgroundColor: theme.card,
-              borderRadius: 14,
+              backgroundColor: c.bgElev,
+              borderRadius: 12,
               paddingHorizontal: 16,
               paddingVertical: 14,
               marginBottom: 24,
               borderWidth: 1,
-              borderColor: isDark ? '#2a2a2a' : 'rgba(0,0,0,0.06)',
+              borderColor: c.panelBorder,
             }}>
             <TextInput
               value={name}
               onChangeText={setName}
               placeholder="e.g. Study Squad, Dev Team…"
-              placeholderTextColor={theme.textSecondary}
-              style={{ fontSize: 16, color: theme.text }}
+              placeholderTextColor={c.textFaint}
+              style={{ fontSize: 16, fontFamily: FONT.regular, color: c.text }}
               autoFocus
               maxLength={50}
             />
           </View>
 
           {/* Member selection */}
-          <Text
-            style={{
-              fontSize: 11,
-              fontWeight: '700',
-              color: theme.textSecondary,
-              letterSpacing: 1,
-              textTransform: 'uppercase',
-              marginBottom: 10,
-            }}>
-            Add Members {selected.size > 0 ? `(${selected.size} selected)` : ''}
-          </Text>
+          <SectionLabel
+            text={`Add members ${selected.size > 0 ? `(${selected.size} selected)` : ''}`}
+            c={c}
+          />
           <View
             style={{
               flexDirection: 'row',
               alignItems: 'center',
-              backgroundColor: theme.card,
+              backgroundColor: c.bgElev,
               borderRadius: 12,
               paddingHorizontal: 12,
               paddingVertical: 10,
               marginBottom: 14,
               borderWidth: 1,
-              borderColor: isDark ? '#2a2a2a' : 'rgba(0,0,0,0.06)',
+              borderColor: c.panelBorder,
             }}>
-            <Ionicons
-              name="search"
-              size={16}
-              color={theme.textSecondary}
-              style={{ marginRight: 8 }}
-            />
+            <Ionicons name="search" size={16} color={c.textFaint} style={{ marginRight: 8 }} />
             <TextInput
               value={search}
               onChangeText={setSearch}
               placeholder="Search friends…"
-              placeholderTextColor={theme.textSecondary}
-              style={{ flex: 1, fontSize: 14, color: theme.text }}
+              placeholderTextColor={c.textFaint}
+              style={{ flex: 1, fontSize: 14, fontFamily: FONT.regular, color: c.text }}
               autoCorrect={false}
             />
           </View>
 
           {filtered.length === 0 ? (
-            <Text style={{ textAlign: 'center', color: theme.textSecondary, marginTop: 20 }}>
+            <Text
+              style={{
+                textAlign: 'center',
+                fontFamily: FONT.regular,
+                color: c.textDim,
+                marginTop: 20,
+              }}>
               No friends to add
             </Text>
           ) : (
@@ -718,37 +712,35 @@ const CreateTeamModal = ({
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
-                    backgroundColor: checked
-                      ? isDark
-                        ? 'rgba(139,92,246,0.1)'
-                        : 'rgba(139,92,246,0.06)'
-                      : theme.card,
-                    borderRadius: 14,
+                    backgroundColor: checked ? 'rgba(139,92,246,0.12)' : c.panel,
+                    borderRadius: 10,
                     padding: 12,
                     marginBottom: 8,
-                    borderWidth: 1.5,
-                    borderColor: checked ? ACCENT : 'transparent',
+                    borderWidth: 1,
+                    borderColor: checked ? c.violet : c.panelBorder,
                   }}>
                   <Image
                     source={{ uri: avatarUri(f.profilePic, f.username) }}
-                    style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: ACCENT }}
+                    style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: c.violet }}
                   />
                   <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: theme.text }}>
+                    <Text style={{ fontSize: 14, fontFamily: FONT.semibold, color: c.text }}>
                       {f.username}
                     </Text>
                     {f.email && (
-                      <Text style={{ fontSize: 12, color: theme.textSecondary }}>{f.email}</Text>
+                      <Text style={{ fontSize: 12, fontFamily: FONT.regular, color: c.textDim }}>
+                        {f.email}
+                      </Text>
                     )}
                   </View>
                   <View
                     style={{
                       width: 22,
                       height: 22,
-                      borderRadius: 11,
+                      borderRadius: 6,
                       borderWidth: 2,
-                      borderColor: checked ? ACCENT : isDark ? '#3a3a3a' : '#d1d5db',
-                      backgroundColor: checked ? ACCENT : 'transparent',
+                      borderColor: checked ? c.violet : c.track,
+                      backgroundColor: checked ? c.violet : 'transparent',
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}>
@@ -769,7 +761,7 @@ const CreateTeamModal = ({
 const Friends = () => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const theme = t(isDark);
+  const c = hud(isDark);
   const { user } = useUserStore();
   const { addAlert } = useAppStore();
   const currentUserId = user?.id ?? '';
@@ -836,6 +828,14 @@ const Friends = () => {
   });
 
   const [searchUsers, { loading: searchLoading }] = useLazyQuery(SEARCH_USERS);
+
+  // Same variables as Home's RankCard and /leaderboard, so all three share one
+  // normalized cache entry — this banner costs no extra network round-trip.
+  const { data: boardData } = useQuery(GET_LEADERBOARD, {
+    variables: { scope: 'friends', limit: 50 },
+    fetchPolicy: 'cache-first',
+  });
+  const myRank: number | null = boardData?.getLeaderboard?.myRank ?? null;
 
   useEffect(() => {
     if (friendsData?.getFriends?.success) {
@@ -1063,7 +1063,7 @@ const Friends = () => {
   ];
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: c.bg }}>
       {/* Header */}
       <View
         style={{
@@ -1073,23 +1073,15 @@ const Friends = () => {
           paddingHorizontal: 20,
           paddingVertical: 14,
         }}>
-        <Text style={{ fontSize: 24, fontWeight: '800', color: ACCENT, letterSpacing: -0.5 }}>
-          Friends
-        </Text>
+        <View>
+          <Text style={{ fontFamily: FONT.semibold, fontSize: 12, letterSpacing: 0.2, color: c.textFaint, marginBottom: 2 }}>
+            Your party
+          </Text>
+          <Text style={{ fontSize: 24, fontFamily: FONT.extrabold, color: c.text, letterSpacing: -0.5 }}>
+            Friends
+          </Text>
+        </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <AnimatedPressable
-            onPress={() => router.push('/(screens)/leaderboard')}
-            scaleDown={0.9}
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: 19,
-              backgroundColor: 'rgba(124,58,237,0.12)',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-            <Ionicons name="trophy" size={19} color={ACCENT} />
-          </AnimatedPressable>
           {activeTab === 'teams' && (
             <AnimatedPressable
               onPress={() => setShowCreateTeam(true)}
@@ -1098,16 +1090,42 @@ const Friends = () => {
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: 6,
-                backgroundColor: ACCENT,
+                backgroundColor: c.violet,
                 paddingHorizontal: 14,
-                paddingVertical: 8,
-                borderRadius: 20,
+                paddingVertical: 9,
+                borderRadius: 12,
               }}>
               <Ionicons name="add" size={16} color="#fff" />
-              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>New Team</Text>
+              <Text style={{ color: '#fff', fontFamily: FONT.bold, fontSize: 13 }}>New team</Text>
             </AnimatedPressable>
           )}
         </View>
+      </View>
+
+      {/* Leaderboard — a labelled row, not an unlabelled trophy icon nobody tapped */}
+      <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
+        <AnimatedPressable
+          onPress={() => router.push('/(screens)/leaderboard')}
+          scaleDown={0.98}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: 'rgba(139,92,246,0.10)',
+            borderWidth: 1,
+            borderColor: 'rgba(139,92,246,0.28)',
+            borderRadius: 16,
+            paddingHorizontal: 14,
+            paddingVertical: 12,
+          }}>
+          <Text style={{ fontSize: 18, marginRight: 10 }}>🏆</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 14, fontFamily: FONT.semibold, color: c.text }}>Leaderboard</Text>
+            <Text style={{ fontSize: 12, fontFamily: FONT.regular, color: c.textDim, marginTop: 1 }}>
+              {myRank ? `You're #${myRank} among friends` : 'See how you rank against friends'}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={c.violet} />
+        </AnimatedPressable>
       </View>
 
       {/* Search */}
@@ -1116,35 +1134,30 @@ const Friends = () => {
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            backgroundColor: theme.card,
-            borderRadius: 14,
+            backgroundColor: c.bgElev,
+            borderRadius: 12,
             paddingHorizontal: 14,
             paddingVertical: 11,
             borderWidth: 1,
-            borderColor: isDark ? theme.border : 'rgba(0,0,0,0.06)',
+            borderColor: c.panelBorder,
           }}>
           {searchLoading ? (
-            <ActivityIndicator size="small" color={ACCENT} style={{ marginRight: 10 }} />
+            <ActivityIndicator size="small" color={c.violet} style={{ marginRight: 10 }} />
           ) : (
-            <Ionicons
-              name="search"
-              size={18}
-              color={theme.textSecondary}
-              style={{ marginRight: 10 }}
-            />
+            <Ionicons name="search" size={18} color={c.textFaint} style={{ marginRight: 10 }} />
           )}
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder="Search friends or find new people…"
-            placeholderTextColor={theme.textSecondary}
-            style={{ flex: 1, fontSize: 15, color: theme.text }}
+            placeholderTextColor={c.textFaint}
+            style={{ flex: 1, fontSize: 15, fontFamily: FONT.regular, color: c.text }}
             autoCorrect={false}
             autoCapitalize="none"
           />
           {searchQuery.length > 0 && (
             <AnimatedPressable onPress={() => setSearchQuery('')} hitSlop={12} scaleDown={0.85}>
-              <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
+              <Ionicons name="close-circle" size={18} color={c.textFaint} />
             </AnimatedPressable>
           )}
         </View>
@@ -1157,44 +1170,44 @@ const Friends = () => {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 14, gap: 8 }}
           style={{ flexGrow: 0 }}>
-          {TABS.map(({ key, label, badge }) => (
-            <AnimatedPressable
-              key={key}
-              onPress={() => setActiveTab(key)}
-              scaleDown={0.95}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6,
-                paddingVertical: 9,
-                paddingHorizontal: 16,
-                borderRadius: 22,
-                backgroundColor: activeTab === key ? ACCENT : isDark ? '#1a1a1a' : '#f3f4f6',
-              }}>
-              <Text
+          {TABS.map(({ key, label, badge }) => {
+            const active = activeTab === key;
+            return (
+              <AnimatedPressable
+                key={key}
+                onPress={() => setActiveTab(key)}
+                scaleDown={0.95}
                 style={{
-                  fontSize: 13,
-                  fontWeight: '600',
-                  color: activeTab === key ? '#fff' : theme.textSecondary,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  paddingVertical: 9,
+                  paddingHorizontal: 14,
+                  borderRadius: 999,
+                  backgroundColor: active ? 'rgba(139,92,246,0.16)' : c.bgElev,
+                  borderWidth: 1,
+                  borderColor: active ? 'rgba(139,92,246,0.45)' : c.panelBorder,
                 }}>
-                {label}
-              </Text>
-              {!!badge && badge > 0 && (
-                <View
-                  style={{
-                    backgroundColor: activeTab === key ? 'rgba(255,255,255,0.3)' : '#ef4444',
-                    borderRadius: 8,
-                    minWidth: 16,
-                    height: 16,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    paddingHorizontal: 4,
-                  }}>
-                  <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{badge}</Text>
-                </View>
-              )}
-            </AnimatedPressable>
-          ))}
+                <Text style={{ fontSize: 13, fontFamily: FONT.semibold, color: active ? c.violet : c.textDim }}>
+                  {label}
+                </Text>
+                {!!badge && badge > 0 && (
+                  <View
+                    style={{
+                      backgroundColor: active ? c.violet : '#ef4444',
+                      borderRadius: 999,
+                      minWidth: 16,
+                      height: 16,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      paddingHorizontal: 4,
+                    }}>
+                    <Text style={{ color: '#fff', fontSize: 9, fontFamily: FONT.mono }}>{badge}</Text>
+                  </View>
+                )}
+              </AnimatedPressable>
+            );
+          })}
         </ScrollView>
       )}
 
@@ -1206,8 +1219,8 @@ const Friends = () => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={ACCENT}
-            colors={[ACCENT]}
+            tintColor={c.violet}
+            colors={[c.violet]}
           />
         }>
         {/* ── Search results ── */}
@@ -1215,17 +1228,7 @@ const Friends = () => {
           <>
             {localFiltered.length > 0 && (
               <>
-                <Text
-                  style={{
-                    fontSize: 11,
-                    fontWeight: '700',
-                    color: theme.textSecondary,
-                    letterSpacing: 1,
-                    textTransform: 'uppercase',
-                    marginBottom: 10,
-                  }}>
-                  Your Friends
-                </Text>
+                <SectionLabel text="Your friends" c={c} />
                 {localFiltered.map((f) => (
                   <FriendCard
                     key={f.id}
@@ -1240,25 +1243,14 @@ const Friends = () => {
               <>
                 {serverResults.length > 0 && (
                   <>
-                    <Text
-                      style={{
-                        fontSize: 11,
-                        fontWeight: '700',
-                        color: theme.textSecondary,
-                        letterSpacing: 1,
-                        textTransform: 'uppercase',
-                        marginTop: 12,
-                        marginBottom: 10,
-                      }}>
-                      Add People
-                    </Text>
+                    <SectionLabel text="Add people" c={c} top={12} />
                     {serverResults.map((u) => (
                       <UserRow
                         key={u.id}
                         user={u}
                         isDark={isDark}
                         actionLabel="Add"
-                        actionColor={ACCENT}
+                        actionColor={c.violet}
                         onAction={handleSend}
                         loading={loadingAddId === u.id}
                         disabled={sentIds.has(u.id)}
@@ -1291,7 +1283,7 @@ const Friends = () => {
               />
             ) : (
               friends.map((f, i) => (
-                <Animated.View key={f.id} entering={FadeInDown.delay(i * 40).duration(300)}>
+                <Animated.View key={f.id} entering={FadeInDown.delay(stagger(i)).duration(300)}>
                   <FriendCard
                     friend={f}
                     isDark={isDark}
@@ -1310,7 +1302,7 @@ const Friends = () => {
                 gap: 16,
                 marginBottom: 16,
                 borderBottomWidth: 1,
-                borderBottomColor: isDark ? '#2a2a2a' : '#e5e7eb',
+                borderBottomColor: c.panelBorder,
               }}>
               {(['incoming', 'outgoing'] as const).map((sub) => {
                 const count =
@@ -1326,14 +1318,9 @@ const Friends = () => {
                       paddingVertical: 10,
                       paddingHorizontal: 8,
                       borderBottomWidth: 2,
-                      borderBottomColor: active ? ACCENT : 'transparent',
+                      borderBottomColor: active ? c.violet : 'transparent',
                     }}>
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        fontWeight: active ? '700' : '600',
-                        color: active ? ACCENT : theme.textSecondary,
-                      }}>
+                    <Text style={{ fontSize: 14, fontFamily: FONT.semibold, color: active ? c.violet : c.textDim }}>
                       {sub === 'incoming' ? 'Incoming' : 'Sent'} {count > 0 ? `(${count})` : ''}
                     </Text>
                   </AnimatedPressable>
@@ -1375,36 +1362,27 @@ const Friends = () => {
         ) : activeTab === 'teams' ? (
           /* ── Teams tab ── */
           teams.length === 0 ? (
-            <View style={{ alignItems: 'center', paddingVertical: 60 }}>
-              <Ionicons
-                name="people-circle-outline"
-                size={56}
-                color={isDark ? '#374151' : '#d1d5db'}
+            <View style={{ alignItems: 'center' }}>
+              <EmptyState
+                icon="people-circle-outline"
+                text={'No teams yet\nCreate one to work with friends'}
+                isDark={isDark}
               />
-              <Text
-                style={{
-                  marginTop: 14,
-                  fontSize: 15,
-                  color: isDark ? '#4b5563' : '#9ca3af',
-                  textAlign: 'center',
-                }}>
-                {'No teams yet\nCreate one to work with friends'}
-              </Text>
               <AnimatedPressable
                 onPress={() => setShowCreateTeam(true)}
                 scaleDown={0.94}
                 style={{
-                  marginTop: 20,
-                  backgroundColor: ACCENT,
+                  marginTop: -24,
+                  backgroundColor: c.violet,
                   paddingHorizontal: 24,
-                  paddingVertical: 12,
-                  borderRadius: 22,
+                  paddingVertical: 13,
+                  borderRadius: 12,
                   flexDirection: 'row',
                   alignItems: 'center',
                   gap: 8,
                 }}>
                 <Ionicons name="add" size={18} color="#fff" />
-                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Create Team</Text>
+                <Text style={{ color: '#fff', fontFamily: FONT.bold, fontSize: 15 }}>Create team</Text>
               </AnimatedPressable>
             </View>
           ) : (
@@ -1432,24 +1410,14 @@ const Friends = () => {
         ) : /* Discover */
         filteredSuggestions.length > 0 ? (
           <>
-            <Text
-              style={{
-                fontSize: 11,
-                fontWeight: '700',
-                color: theme.textSecondary,
-                letterSpacing: 1,
-                textTransform: 'uppercase',
-                marginBottom: 12,
-              }}>
-              People You May Know
-            </Text>
+            <SectionLabel text="People you may know" c={c} />
             {filteredSuggestions.map((s, i) => (
-              <Animated.View key={s.id} entering={FadeInDown.delay(i * 50).duration(300)}>
+              <Animated.View key={s.id} entering={FadeInDown.delay(stagger(i)).duration(300)}>
                 <UserRow
                   user={s}
                   isDark={isDark}
                   actionLabel="Add"
-                  actionColor={ACCENT}
+                  actionColor={c.violet}
                   onAction={handleSend}
                   loading={loadingAddId === s.id}
                   disabled={sentIds.has(s.id)}

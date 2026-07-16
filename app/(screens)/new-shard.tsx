@@ -76,17 +76,17 @@ const StepIndicator = ({ step, isDark }: { step: 1 | 2; isDark: boolean }) => {
         <React.Fragment key={s}>
           <View
             style={{
-              width: 26,
-              height: 26,
-              borderRadius: 5,
+              width: 28,
+              height: 28,
+              borderRadius: 14,
               backgroundColor: step >= s ? c.violet : 'transparent',
               borderWidth: 1,
               borderColor: step >= s ? c.violet : c.panelBorderStrong,
               alignItems: 'center',
               justifyContent: 'center',
             }}>
-            <Text style={{ color: step >= s ? '#fff' : c.textFaint, fontSize: 11, fontFamily: FONT.mono }}>
-              {String(s).padStart(2, '0')}
+            <Text style={{ color: step >= s ? '#fff' : c.textFaint, fontSize: 13, fontFamily: FONT.bold }}>
+              {s}
             </Text>
           </View>
           {i === 0 && <View style={{ width: 40, height: 1.5, backgroundColor: step === 2 ? c.violet : c.panelBorderStrong, marginHorizontal: 8 }} />}
@@ -109,27 +109,33 @@ const ModeSelector = ({
 }) => {
   const c = hud(isDark);
   return (
-      <View style={{ marginBottom: 22, flexDirection: 'row', gap: 8, backgroundColor: c.bgElev, borderRadius: 8, borderWidth: 1, borderColor: c.panelBorder, padding: 5 }}>
+      <View style={{ marginBottom: 22, flexDirection: 'row', gap: 8, backgroundColor: c.bgElev, borderRadius: 999, borderWidth: 1, borderColor: c.panelBorder, padding: 5 }}>
         {(['ai', 'manual'] as const).map((m) => {
           const active = mode === m;
           return (
             <AnimatedPressable
               key={m}
               onPress={() => onSelect(m)}
-              className="flex-1 flex-row items-center justify-center px-4 py-3"
               style={{
-                borderRadius: 5,
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingVertical: 14,
+                borderRadius: 999,
                 backgroundColor: active ? 'rgba(139,92,246,0.14)' : 'transparent',
                 borderWidth: 1,
                 borderColor: active ? c.violet : 'transparent',
               }}>
               {m === 'ai' ? (
-                <Ionicons name="sparkles" size={15} color={active ? c.violet : c.textDim} style={{ marginRight: 7 }} />
+                <Ionicons name="sparkles" size={16} color={active ? c.violet : c.textDim} style={{ marginRight: 9 }} />
               ) : (
-                <MaterialIcons name="edit" size={15} color={active ? c.violet : c.textDim} style={{ marginRight: 7 }} />
+                <MaterialIcons name="edit" size={16} color={active ? c.violet : c.textDim} style={{ marginRight: 9 }} />
               )}
-              <Text style={{ fontSize: 11, fontFamily: FONT.mono, letterSpacing: 1, textTransform: 'uppercase', color: active ? c.violet : c.textDim }}>
-                {m === 'ai' ? 'AI Forge' : 'Manual'}
+              <Text
+                numberOfLines={1}
+                style={{ fontSize: 14, fontFamily: FONT.semibold, letterSpacing: 0.2, color: active ? c.violet : c.textDim }}>
+                {m === 'ai' ? 'Use AI' : 'Manual'}
               </Text>
             </AnimatedPressable>
           );
@@ -224,8 +230,7 @@ const AIReviewStep = ({
         color: isDark ? '#adaaaa' : '#666',
         fontSize: 11,
         fontWeight: '700',
-        textTransform: 'uppercase',
-        letterSpacing: 1.2,
+        letterSpacing: 0.2,
         marginBottom: 16,
       }}>
       Your AI Quest Breakdown
@@ -411,8 +416,7 @@ const MiniGoalBuilder = ({
           color: isDark ? '#adaaaa' : '#666',
           fontSize: 11,
           fontWeight: '700',
-          textTransform: 'uppercase',
-          letterSpacing: 1.2,
+          letterSpacing: 0.2,
           marginBottom: 4,
         }}>
         Mini-Goals
@@ -440,7 +444,7 @@ const MiniGoalBuilder = ({
               style={{
                 width: 26,
                 height: 26,
-                borderRadius: 8,
+                borderRadius: 16,
                 backgroundColor: 'rgba(139,92,246,0.15)',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -1060,7 +1064,7 @@ const NewShard = () => {
     backgroundColor: c.panel,
     borderColor: c.panelBorder,
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 16,
     padding: 22,
   };
 
@@ -1078,7 +1082,7 @@ const NewShard = () => {
             <AntDesign name="arrowleft" size={22} color={c.textDim} />
           </AnimatedPressable>
           <View style={{ alignItems: 'center' }}>
-            <HudLabel color={c.textFaint} size={9}>{`Step ${String(step).padStart(2, '0')} / 02`}</HudLabel>
+            <HudLabel color={c.textFaint} size={12}>{`Step ${step} of 2`}</HudLabel>
             <Text style={{ fontFamily: FONT.extrabold, fontSize: 19, letterSpacing: -0.3, color: c.text, marginTop: 2 }}>
               {step === 1 ? 'New Quest' : mode === 'ai' ? 'Review' : 'Mini-Goals'}
             </Text>
@@ -1412,7 +1416,7 @@ const NewShard = () => {
                     className="flex-row items-center justify-center gap-3 py-4"
                     style={{
                       backgroundColor: c.violet,
-                      borderRadius: 8,
+                      borderRadius: 16,
                       shadowColor: '#7c3aed',
                       shadowOpacity: 0.35,
                       shadowRadius: 14,
@@ -1429,7 +1433,7 @@ const NewShard = () => {
                           size={18}
                           color="#fff"
                         />
-                        <Text style={{ color: '#fff', fontFamily: FONT.mono, fontSize: 13, letterSpacing: 1.5, textTransform: 'uppercase' }}>
+                        <Text style={{ color: '#fff', fontFamily: FONT.bold, fontSize: 15 }}>
                           {outOfCredits ? 'Unlock AI · Go Pro' : mode === 'ai' ? 'Forge Quest' : 'Continue'}
                         </Text>
                       </>
@@ -1489,7 +1493,7 @@ const NewShard = () => {
                     className="flex-row items-center justify-center gap-3 py-4"
                     style={{
                       backgroundColor: c.violet,
-                      borderRadius: 8,
+                      borderRadius: 16,
                       shadowColor: '#7c3aed',
                       shadowOpacity: 0.35,
                       shadowRadius: 14,
@@ -1502,7 +1506,7 @@ const NewShard = () => {
                     ) : (
                       <>
                         <Ionicons name="checkmark-circle" size={18} color="#fff" />
-                        <Text style={{ color: '#fff', fontFamily: FONT.mono, fontSize: 13, letterSpacing: 1.5, textTransform: 'uppercase' }}>Create Quest</Text>
+                        <Text style={{ color: '#fff', fontFamily: FONT.bold, fontSize: 15 }}>Create quest</Text>
                       </>
                     )}
                   </AnimatedPressable>

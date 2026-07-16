@@ -270,8 +270,7 @@ export default function TeamDetail() {
             fontSize: 11,
             fontWeight: '700',
             color: theme.textSecondary,
-            letterSpacing: 1,
-            textTransform: 'uppercase',
+            letterSpacing: 0.2,
             marginBottom: 12,
           }}>
           Members
@@ -452,8 +451,7 @@ export default function TeamDetail() {
                 fontSize: 11,
                 fontWeight: '700',
                 color: theme.textSecondary,
-                letterSpacing: 1,
-                textTransform: 'uppercase',
+                letterSpacing: 0.2,
                 marginBottom: 12,
               }}>
               Team Chat

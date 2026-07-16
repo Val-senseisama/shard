@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, Image, ScrollView, useColorScheme } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation } from '@apollo/client';
@@ -12,6 +13,7 @@ import Toast from 'react-native-toast-message';
 
 const FriendProfile = () => {
   const isDark = useColorScheme() === 'dark';
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const { friends, setFriends } = useFriendsStore();
 
@@ -93,7 +95,8 @@ const FriendProfile = () => {
   ];
 
   return (
-    <View className="flex-1" style={{ backgroundColor: isDark ? '#0e0e0e' : '#fff' }}>
+    // No flex-1: the sheet uses `fitToContents`, so the content must define its own height.
+    <View style={{ backgroundColor: isDark ? '#0e0e0e' : '#fff' }}>
       {/* Grabber */}
       <View className="items-center pt-2 pb-1">
         <View
@@ -106,7 +109,10 @@ const FriendProfile = () => {
         />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} bounces={false} contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 12) + 8 }}>
         {/* Profile Header */}
         <View className="items-center px-6 pt-4 pb-5">
           <View style={{ position: 'relative' }}>

@@ -1,6 +1,6 @@
-import { CURRENT_USER } from '@/Graphql/Queries';
+import { CURRENT_USER, GET_ACHIEVEMENTS } from '@/Graphql/Queries';
 import { CLEAR_PENDING_ACHIEVEMENTS } from '@/Graphql/Mutations';
-import { useQuery, useMutation } from '@apollo/client';
+import { useQuery, useMutation, useLazyQuery } from '@apollo/client';
 import { useUserStore } from '@/store/user.store';
 import { useEffect } from 'react';
 import Toast from 'react-native-toast-message';
@@ -10,6 +10,7 @@ import Purchases from 'react-native-purchases';
 const UserProvider = () => {
   const { user: storeUser, setUser, updateUser } = useUserStore();
   const [clearPending] = useMutation(CLEAR_PENDING_ACHIEVEMENTS);
+  const [fetchAchievements] = useLazyQuery(GET_ACHIEVEMENTS, { fetchPolicy: 'cache-first' });
 
   useQuery(CURRENT_USER, {
     fetchPolicy: 'network-only',
@@ -69,20 +70,45 @@ const UserProvider = () => {
   }, [storeUser?.id]);
 
   useEffect(() => {
-    if (storeUser?.pendingAchievements && storeUser.pendingAchievements.length > 0) {
-      // Show toast for each pending achievement
-      storeUser.pendingAchievements.forEach((achId: string) => {
+    const pending: string[] = storeUser?.pendingAchievements ?? [];
+    if (pending.length === 0) return;
+
+    let cancelled = false;
+
+    // Resolve IDs → real names + emoji before celebrating. This used to toast
+    // the raw ID ("You've earned a new badge: streak_7") and then immediately
+    // clear the list, so the names were gone for good — on the one moment the
+    // app is supposed to feel rewarding.
+    (async () => {
+      let byId: Record<string, { name: string; icon?: string; description?: string }> = {};
+      try {
+        const { data } = await fetchAchievements();
+        for (const a of data?.getAchievements?.achievements ?? []) {
+          byId[a.id] = { name: a.name, icon: a.icon, description: a.description };
+        }
+      } catch (err) {
+        console.warn('Could not resolve achievement names:', err);
+      }
+      if (cancelled) return;
+
+      for (const achId of pending) {
+        const meta = byId[achId];
         Toast.show({
           type: 'success',
-          text1: 'Achievement Unlocked!',
-          text2: `You've earned a new badge: ${achId}`,
+          text1: meta?.icon ? `${meta.icon}  Achievement unlocked!` : 'Achievement unlocked!',
+          // Fall back to the ID only if the lookup genuinely failed.
+          text2: meta ? `${meta.name} — ${meta.description ?? ''}`.trim().replace(/—\s*$/, '') : achId,
           onPress: () => Toast.hide(),
         });
-      });
+      }
 
-      // Clear them on the server
+      // Only now is it safe to drop them server-side.
       clearPending().catch(console.error);
-    }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [storeUser?.pendingAchievements]);
 
   return null;

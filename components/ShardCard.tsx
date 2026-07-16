@@ -37,7 +37,7 @@ const ShardCard: React.FC<ShardCardProps> = ({
       scaleDown={0.98}
       style={{
         backgroundColor: c.panel,
-        borderRadius: 8,
+        borderRadius: 16,
         borderWidth: 1,
         borderColor: c.panelBorder,
         marginBottom: 14,
@@ -65,11 +65,11 @@ const ShardCard: React.FC<ShardCardProps> = ({
             borderColor: complete ? c.cyan : c.panelBorderStrong,
             paddingHorizontal: 8,
             paddingVertical: 3,
-            borderRadius: 4,
+            borderRadius: 999,
           }}>
           <Text style={{ color: complete ? c.cyan : c.violet, fontSize: 10 }}>◇</Text>
-          <Text style={{ color: '#fff', fontSize: 9, fontFamily: FONT.mono, letterSpacing: 1.2 }}>
-            {complete ? 'COMPLETE' : 'ACTIVE'}
+          <Text style={{ color: '#fff', fontSize: 11, fontFamily: FONT.semibold }}>
+            {complete ? 'Complete' : 'Active'}
           </Text>
         </View>
 
@@ -86,7 +86,7 @@ const ShardCard: React.FC<ShardCardProps> = ({
               backgroundColor: c.danger,
               paddingHorizontal: 7,
               paddingVertical: 3,
-              borderRadius: 4,
+              borderRadius: 999,
             }}>
             <Ionicons name="chatbubble" size={10} color="#fff" />
             <Text style={{ color: '#fff', fontSize: 10, fontFamily: FONT.mono }}>
@@ -113,7 +113,7 @@ const ShardCard: React.FC<ShardCardProps> = ({
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Mono color={complete ? c.cyan : c.violet} size={12}>{done}%</Mono>
-            <HudLabel color={c.textFaint} size={9}>Complete</HudLabel>
+            <HudLabel color={c.textFaint} size={11}>Complete</HudLabel>
           </View>
 
           {isTeam && (

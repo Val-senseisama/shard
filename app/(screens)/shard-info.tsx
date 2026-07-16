@@ -701,8 +701,7 @@ const ShardInfo = () => {
           style={{
             fontSize: 11,
             fontWeight: '700',
-            textTransform: 'uppercase',
-            letterSpacing: 1.2,
+            letterSpacing: 0.2,
             color: isDark ? '#adaaaa' : '#666',
           }}>
           Shard Goals
@@ -1256,7 +1255,6 @@ const ShardInfo = () => {
                         fontSize: 10,
                         color: isDark ? '#a0a0a0' : '#666',
                         fontWeight: '700',
-                        textTransform: 'uppercase',
                       }}>
                       Streak
                     </Text>

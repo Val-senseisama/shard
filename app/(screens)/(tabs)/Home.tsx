@@ -28,11 +28,13 @@ import { router } from 'expo-router';
 import { useUserStore } from '~/store/user.store';
 import { useShardStore } from '~/store/shard.store';
 import { useAppStore } from '~/store/app.store';
-import { useQuery } from '@apollo/client';
+import { useQuery, useApolloClient } from '@apollo/client';
 import { CURRENT_USER, MY_SHARDS, MY_CHATS } from '~/Graphql/Queries';
 import { avatarUri } from '~/helpers/avatarUri';
 import { ACCENT } from '~/components/shard/constants';
 import { hud, FONT, HudLabel, Mono, ShardBar } from '~/components/hud';
+import TodayCard from '~/components/home/TodayCard';
+import RankCard from '~/components/home/RankCard';
 import * as syncService from '~/services/syncService';
 
 const AVATAR_ANIMATION_RANGE = 120;
@@ -44,9 +46,9 @@ const QuestLogHeader = ({ count, isDark }: { count: number; isDark: boolean }) =
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 18, paddingBottom: 12 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <Text style={{ color: c.violet, fontSize: 13 }}>◇</Text>
-        <HudLabel color={c.textDim} size={11}>Active Quests</HudLabel>
+        <HudLabel color={c.textDim} size={13}>Active quests</HudLabel>
       </View>
-      <Mono color={c.textFaint} size={11}>{String(count).padStart(2, '0')}</Mono>
+      <Mono color={c.textFaint} size={13}>{count}</Mono>
     </View>
   );
 };
@@ -100,12 +102,20 @@ const Home = () => {
     return map;
   }, [chatsData]);
 
+  const client = useApolloClient();
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refetch(), refetchUser(), refetchChats()]);
+    await Promise.all([
+      refetch(),
+      refetchUser(),
+      refetchChats(),
+      // Home isn't just shards any more — pull-to-refresh has to refresh the
+      // Today and Rank cards too, which own their own queries.
+      client.refetchQueries({ include: ['GetMySchedule', 'GetLeaderboard'] }),
+    ]);
     setRefreshing(false);
-  }, [refetch, refetchUser, refetchChats]);
+  }, [refetch, refetchUser, refetchChats, client]);
 
   const avatarAnimatedStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
@@ -137,8 +147,25 @@ const Home = () => {
   const panelBg = c.bgElev;
   const textColor = c.text;
   const subColor = c.textDim;
-  const xpNeeded = (user?.level || 1) * 1000;
-  const xpProgress = Math.min((user?.xp || 0) / xpNeeded, 1);
+  const level = user?.level || 1;
+  const xp = user?.xp || 0;
+  const xpNeeded = level * 1000;
+  const xpProgress = Math.min(xp / xpNeeded, 1);
+  const xpToGo = Math.max(xpNeeded - xp, 0);
+
+  // Memoized: TodayCard owns mutation + celebration state, so passing a fresh
+  // element here would remount it on every Home re-render (refetch, refresh,
+  // chat poll) and blow away the celebration mid-animation.
+  const ListHeader = React.useMemo(
+    () => (
+      <>
+        <TodayCard isDark={isDark} />
+        <RankCard isDark={isDark} />
+        <QuestLogHeader count={shards.length} isDark={isDark} />
+      </>
+    ),
+    [isDark, shards.length]
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: outerBg }}>
@@ -168,10 +195,10 @@ const Home = () => {
                 />
                 <View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <HudLabel color={subColor} size={9}>Welcome back</HudLabel>
+                    <HudLabel color={subColor} size={12}>Welcome back</HudLabel>
                     {(user?.subscriptionTier === 'pro' || user?.isInTrial) && (
-                      <View style={{ borderWidth: 1, borderColor: c.ember, paddingHorizontal: 4, paddingVertical: 0.5, borderRadius: 3 }}>
-                        <Text style={{ fontSize: 8, fontFamily: FONT.mono, letterSpacing: 1, color: c.ember }}>
+                      <View style={{ borderWidth: 1, borderColor: c.ember, paddingHorizontal: 7, paddingVertical: 1.5, borderRadius: 999 }}>
+                        <Text style={{ fontSize: 9, fontFamily: FONT.bold, letterSpacing: 0.3, color: c.ember }}>
                           {user?.subscriptionTier === 'pro' ? 'PRO' : 'TRIAL'}
                         </Text>
                       </View>
@@ -180,11 +207,19 @@ const Home = () => {
                   <Text style={{ fontSize: 17, fontFamily: FONT.extrabold, color: textColor, letterSpacing: -0.3, marginTop: 1 }}>
                     {user.username}
                   </Text>
-                  {/* XP HUD strip */}
+                  {/* XP strip — the raw xp was already fetched and thrown away */}
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 5 }}>
-                    <Mono color={c.violet} size={10}>LV {user.level || 1}</Mono>
+                    <Mono color={c.violet} size={10}>Lv {level}</Mono>
                     <ShardBar progress={xpProgress} isDark={isDark} height={4} style={{ width: 72 }} />
                   </View>
+                  <Text style={{ fontSize: 10, fontFamily: FONT.regular, color: c.textFaint, marginTop: 3 }}>
+                    <Mono color={c.textFaint} size={10}>{xp.toLocaleString()}</Mono>
+                    {' / '}
+                    <Mono color={c.textFaint} size={10}>{xpNeeded.toLocaleString()}</Mono>
+                    {' XP · '}
+                    <Mono color={c.textFaint} size={10}>{xpToGo.toLocaleString()}</Mono>
+                    {` to Lv ${level + 1}`}
+                  </Text>
                 </View>
               </>
             )}
@@ -205,18 +240,8 @@ const Home = () => {
           </View>
         </Animated.View>
 
-        {/* Main panel */}
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: panelBg,
-            borderTopLeftRadius: 14,
-            borderTopRightRadius: 14,
-            borderTopWidth: 1,
-            borderColor: c.panelBorder,
-            overflow: 'hidden',
-          }}>
-          <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, backgroundColor: c.violet, opacity: 0.3 }} />
+        {/* Quests scroll directly on the page bg — cards float, no muddy tray */}
+        <View style={{ flex: 1, backgroundColor: c.bg }}>
           {loading && shards.length === 0 ? (
             <View style={{ paddingHorizontal: 16 }}>
               <QuestLogHeader count={0} isDark={isDark} />
@@ -273,7 +298,7 @@ const Home = () => {
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={{
-                    borderRadius: 8,
+                    borderRadius: 16,
                     paddingHorizontal: 28,
                     paddingVertical: 15,
                     flexDirection: 'row',
@@ -281,7 +306,7 @@ const Home = () => {
                     gap: 9,
                   }}>
                   <AntDesign name="plus" size={17} color="#fff" />
-                  <Text style={{ fontSize: 13, fontFamily: FONT.mono, letterSpacing: 1.5, textTransform: 'uppercase', color: '#fff' }}>
+                  <Text style={{ fontSize: 15, fontFamily: FONT.bold, color: '#fff' }}>
                     Forge first shard
                   </Text>
                 </LinearGradient>
@@ -292,7 +317,7 @@ const Home = () => {
               ref={shardListRef}
               data={shards}
               keyExtractor={(item) => item.id}
-              ListHeaderComponent={<QuestLogHeader count={shards.length} isDark={isDark} />}
+              ListHeaderComponent={ListHeader}
               renderItem={({ item }) => (
                 <ShardCard
                   title={item.title}
@@ -317,7 +342,10 @@ const Home = () => {
               maxToRenderPerBatch={8}
               updateCellsBatchingPeriod={50}
               windowSize={7}
-              removeClippedSubviews
+              // NOT removeClippedSubviews: on Android it mis-tracks row positions
+              // under a tall ListHeaderComponent — rows still paint, but their
+              // touch targets detach and taps do nothing. The list is short
+              // (active quests only), so we lose nothing by dropping it.
               onRefresh={onRefresh}
               refreshing={refreshing}
             />
@@ -343,7 +371,7 @@ const Home = () => {
               colors={['#8b5cf6', '#6d28d9']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={{ width: 54, height: 54, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>
+              style={{ width: 56, height: 56, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}>
               <AntDesign name="plus" size={24} color="#fff" />
             </LinearGradient>
           </AnimatedPressable>

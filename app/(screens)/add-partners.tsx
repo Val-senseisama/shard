@@ -335,7 +335,7 @@ const AddPartners = () => {
             borderColor: isDark ? 'rgba(139,92,246,0.15)' : 'rgba(139,92,246,0.1)',
             paddingVertical: 14,
           }}>
-          <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary, letterSpacing: 1, textTransform: 'uppercase', marginLeft: 16, marginBottom: 12 }}>
+          <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary, letterSpacing: 0.2, marginLeft: 16, marginBottom: 12 }}>
             Selected ({selected.length}) — tap role to switch
           </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16 }}>
@@ -408,7 +408,7 @@ const AddPartners = () => {
             {/* Friends (filtered) */}
             {filteredFriends.length > 0 && (
               <>
-                <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary, letterSpacing: 0.2, marginBottom: 10 }}>
                   Friends
                 </Text>
                 {filteredFriends.map(f => (
@@ -427,7 +427,7 @@ const AddPartners = () => {
             {/* Non-friend search results */}
             {nonFriendResults.length > 0 && (
               <>
-                <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary, letterSpacing: 1, textTransform: 'uppercase', marginTop: 16, marginBottom: 10 }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary, letterSpacing: 0.2, marginTop: 16, marginBottom: 10 }}>
                   Other Users
                 </Text>
                 {nonFriendResults.map(u => (
