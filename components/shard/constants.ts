@@ -1,32 +1,68 @@
-import { useEffect } from 'react';
-import { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+import { hud, RADIUS } from '~/components/hud/tokens';
+import { useShimmer } from '~/helpers/motion';
 
-export const ACCENT = '#7c3aed';
-export const ACCENT_COLORS = ['#7c3aed', '#d946ef', '#6366f1', '#ec4899', '#8b5cf6'];
+/**
+ * The older theme dialect, now **derived from the hud tokens** rather than
+ * defining its own values.
+ *
+ * There were two parallel design systems: `components/hud` (13 files) and this
+ * (14 files), each with its own colours, and they had already drifted:
+ *
+ *   - accent was `#7c3aed` here and `#8B5CF6` in hud — two different purples
+ *     depending on which screen you happened to be on
+ *   - `textSecondary` was `#B9B9B9` here, `#9B9AA0` there
+ *   - `border` was a solid `#484847` here, a translucent
+ *     `rgba(255,255,255,0.08)` there
+ *
+ * Rather than a big-bang rewrite of 14 screens, the names stay and the *values*
+ * now come from one place. Existing call sites are untouched and the drift is
+ * structurally impossible from here.
+ *
+ * Where the two disagreed, hud wins: its palette is the one with documented
+ * reasoning behind it (see tokens.ts), and it was built in response to the
+ * "too AI-generated" and "too robotic" feedback.
+ *
+ * New code should import from `~/components/hud` directly.
+ */
 
-// ─── Theme tokens (mirrors tailwind.config.js) ────────────────────
+const dark = hud(true);
+const light = hud(false);
+
+/** The one accent. Was `#7c3aed`; now hud's documented primary violet. */
+export const ACCENT = dark.violet;
+
+/**
+ * Categorical colours for shards/goals. First entry is the primary accent so a
+ * single-item list matches the rest of the app.
+ */
+export const ACCENT_COLORS = [dark.violet, '#d946ef', '#6366f1', '#ec4899', dark.violetDeep];
+
+// ─── Theme tokens, mapped onto the hud palette ────────────────────
 export const THEME = {
   light: {
-    bg: '#f6f7fb',            // background-paper
-    card: '#FFFFFF',           // background-default
-    text: '#1A1A1A',           // text-primary
-    textSecondary: '#666666',  // text-secondary
-    trackBg: '#e5e7eb',
-    tabBarBg: '#eae6f2',
-    border: '#d1d5db',
+    bg: light.bg,
+    card: light.panel,
+    text: light.text,
+    textSecondary: light.textDim,
+    trackBg: light.track,
+    tabBarBg: light.bgElev,
+    border: light.panelBorder,
   },
   dark: {
-    bg: '#0F0E0E',            // background-dark-default
-    card: '#1E1E1E',           // background-dark-paper
-    text: '#FFFFFF',           // text-dark
-    textSecondary: '#B9B9B9',  // text-grey-100
-    trackBg: '#2a2a2a',
-    tabBarBg: '#1E1E1E',
-    border: '#484847',
+    bg: dark.bg,
+    card: dark.panel,
+    text: dark.text,
+    textSecondary: dark.textDim,
+    trackBg: dark.track,
+    tabBarBg: dark.panel,
+    border: dark.panelBorder,
   },
 };
 
-export const t = (isDark: boolean) => isDark ? THEME.dark : THEME.light;
+export const t = (isDark: boolean) => (isDark ? THEME.dark : THEME.light);
+
+/** Re-exported so this dialect can't reintroduce its own corner radii either. */
+export { RADIUS };
 
 // Stable object references — safe to use in React.memo prop comparisons
 const _SHADOW_LIGHT = {
@@ -37,18 +73,12 @@ const _SHADOW_LIGHT = {
   elevation: 2,
 };
 const _SHADOW_DARK = {};
-export const getCardShadow = (isDark: boolean): object =>
-  isDark ? _SHADOW_DARK : _SHADOW_LIGHT;
+export const getCardShadow = (isDark: boolean): object => (isDark ? _SHADOW_DARK : _SHADOW_LIGHT);
 
-/** Single shimmer animation shared across all Skeleton instances in a subtree. */
-export const useSkeletonOpacity = () => {
-  const opacity = useSharedValue(0.3);
-  useEffect(() => {
-    opacity.value = withRepeat(
-      withSequence(withTiming(0.7, { duration: 800 }), withTiming(0.3, { duration: 800 })),
-      -1,
-      true
-    );
-  }, []);
-  return useAnimatedStyle(() => ({ opacity: opacity.value }));
-};
+/**
+ * Skeleton shimmer.
+ *
+ * Was a fourth hand-rolled copy of the same infinite pulse, and like the other
+ * three it ignored the OS "reduce motion" setting. Now the shared hook.
+ */
+export const useSkeletonOpacity = () => useShimmer(0.3, 0.7, 800);

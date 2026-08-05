@@ -26,6 +26,9 @@ export const CURRENT_USER = gql`
         subscriptionTier
         trialEndsAt
         isInTrial
+        trialDaysRemaining
+        trialEndReason
+        hasCompletedFirstQuest
         referralCode
         referralCount
         emailVerified
@@ -260,6 +263,10 @@ export const GET_NOTIFICATIONS = gql`
       notifications {
         id
         message
+        type
+        kind
+        category
+        screen
         shardId
         miniGoalId
         read
@@ -536,6 +543,9 @@ export const GET_STREAKS = gql`
         currentStreak
         longestStreak
         lastActivityDate
+        state
+        freezesAvailable
+        atRiskToday
       }
     }
   }
@@ -684,6 +694,31 @@ export const GET_TEAM = gql`
           username
           profilePic
         }
+      }
+    }
+  }
+`;
+
+/**
+ * The shareable artifact generated when a quest is finished. Copy comes from the
+ * server so what people post can be tuned without shipping an app build.
+ */
+export const GET_SHARE_CARD = gql`
+  query GetShareCard($shareId: ID!) {
+    getShareCard(shareId: $shareId) {
+      success
+      message
+      card {
+        id
+        type
+        headline
+        subline
+        questTitle
+        completion
+        xpEarned
+        daysTaken
+        onTime
+        shareText
       }
     }
   }

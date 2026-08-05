@@ -36,6 +36,7 @@ import { hud, FONT, HudLabel, Mono, ShardBar } from '~/components/hud';
 import TodayCard from '~/components/home/TodayCard';
 import RankCard from '~/components/home/RankCard';
 import * as syncService from '~/services/syncService';
+import { useUnlocks } from '~/helpers/unlocks';
 
 const AVATAR_ANIMATION_RANGE = 120;
 
@@ -147,6 +148,7 @@ const Home = () => {
   const panelBg = c.bgElev;
   const textColor = c.text;
   const subColor = c.textDim;
+  const unlocks = useUnlocks();
   const level = user?.level || 1;
   const xp = user?.xp || 0;
   const xpNeeded = level * 1000;
@@ -160,11 +162,14 @@ const Home = () => {
     () => (
       <>
         <TodayCard isDark={isDark} />
-        <RankCard isDark={isDark} />
+        {/* Revealed once there's someone to compete with, or something to show
+            off. Before that it's a dead end taking attention from the first
+            quest — see helpers/unlocks.ts. */}
+        {unlocks.leaderboard && <RankCard isDark={isDark} />}
         <QuestLogHeader count={shards.length} isDark={isDark} />
       </>
     ),
-    [isDark, shards.length]
+    [isDark, shards.length, unlocks.leaderboard]
   );
 
   return (

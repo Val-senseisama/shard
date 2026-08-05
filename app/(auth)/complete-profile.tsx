@@ -47,9 +47,15 @@ const CompleteProfile = () => {
   const [completeProfile, { loading }] = useMutation(UPDATE_PROFILE, {
     onCompleted: (data) => {
       if (data.updateProfile?.success) {
-        // Onboarding paywall anchor: introduce Pro + the active 7-day trial.
-        // The paywall's "Continue with my free trial" button proceeds to Home.
-        router.replace({ pathname: '/subscribe-pro', params: { source: 'onboarding' } });
+        // Straight to creating the first quest.
+        //
+        // This used to route to the paywall. Asking for money here — before the
+        // user has created a single quest or felt one thing work — was the
+        // product's biggest own-goal: the payoff takes weeks, so nobody at this
+        // point has any evidence Shard works for them. The Pro case is now made
+        // after their first completed quest (see quest-complete.tsx), which is
+        // where the proof and the motivation actually are.
+        router.replace('/(screens)/new-shard');
       } else {
         addAlert({ str: data.updateProfile?.message || 'Failed to complete profile', type: 'error' });
       }

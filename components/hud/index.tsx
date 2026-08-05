@@ -11,9 +11,17 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import AnimatedPressable from '../AnimatedPressable';
 import { hud, FONT, RADIUS, SHARD_GRADIENT } from './tokens';
+import { useReducedMotion, useShimmer, SPRING_TIGHT, TIMING } from '~/helpers/motion';
 
 export { hud, FONT, RADIUS, TYPE, SHARD_GRADIENT, REFRACT_GRADIENT } from './tokens';
 export type { HudPalette } from './tokens';
@@ -225,28 +233,69 @@ export const FacetPanel = ({
   );
 };
 
-/** Crystal progress bar — rounded track, violet→cyan fill. */
+/**
+ * Crystal progress bar — rounded track, violet→cyan fill.
+ *
+ * The fill **animates from wherever it was** to wherever it's going. It used to
+ * set `width` directly from the prop, so every bar in the app snapped: XP, quest
+ * progress, mini-goal progress. In a product whose entire feedback loop is
+ * "watch the bar move", the bar was the one thing that didn't move — which is a
+ * strange amount of reward to leave on the table for four lines of code.
+ *
+ * Uses a tight spring: finger-caused (you ticked a task), but a progress bar that
+ * overshoots past 100% and settles back reads as a glitch, so overshoot is clamped.
+ */
 export const ShardBar = ({
   progress,
   isDark,
   height = 8,
+  animate = true,
   style,
 }: {
   progress: number; // 0..1
   isDark: boolean;
   height?: number;
+  /** Set false inside a list row that's already animating its own layout. */
+  animate?: boolean;
   style?: StyleProp<ViewStyle>;
 }) => {
   const c = hud(isDark);
-  const pct = Math.max(0, Math.min(1, progress));
+  const reduced = useReducedMotion();
+  const pct = Math.max(0, Math.min(1, Number.isFinite(progress) ? progress : 0));
+
+  // Start at the real value so a freshly-mounted bar doesn't sweep up from zero —
+  // that reads as loading, not as progress.
+  const width = useSharedValue(pct);
+  const mounted = useSharedValue(false);
+
+  useEffect(() => {
+    if (!mounted.value) {
+      mounted.value = true;
+      width.value = pct;
+      return;
+    }
+    width.value =
+      animate && !reduced ? withSpring(pct, SPRING_TIGHT) : withTiming(pct, TIMING);
+  }, [pct, animate, reduced]);
+
+  const fillStyle = useAnimatedStyle(() => ({
+    width: `${width.value * 100}%`,
+  }));
+
   return (
-    <View style={[{ height, backgroundColor: c.track, borderRadius: height / 2, overflow: 'hidden' }, style]}>
-      <LinearGradient
-        colors={[c.violet, c.cyan]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct * 100}%`, borderRadius: height / 2 }}
-      />
+    <View
+      style={[{ height, backgroundColor: c.track, borderRadius: height / 2, overflow: 'hidden' }, style]}
+      accessibilityRole="progressbar"
+      accessibilityValue={{ min: 0, max: 100, now: Math.round(pct * 100) }}>
+      <Animated.View
+        style={[{ position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: height / 2 }, fillStyle]}>
+        <LinearGradient
+          colors={[c.violet, c.cyan]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={{ flex: 1, borderRadius: height / 2 }}
+        />
+      </Animated.View>
     </View>
   );
 };
@@ -304,7 +353,11 @@ export const HudField = ({
           onBlur={() => setFocused(false)}
         />
         {isPassword && (
-          <TouchableOpacity onPress={() => setShow((s) => !s)} hitSlop={12}>
+          <TouchableOpacity
+            onPress={() => setShow((s) => !s)}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel={show ? 'Hide password' : 'Show password'}>
             <Ionicons name={show ? 'eye-off-outline' : 'eye-outline'} size={20} color={c.textDim} />
           </TouchableOpacity>
         )}
@@ -332,13 +385,9 @@ export const HudSkeleton = ({
   style?: StyleProp<ViewStyle>;
 }) => {
   const c = hud(isDark);
-  const opacity = useSharedValue(0.4);
-
-  useEffect(() => {
-    opacity.value = withRepeat(withSequence(withTiming(0.85, { duration: 750 }), withTiming(0.4, { duration: 750 })), -1, true);
-  }, [opacity]);
-
-  const anim = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  // Shared shimmer — honours reduce-motion, unlike the hand-rolled loop this
+  // replaces (an infinite pulse is the worst category for motion sensitivity).
+  const anim = useShimmer(0.4, 0.85, 750);
 
   return (
     <Animated.View

@@ -34,7 +34,7 @@ export default function PrivacyPolicyPage() {
                 Privacy Policy
               </Text>
             </View>
-            <TouchableOpacity onPress={() => router.back()}>
+            <TouchableOpacity onPress={() => router.back()} accessibilityLabel="Close">
               <Ionicons name="close" size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />
             </TouchableOpacity>
           </View>

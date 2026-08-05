@@ -10,10 +10,21 @@ import { useAppStore } from '~/store/app.store';
 const AddImageInput = ({
   onImage,
   initialImage,
+  /**
+   * `square` is the avatar case (profile pictures) — a 96pt tile, cropped 1:1.
+   *
+   * `banner` is for a quest's hero image. That image is rendered full-bleed and
+   * 280pt tall on the quest screen, so previewing it in the 96pt avatar tile
+   * showed a thumbnail far smaller than the thing being edited, and the 1:1 crop
+   * disagreed with the wide frame it actually lands in.
+   */
+  shape = 'square',
 }: {
   onImage: (uri: string) => void;
   initialImage?: string | null;
+  shape?: 'square' | 'banner';
 }) => {
+  const isBanner = shape === 'banner';
   const { addAlert } = useAppStore();
   const [imageUri, setImageUri] = useState<string | null>(initialImage || null);
   const [isModalVisible, setModalVisible] = useState(false);
@@ -46,7 +57,8 @@ const AddImageInput = ({
       let result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'], // Updated from deprecated MediaTypeOptions
         allowsEditing: true,
-        aspect: [1, 1],
+        // Crop to the shape it will actually be shown in.
+        aspect: isBanner ? [16, 9] : [1, 1],
         quality: 1,
       });
 
@@ -95,37 +107,55 @@ const AddImageInput = ({
   };
 
   return (
-    <View className="mt-5 items-center">
-      {/* Profile Image / Placeholder */}
-      <TouchableOpacity onPress={pickImage}>
-        <View className="h-24 w-24 items-center justify-center overflow-hidden rounded-md border border-primary-start">
+    <View className={isBanner ? 'mt-5 w-full' : 'mt-5 items-center'}>
+      {/* Image / Placeholder */}
+      <TouchableOpacity onPress={pickImage} className={isBanner ? 'w-full' : undefined}>
+        <View
+          className={
+            isBanner
+              ? 'w-full items-center justify-center overflow-hidden rounded-xl border border-primary-start'
+              : 'h-24 w-24 items-center justify-center overflow-hidden rounded-md border border-primary-start'
+          }
+          style={isBanner ? { aspectRatio: 16 / 9 } : undefined}>
           {imageUri ? (
-            <Image source={{ uri: imageUri }} className="h-full w-full" />
+            <Image source={{ uri: imageUri }} className="h-full w-full" resizeMode="cover" />
           ) : (
-            <Image source={icons.addImage} className="h-[50%] w-[50%]" resizeMode="contain" />
+            <Image
+              source={icons.addImage}
+              className={isBanner ? 'h-12 w-12' : 'h-[50%] w-[50%]'}
+              resizeMode="contain"
+            />
           )}
         </View>
       </TouchableOpacity>
 
       {/* Change Image Button */}
       {imageUri && (
-        <TouchableOpacity onPress={pickImage} className="mt-3">
+        <TouchableOpacity onPress={pickImage} className={isBanner ? 'mt-3 self-center' : 'mt-3'}>
           <Text className="text-blue-500">Change Image</Text>
         </TouchableOpacity>
       )}
-      <Text className="my-2 text-center font-ithin text-xs text-text-light dark:text-text-dark">
-        Add an image
-      </Text>
+      {!imageUri && (
+        <Text className="my-2 text-center font-ithin text-xs text-text-light dark:text-text-dark">
+          Add an image
+        </Text>
+      )}
       {/* Crop Modal */}
       <Modal visible={isModalVisible} animationType="slide" transparent>
         <View className="flex-1 items-center justify-center bg-black/70">
-          <View className="h-80 w-80 rounded-lg bg-white p-4">
-            <View className="h-full w-full items-center justify-center">
+          <View className={isBanner ? 'w-11/12 rounded-lg bg-white p-4' : 'h-80 w-80 rounded-lg bg-white p-4'}>
+            {/* The captured region IS the crop, so it has to be the same shape as
+                the final frame — a square capture box would hand back a square
+                image for a banner slot. */}
+            <View
+              className="w-full items-center justify-center"
+              style={isBanner ? { aspectRatio: 16 / 9 } : { flex: 1 }}>
               {imageUri && (
                 <View ref={imageRef} collapsable={false} className="h-full w-full">
                   <Image
                     source={{ uri: imageUri }}
                     className="h-full w-full rounded-lg"
+                    resizeMode="cover"
                     onLoad={() => setIsImageLoaded(true)}
                   />
                 </View>

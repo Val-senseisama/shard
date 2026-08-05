@@ -167,7 +167,8 @@ export default function WorkloadSettings({
                 Workload Settings
               </Text>
             </View>
-            <TouchableOpacity onPress={onClose}>
+            <TouchableOpacity onPress={onClose}
+            accessibilityRole="button" accessibilityLabel="Close">
               <Ionicons name="close" size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />
             </TouchableOpacity>
           </View>

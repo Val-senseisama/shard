@@ -1,5 +1,18 @@
 import type { ScheduleTask } from '~/store/schedule.store';
 
+/**
+ * The device's IANA timezone (e.g. `America/Los_Angeles`), or `undefined` if the
+ * platform won't tell us. Sent up at signup and on every foreground; the server
+ * schedules all reminders and evaluates quiet hours against it.
+ */
+export const deviceTimeZone = (): string | undefined => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 /** `YYYY-MM-DD` in the device's own timezone. */
 export const toLocalDateKey = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

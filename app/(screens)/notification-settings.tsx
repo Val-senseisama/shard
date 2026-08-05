@@ -139,7 +139,7 @@ const NotificationSettings = () => {
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       {/* Header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: isDark ? theme.border : 'rgba(0,0,0,0.06)' }}>
-        <AnimatedPressable onPress={() => router.back()} hitSlop={20} scaleDown={0.88}>
+        <AnimatedPressable onPress={() => router.back()} hitSlop={20} scaleDown={0.88} accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={24} color={theme.text} />
         </AnimatedPressable>
         <Text style={{ fontSize: 18, fontWeight: '700', color: theme.text }}>Notifications</Text>
@@ -177,7 +177,7 @@ const NotificationSettings = () => {
 
         {/* Granular groups */}
         {TOGGLE_GROUPS.map((group, gi) => (
-          <Animated.View key={group.title} entering={FadeInDown.delay((gi + 1) * 80).duration(350)} style={{ marginBottom: 20 }}>
+          <Animated.View key={group.title} entering={FadeInDown.delay((gi + 1) * 80).duration(260)} style={{ marginBottom: 20 }}>
             <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary, letterSpacing: 0.2, marginBottom: 10, paddingLeft: 4 }}>
               {group.title}
             </Text>
@@ -216,7 +216,7 @@ const NotificationSettings = () => {
         ))}
 
         {/* Quiet Hours */}
-        <Animated.View entering={FadeInDown.delay(240).duration(350)} style={{ marginBottom: 20 }}>
+        <Animated.View entering={FadeInDown.delay(150).duration(260)} style={{ marginBottom: 20 }}>
           <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary, letterSpacing: 0.2, marginBottom: 10, paddingLeft: 4 }}>
             Quiet Hours
           </Text>

@@ -14,6 +14,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
+import { useReducedMotion } from '~/helpers/motion';
 import AnimatedPressable from '../AnimatedPressable';
 import AnimatedCrystal from '../AnimatedCrystal';
 
@@ -35,7 +36,11 @@ const Orb = ({
   const opacity = useSharedValue(0.15);
   const scale = useSharedValue(1);
 
+  const reducedMotion = useReducedMotion();
+
   useEffect(() => {
+    // Decorative loop — hold still when the user asked for less motion.
+    if (reducedMotion) return;
     opacity.value = withRepeat(
       withSequence(
         withTiming(0.4, { duration: 2500 + delay }),
@@ -52,7 +57,7 @@ const Orb = ({
       -1,
       true
     );
-  }, []);
+  }, [reducedMotion]);
 
   const style = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -127,12 +132,12 @@ export default function WelcomeScreen() {
             alignItems: 'center',
             gap: 40,
           }}>
-          <Animated.View entering={FadeIn.duration(800).delay(200)} style={{ marginBottom: 32 }}>
+          <Animated.View entering={FadeIn.duration(400).delay(80)} style={{ marginBottom: 32 }}>
             <AnimatedCrystal />
           </Animated.View>
 
           <Animated.View
-            entering={FadeInDown.duration(600).delay(400)}
+            entering={FadeInDown.duration(600).delay(150)}
             style={{ alignItems: 'center' }}>
             <Text
               style={{
@@ -155,7 +160,7 @@ export default function WelcomeScreen() {
 
         {/* Buttons */}
         <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-          <Animated.View entering={FadeInUp.duration(600).delay(600)} style={{ gap: 14 }}>
+          <Animated.View entering={FadeInUp.duration(600).delay(150)} style={{ gap: 14 }}>
           <AnimatedPressable
             onPress={() => router.push('/(auth)/register')}
             scaleDown={0.97}

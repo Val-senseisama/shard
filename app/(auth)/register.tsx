@@ -25,6 +25,7 @@ import { useAppStore } from '~/store/app.store';
 import AnimatedPressable from '~/components/AnimatedPressable';
 import icons from '@/constants/icons';
 import { hud, FONT, HudField, HudLabel, WordMark } from '~/components/hud';
+import { deviceTimeZone } from '~/helpers/dateKeys';
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -116,6 +117,8 @@ const Register = () => {
           username: username.trim(),
           password,
           ...(referralCode.trim() ? { referralCode: referralCode.trim() } : {}),
+          // Sent at signup so reminders land at the right local hour from day one.
+          ...(deviceTimeZone() ? { timezone: deviceTimeZone() } : {}),
         },
       },
     });
@@ -189,7 +192,11 @@ const Register = () => {
   const handleGoogleSignInSuccess = async (idToken: string) => {
     try {
       await googleSignIn({
-        variables: { idToken, ...(referralCode.trim() ? { referralCode: referralCode.trim() } : {}) },
+        variables: {
+          idToken,
+          ...(referralCode.trim() ? { referralCode: referralCode.trim() } : {}),
+          ...(deviceTimeZone() ? { timezone: deviceTimeZone() } : {}),
+        },
       });
     } catch (error) {
       console.error('Error processing Google Sign-In:', error);

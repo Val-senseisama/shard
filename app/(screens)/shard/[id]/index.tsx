@@ -5,6 +5,7 @@ import {
   Image,
   ScrollView,
   StyleSheet,
+  RefreshControl,
   useColorScheme,
   useWindowDimensions,
 } from 'react-native';
@@ -14,10 +15,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_SHARD, GET_SHARD_SCHEDULE, GET_SHARD_ANALYTICS } from '~/Graphql/Queries';
-import { COMPLETE_TASK, CREATE_SHARD_CHAT } from '~/Graphql/Mutations';
+import {
+  COMPLETE_TASK,
+  UNCOMPLETE_TASK,
+  COMPLETE_SHARD,
+  CREATE_SHARD_CHAT,
+} from '~/Graphql/Mutations';
 import CelebrationOverlay from '~/components/CelebrationOverlay';
 import { useAppStore } from '~/store/app.store';
 import AnimatedPressable from '~/components/AnimatedPressable';
+import { HudButton } from '~/components/hud';
 
 import {
   ACCENT,
@@ -83,8 +90,17 @@ const S = StyleSheet.create({
     justifyContent: 'center',
   },
   headerBtnGroup: { flexDirection: 'row', gap: 8 },
-  participantsRow: { alignItems: 'center', marginTop: -34, paddingBottom: 12 },
-  participantsInner: { flexDirection: 'row', gap: 16, justifyContent: 'center' },
+  participantsRow: { marginTop: -34, paddingBottom: 12 },
+  participantsInner: {
+    flexDirection: 'row',
+    gap: 16,
+    // flexGrow so a handful stays centred; paddingHorizontal so the first and
+    // last avatar aren't flush against the screen edge once it does scroll.
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
   sectionLabel: {
     fontSize: 10,
     fontWeight: '800',
@@ -109,6 +125,51 @@ const S = StyleSheet.create({
     marginBottom: 16,
   },
 });
+
+// ─── ShardLoadError ───────────────────────────────────────────────
+/**
+ * Shown when the shard query fails with nothing cached to fall back on.
+ *
+ * Previously an error left `shard` undefined, which fell through to the page
+ * skeleton — so a dropped connection looked identical to loading and sat there
+ * shimmering forever with no way back and no way to retry.
+ */
+const ShardLoadError = memo(
+  ({ isDark, message, onRetry }: { isDark: boolean; message?: string; onRetry: () => void }) => {
+    const theme = t(isDark);
+    return (
+      <View style={[{ flex: 1, backgroundColor: theme.bg }, S.emptyCenter]}>
+        <View style={[S.emptyIconBg, { backgroundColor: theme.trackBg }]}>
+          <Ionicons name="cloud-offline-outline" size={34} color={theme.textSecondary} />
+        </View>
+        <Text style={{ fontSize: 16, fontWeight: '700', color: theme.text, marginBottom: 6 }}>
+          Couldn&apos;t load this quest
+        </Text>
+        <Text
+          style={{
+            fontSize: 13,
+            color: theme.textSecondary,
+            textAlign: 'center',
+            paddingHorizontal: 40,
+            marginBottom: 20,
+          }}>
+          {message || 'Check your connection and try again.'}
+        </Text>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <HudButton label="Retry" size="md" isDark={isDark} onPress={onRetry} />
+          <HudButton
+            label="Go back"
+            size="md"
+            variant="ghost"
+            isDark={isDark}
+            onPress={() => router.back()}
+          />
+        </View>
+      </View>
+    );
+  }
+);
+ShardLoadError.displayName = 'ShardLoadError';
 
 // ─── ProgressGoalRow ──────────────────────────────────────────────
 interface GoalStat {
@@ -475,11 +536,12 @@ const ShardDetail = () => {
     newLevel: 0,
   });
   const [expandedSummary, setExpandedSummary] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // ─── Queries ──────────────────────────────────────────────────────
   const {
     data: shardData,
-    loading: shardLoading,
+    error: shardError,
     refetch: refetchShard,
   } = useQuery(GET_SHARD, {
     variables: { id },
@@ -501,6 +563,8 @@ const ShardDetail = () => {
   } = useQuery(GET_SHARD_ANALYTICS, { variables: { shardId: id }, skip: !id });
 
   const [completeTask] = useMutation(COMPLETE_TASK);
+  const [uncompleteTask] = useMutation(UNCOMPLETE_TASK);
+  const [completeShard, { loading: completing }] = useMutation(COMPLETE_SHARD);
   const [createShardChat, { loading: creatingChat }] = useMutation(CREATE_SHARD_CHAT);
 
   // ─── Derived data ─────────────────────────────────────────────────
@@ -570,9 +634,44 @@ const ShardDetail = () => {
     refetchAnalytics();
   }, [refetchShard, refetchSchedule, refetchAnalytics]);
 
+  // Pull-to-refresh. The three queries are independent, so wait on all of them
+  // before dropping the spinner — otherwise it snaps away while two are still in
+  // flight and the page keeps changing under the user afterwards.
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([refetchShard(), refetchSchedule(), refetchAnalytics()]);
+    } catch {
+      addAlert({ str: 'Could not refresh', type: 'error' });
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetchShard, refetchSchedule, refetchAnalytics, addAlert]);
+
   const handleCompleteTask = useCallback(
     async (miniGoalId: string, taskIndex: number, currentStatus: boolean) => {
-      if (currentStatus) return;
+      // Tapping a done task used to be a silent no-op, so a mis-tap looked like
+      // a broken checkbox. The server has always supported taking it back within
+      // UNDO_WINDOW_MINUTES — including clawing the exact XP back — so route the
+      // tap there and let its message explain when the window has closed.
+      if (currentStatus) {
+        try {
+          const { data } = await uncompleteTask({
+            variables: { shardId: id, miniGoalId, taskIndex },
+          });
+          if (data?.uncompleteTask?.success) {
+            refetchAll();
+          } else {
+            addAlert({
+              str: data?.uncompleteTask?.message || 'Could not undo that task',
+              type: 'error',
+            });
+          }
+        } catch {
+          addAlert({ str: 'Could not undo that task', type: 'error' });
+        }
+        return;
+      }
       try {
         const { data } = await completeTask({ variables: { shardId: id, miniGoalId, taskIndex } });
         if (data?.completeTask?.success) {
@@ -593,15 +692,48 @@ const ShardDetail = () => {
         addAlert({ str: 'Failed to complete task', type: 'error' });
       }
     },
-    [id, completeTask, refetchAll, addAlert]
+    [id, completeTask, uncompleteTask, refetchAll, addAlert]
   );
+
+  // Offer completion once everything is done, and never for a quest that's
+  // already finished (the server is idempotent, but the button shouldn't lie).
+  const canComplete =
+    !!shard && shard.status !== 'completed' && totalTasks > 0 && completedTasks >= totalTasks;
+
+  const handleCompleteShard = useCallback(async () => {
+    try {
+      const { data } = await completeShard({ variables: { shardId: id } });
+      const res = data?.completeShard;
+      if (res?.success && !res.alreadyComplete) {
+        refetchAll();
+        // Hand off to the completion screen rather than a transient toast: this is
+        // where the shareable artifact and (on a first completion) the Pro case
+        // live, and both deserve a surface the user can sit with.
+        router.push({
+          pathname: '/(screens)/quest-complete',
+          params: {
+            ...(res.shareId ? { shareId: res.shareId } : {}),
+            ...(res.xpEarned != null ? { xpEarned: String(res.xpEarned) } : {}),
+            ...(res.isFirstCompletion ? { firstCompletion: '1' } : {}),
+          },
+        });
+      } else if (res?.alreadyComplete) {
+        refetchAll();
+      } else {
+        addAlert({ str: res?.message || 'Failed to complete quest', type: 'error' });
+      }
+    } catch {
+      addAlert({ str: 'Failed to complete quest', type: 'error' });
+    }
+  }, [id, completeShard, refetchAll, addAlert]);
 
   // Stable callback for ScheduleTaskCard — single reference for all cards
   const handleScheduleTaskToggle = useCallback(
     async (task: any) => {
-      if (task.completed) return;
       const [miniGoalId, taskIndexStr] = task.id.split('-');
-      await handleCompleteTask(miniGoalId, parseInt(taskIndexStr, 10), false);
+      // Pass the real state through rather than a hardcoded `false`, so the
+      // schedule tab gets the same undo affordance as the overview tab.
+      await handleCompleteTask(miniGoalId, parseInt(taskIndexStr, 10), !!task.completed);
     },
     [handleCompleteTask]
   );
@@ -638,7 +770,25 @@ const ShardDetail = () => {
   const theme = t(isDark);
 
   // ─── Loading state ────────────────────────────────────────────────
-  if (shardLoading || !shard) return <PageSkeleton screenWidth={screenWidth} />;
+  // Keyed on the absence of data, NOT on `shardLoading`. With
+  // `cache-and-network` + `notifyOnNetworkStatusChange`, every background
+  // refetch — including the one after each task tick — flips `shardLoading`
+  // true. Gating the whole page on it swapped the screen for a skeleton and
+  // remounted the ScrollView, throwing the user back to the top with the row
+  // they just ticked scrolled off. Once we have a shard, keep rendering it and
+  // let the refreshing indicator carry the network state.
+  if (!shard) {
+    if (shardError) {
+      return (
+        <ShardLoadError
+          isDark={isDark}
+          message={shardError.message}
+          onRetry={() => refetchShard()}
+        />
+      );
+    }
+    return <PageSkeleton screenWidth={screenWidth} />;
+  }
 
   return (
     <View style={[{ flex: 1 }, { backgroundColor: theme.bg }]}>
@@ -655,6 +805,14 @@ const ShardDetail = () => {
         contentContainerStyle={SCROLL_CONTENT}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={ACCENT}
+            colors={[ACCENT]}
+          />
+        }
         removeClippedSubviews>
         {/* ─── Hero Banner ──────────────────────────────────────── */}
         <View style={S.heroContainer}>
@@ -673,25 +831,26 @@ const ShardDetail = () => {
                 onPress={() => router.back()}
                 hitSlop={20}
                 scaleDown={0.9}
-                style={S.headerBtn}>
+                style={S.headerBtn} accessibilityLabel="Go back">
                 <Ionicons name="arrow-back" size={20} color="#fff" />
               </AnimatedPressable>
               <View style={S.headerBtnGroup}>
                 {allParticipants.length > 1 && (
-                  <AnimatedPressable onPress={handleChatPress} scaleDown={0.9} style={S.headerBtn}>
+                  <AnimatedPressable onPress={handleChatPress} scaleDown={0.9} style={S.headerBtn}
+            accessibilityLabel="Open chat">
                     <Ionicons name="chatbubble-outline" size={18} color="#fff" />
                   </AnimatedPressable>
                 )}
                 <AnimatedPressable
                   onPress={() => router.push(`/(screens)/shard/${id}/notifications`)}
                   scaleDown={0.9}
-                  style={S.headerBtn}>
+                  style={S.headerBtn} accessibilityLabel="Notifications">
                   <Ionicons name="notifications-outline" size={18} color="#fff" />
                 </AnimatedPressable>
                 <AnimatedPressable
                   onPress={() => router.push(`/(screens)/shard/${id}/edit`)}
                   scaleDown={0.9}
-                  style={S.headerBtn}>
+                  style={S.headerBtn} accessibilityLabel="Settings">
                   <Ionicons name="settings-outline" size={18} color="#fff" />
                 </AnimatedPressable>
               </View>
@@ -700,13 +859,21 @@ const ShardDetail = () => {
         </View>
 
         {/* ─── Participants (overlaps into hero) ────────────────── */}
+        {/* Horizontally scrollable: this was a plain centred row with no wrap
+            and no scroll, so at roughly six participants the ends ran past both
+            screen edges and the outermost people were silently clipped — the
+            avatars you could not see were the ones furthest from centre.
+            `flexGrow` keeps a small group centred exactly as before. */}
         {allParticipants.length > 0 && (
           <View style={S.participantsRow}>
-            <View style={S.participantsInner}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={S.participantsInner}>
               {allParticipants.map((p: any, i: number) => (
                 <ParticipantAvatar key={p.user || i} participant={p} />
               ))}
-            </View>
+            </ScrollView>
           </View>
         )}
 
@@ -780,6 +947,24 @@ const ShardDetail = () => {
           onToggle={handleScheduleTaskToggle}
           skeletonAnim={skeletonAnim}
         />
+
+        {/* Finish the quest. Completion used to be reachable only by editing the
+            shard's status, and it paid nothing — no XP, no rewards, no artifact.
+            Now it's an explicit act with a payout behind it. */}
+        {canComplete && (
+          <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24 }}>
+            <HudButton
+              label={completing ? 'Finishing…' : 'Complete quest'}
+              onPress={handleCompleteShard}
+              isDark={isDark}
+              variant="primary"
+              size="lg"
+              icon="trophy"
+              loading={completing}
+              fullWidth
+            />
+          </View>
+        )}
       </ScrollView>
     </View>
   );

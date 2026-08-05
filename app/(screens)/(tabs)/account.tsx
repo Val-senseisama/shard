@@ -16,6 +16,7 @@ import Toast from 'react-native-toast-message';
 import RevenueCatUI from 'react-native-purchases-ui';
 import { purchasesService } from '~/services/purchasesService';
 import { openPaywall } from '~/helpers/paywall';
+import StreakCard from '~/components/StreakCard';
 
 // ─── Radar Chart ─────────────────────────────────────────────────────
 
@@ -360,7 +361,7 @@ const Account = () => {
         <AnimatedPressable
           onPress={() => router.push('/edit-profile')}
           hitSlop={20}
-          scaleDown={0.9}>
+          scaleDown={0.9} accessibilityLabel="Settings">
           <Ionicons name="settings-outline" size={22} color={isDark ? '#adaaaa' : '#767575'} />
         </AnimatedPressable>
       </View>
@@ -493,9 +494,25 @@ const Account = () => {
           </View>
         </Animated.View>
 
+        {/* ── Streak ── */}
+        {/* Its own surface because the streak has states now (at risk, frozen,
+            broken-and-repairable), not just a count. The small tile below still
+            shows the number at a glance. */}
+        <Animated.View entering={FadeInDown.delay(80).duration(260)} className="mx-5 mt-4">
+          <StreakCard
+            onRepaired={(days) =>
+              Toast.show({
+                type: 'success',
+                text1: 'Streak restored',
+                text2: `Your ${days}-day streak is back.`,
+              })
+            }
+          />
+        </Animated.View>
+
         {/* ── Progression Stats ── */}
         <Animated.View
-          entering={FadeInDown.delay(100).duration(400)}
+          entering={FadeInDown.delay(100).duration(260)}
           className="mx-5 mt-4 flex-row gap-3">
           {/* XP Card */}
           <View
@@ -593,7 +610,7 @@ const Account = () => {
 
         {/* ── Pro Upsell (free users only) ── */}
         {user?.subscriptionTier !== 'pro' && (
-          <Animated.View entering={FadeInDown.delay(150).duration(400)} className="mx-5 mt-5">
+          <Animated.View entering={FadeInDown.delay(150).duration(260)} className="mx-5 mt-5">
             <AnimatedPressable onPress={() => openPaywall('account')} scaleDown={0.97}>
               <LinearGradient
                 colors={['#7c3aed', '#6d28d9']}
@@ -619,8 +636,8 @@ const Account = () => {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 17, fontWeight: '800', color: '#fff' }}>
-                    {user?.isInTrial && user?.trialEndsAt
-                      ? `${Math.max(0, Math.ceil((new Date(user.trialEndsAt).getTime() - Date.now()) / 86400000))} days of Pro left`
+                    {user?.isInTrial
+                      ? `${user.trialDaysRemaining ?? 0} days of Pro left`
                       : 'Unlock Shard Pro'}
                   </Text>
                   <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
@@ -637,7 +654,7 @@ const Account = () => {
 
         {/* ── Invite friends (referral) ── */}
         {user?.referralCode && (
-          <Animated.View entering={FadeInDown.delay(180).duration(400)} className="mx-5 mt-4">
+          <Animated.View entering={FadeInDown.delay(150).duration(260)} className="mx-5 mt-4">
             <AnimatedPressable
               onPress={() => {
                 Share.share({
@@ -684,7 +701,7 @@ const Account = () => {
         {settingsSections.map((section, sectionIndex) => (
           <Animated.View
             key={section.title}
-            entering={FadeInDown.delay(200 + sectionIndex * 80).duration(400)}
+            entering={FadeInDown.delay(200 + sectionIndex * 80).duration(260)}
             className="mx-5 mt-5">
             <Text
               style={{
@@ -717,7 +734,7 @@ const Account = () => {
         ))}
 
         {/* ── Logout ── */}
-        <Animated.View entering={FadeInDown.delay(500).duration(400)} className="mx-5 mt-6">
+        <Animated.View entering={FadeInDown.delay(150).duration(260)} className="mx-5 mt-6">
           <AnimatedPressable onPress={handleLogout} scaleDown={0.97}>
             <View
               style={{

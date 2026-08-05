@@ -33,6 +33,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
+import { useReducedMotion } from '~/helpers/motion';
 import {
   UNFRIEND,
   BLOCK_USER,
@@ -50,6 +51,7 @@ import AnimatedPressable from '~/components/AnimatedPressable';
 
 import { hud, FONT } from '~/components/hud';
 import { avatarUri } from '~/helpers/avatarUri';
+import { useUnlocks } from '~/helpers/unlocks';
 import { formatDistanceToNow } from 'date-fns';
 
 type TabType = 'friends' | 'requests' | 'discover' | 'teams';
@@ -108,21 +110,26 @@ const SectionLabel = ({ text, c, top = 0 }: { text: string; c: ReturnType<typeof
 );
 
 // Long lists shouldn't trickle in — cap the entrance stagger so row 200
-// doesn't animate 8 seconds after row 1.
-const stagger = (i: number) => Math.min(i, 8) * 40;
+// doesn't animate 8 seconds after row 1. Capped to the app-wide entrance budget
+// (see helpers/motion.ts): a delayed row is a row that can't be tapped yet.
+const stagger = (i: number) => Math.min(i, 5) * 30;
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
 const FriendSkeleton = ({ isDark }: { isDark: boolean }) => {
   const c = hud(isDark);
   const opacity = useSharedValue(0.35);
+  const reducedMotion = useReducedMotion();
+
   useEffect(() => {
+    // Decorative loop — hold still when the user asked for less motion.
+    if (reducedMotion) return;
     opacity.value = withRepeat(
       withSequence(withTiming(0.8, { duration: 700 }), withTiming(0.35, { duration: 700 })),
       -1,
       true
     );
-  }, []);
+  }, [reducedMotion]);
   const anim = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
   return (
@@ -282,7 +289,7 @@ const RequestCard = ({
             borderColor: 'rgba(239,68,68,0.28)',
             alignItems: 'center',
             justifyContent: 'center',
-          }}>
+          }} accessibilityLabel="Close">
           <Ionicons name="close" size={18} color="#ef4444" />
         </AnimatedPressable>
         <AnimatedPressable
@@ -297,7 +304,7 @@ const RequestCard = ({
             borderColor: 'rgba(16,185,129,0.30)',
             alignItems: 'center',
             justifyContent: 'center',
-          }}>
+          }} accessibilityLabel="Confirm">
           {processing ? (
             <ActivityIndicator size="small" color="#10b981" />
           ) : (
@@ -481,7 +488,8 @@ const TeamCard = ({
                   borderColor: 'rgba(16,185,129,0.28)',
                   alignItems: 'center',
                   justifyContent: 'center',
-                }}>
+                }}
+            accessibilityLabel="Open chat">
                 <Ionicons name="chatbubble-outline" size={16} color="#10b981" />
               </AnimatedPressable>
             )}
@@ -497,7 +505,7 @@ const TeamCard = ({
                 borderColor: 'rgba(239,68,68,0.26)',
                 alignItems: 'center',
                 justifyContent: 'center',
-              }}>
+              }} accessibilityRole="button" accessibilityLabel={isOwner ? 'Delete' : 'Leave'}>
               <Ionicons
                 name={isOwner ? 'trash-outline' : 'exit-outline'}
                 size={16}
@@ -615,7 +623,8 @@ const CreateTeamModal = ({
             borderBottomWidth: 1,
             borderBottomColor: c.panelBorder,
           }}>
-          <AnimatedPressable onPress={onClose} scaleDown={0.9}>
+          <AnimatedPressable onPress={onClose} scaleDown={0.9}
+            accessibilityLabel="Close">
             <Ionicons name="close" size={22} color={c.textDim} />
           </AnimatedPressable>
           <Text style={{ fontSize: 16, fontFamily: FONT.bold, color: c.text }}>Create Team</Text>
@@ -761,6 +770,7 @@ const CreateTeamModal = ({
 const Friends = () => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const unlocks = useUnlocks();
   const c = hud(isDark);
   const { user } = useUserStore();
   const { addAlert } = useAppStore();
@@ -1102,7 +1112,10 @@ const Friends = () => {
         </View>
       </View>
 
-      {/* Leaderboard — a labelled row, not an unlabelled trophy icon nobody tapped */}
+      {/* Leaderboard — a labelled row, not an unlabelled trophy icon nobody tapped.
+          Hidden until there's someone on it: an empty board is worse than no
+          board. See helpers/unlocks.ts. */}
+      {unlocks.leaderboard && (
       <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
         <AnimatedPressable
           onPress={() => router.push('/(screens)/leaderboard')}
@@ -1127,6 +1140,7 @@ const Friends = () => {
           <Ionicons name="chevron-forward" size={18} color={c.violet} />
         </AnimatedPressable>
       </View>
+      )}
 
       {/* Search */}
       <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
@@ -1156,7 +1170,7 @@ const Friends = () => {
             autoCapitalize="none"
           />
           {searchQuery.length > 0 && (
-            <AnimatedPressable onPress={() => setSearchQuery('')} hitSlop={12} scaleDown={0.85}>
+            <AnimatedPressable onPress={() => setSearchQuery('')} hitSlop={12} scaleDown={0.85} accessibilityLabel="Clear">
               <Ionicons name="close-circle" size={18} color={c.textFaint} />
             </AnimatedPressable>
           )}
@@ -1283,7 +1297,7 @@ const Friends = () => {
               />
             ) : (
               friends.map((f, i) => (
-                <Animated.View key={f.id} entering={FadeInDown.delay(stagger(i)).duration(300)}>
+                <Animated.View key={f.id} entering={FadeInDown.delay(stagger(i)).duration(260)}>
                   <FriendCard
                     friend={f}
                     isDark={isDark}
@@ -1412,7 +1426,7 @@ const Friends = () => {
           <>
             <SectionLabel text="People you may know" c={c} />
             {filteredSuggestions.map((s, i) => (
-              <Animated.View key={s.id} entering={FadeInDown.delay(stagger(i)).duration(300)}>
+              <Animated.View key={s.id} entering={FadeInDown.delay(stagger(i)).duration(260)}>
                 <UserRow
                   user={s}
                   isDark={isDark}

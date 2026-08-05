@@ -266,7 +266,7 @@ const AIReviewStep = ({
     {miniGoals.map((mg, i) => (
       <Animated.View
         key={mg.id}
-        entering={FadeInDown.delay(i * 60).duration(350)}
+        entering={FadeInDown.delay(i * 30).duration(260)}
         style={{
           flexDirection: 'row',
           alignItems: 'center',
@@ -304,7 +304,7 @@ const AIReviewStep = ({
             {mg.dueDate ? `  ·  Due ${formatDueDate(mg.dueDate)}` : ''}
           </Text>
         </View>
-        <TouchableOpacity onPress={() => onRemove(mg.id)} hitSlop={12} style={{ padding: 4 }}>
+        <TouchableOpacity onPress={() => onRemove(mg.id)} hitSlop={12} style={{ padding: 4 }} accessibilityLabel="Clear">
           <Ionicons name="close-circle" size={22} color={isDark ? '#444' : '#ccc'} />
         </TouchableOpacity>
       </Animated.View>
@@ -429,7 +429,7 @@ const MiniGoalBuilder = ({
       {miniGoals.map((mg, idx) => (
         <Animated.View
           key={mg.id}
-          entering={FadeInDown.delay(idx * 50).duration(300)}
+          entering={FadeInDown.delay(idx * 30).duration(260)}
           style={{
             backgroundColor: isDark ? '#1a1a1a' : '#f6f7fb',
             borderRadius: 16,
@@ -474,7 +474,7 @@ const MiniGoalBuilder = ({
                 color={isDark ? '#555' : '#bbb'}
               />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => removeGoal(mg.id)} hitSlop={10}>
+            <TouchableOpacity onPress={() => removeGoal(mg.id)} hitSlop={10} accessibilityLabel="Delete">
               <Ionicons name="trash-outline" size={16} color={isDark ? '#444' : '#ccc'} />
             </TouchableOpacity>
           </View>
@@ -511,7 +511,7 @@ const MiniGoalBuilder = ({
                     style={{ flex: 1, color: isDark ? '#fff' : '#1a1a1a', fontSize: 13 }}
                   />
                   {mg.tasks.length > 1 && (
-                    <TouchableOpacity onPress={() => removeTask(mg.id, ti)} hitSlop={10}>
+                    <TouchableOpacity onPress={() => removeTask(mg.id, ti)} hitSlop={10} accessibilityLabel="Close">
                       <Ionicons name="close" size={15} color={isDark ? '#444' : '#ccc'} />
                     </TouchableOpacity>
                   )}
@@ -577,7 +577,7 @@ const TeamQuickAssign = ({
   if (teams.length === 0) return null;
 
   return (
-    <Animated.View entering={FadeInDown.delay(200).duration(400)} style={{ marginBottom: 16 }}>
+    <Animated.View entering={FadeInDown.delay(150).duration(260)} style={{ marginBottom: 16 }}>
       <AnimatedPressable
         onPress={() => setExpanded(!expanded)}
         scaleDown={0.98}
@@ -668,7 +668,7 @@ const FriendSelection = ({
   const filtered = filteredFriends();
 
   return (
-    <Animated.View entering={FadeInDown.delay(300).duration(400)} className="my-3 space-y-4">
+    <Animated.View entering={FadeInDown.delay(150).duration(260)} className="my-3 space-y-4">
       <Text
         className="text-xs font-bold uppercase tracking-widest"
         style={{ color: isDark ? '#adaaaa' : '#666' }}>
@@ -757,9 +757,9 @@ const MediaDateGrid = ({
 }) => {
   const isDark = useColorScheme() === 'dark';
   return (
-    <Animated.View entering={FadeInDown.delay(100).duration(400)} className="flex-row gap-4">
+    <Animated.View entering={FadeInDown.delay(100).duration(260)} className="flex-row gap-4">
       <View className="flex-1">
-        <AddImageInput onImage={onImageSelect} />
+        <AddImageInput shape="banner" onImage={onImageSelect} />
       </View>
       <AnimatedPressable
         onPress={onDatePress}
@@ -980,8 +980,10 @@ const NewShard = () => {
   };
 
   const handleAIConfirm = () => {
-    // Quest already saved in DB — just navigate
-    router.push('/Home');
+    // Quest already saved in DB — just navigate.
+    // `replace`, not `push`: the quest exists now, so leaving the creation flow
+    // on the stack let Back walk into a wizard that would create a second one.
+    router.replace('/Home');
   };
 
   const handleAIRegenerate = async () => {
@@ -1041,7 +1043,8 @@ const NewShard = () => {
 
       if (data?.createShardManual?.success) {
         addAlert({ str: data.createShardManual.message, type: 'success' });
-        router.push('/Home');
+        // See handleAIConfirm — replace so Back can't re-enter the wizard.
+        router.replace('/Home');
       } else {
         addAlert({
           str: data?.createShardManual?.message || 'Failed to create quest',
@@ -1191,7 +1194,7 @@ const NewShard = () => {
 
                 {/* AI credit count */}
                 {mode === 'ai' && aiRemaining !== null && (
-                  <Animated.View entering={FadeInDown.duration(300)}>
+                  <Animated.View entering={FadeIn.duration(200)}>
                     <AnimatedPressable
                       onPress={outOfCredits ? () => openPaywall('ai_credits') : undefined}
                       disabled={!outOfCredits}
@@ -1325,12 +1328,12 @@ const NewShard = () => {
                     />
 
                     <View className="mt-6">
-                      <AddImageInput onImage={setManualImageUri} />
+                      <AddImageInput shape="banner" onImage={setManualImageUri} />
                     </View>
 
                     {/* Timeline */}
                     <Animated.View
-                      entering={FadeInDown.delay(100).duration(400)}
+                      entering={FadeInDown.delay(100).duration(260)}
                       className="mt-6 flex-row gap-3">
                       {(['start', 'end'] as const).map((type) => (
                         <AnimatedPressable
@@ -1391,7 +1394,7 @@ const NewShard = () => {
                 {/* AI hint */}
                 {mode === 'ai' && (
                   <Animated.View
-                    entering={FadeInDown.delay(350).duration(400)}
+                    entering={FadeInDown.delay(150).duration(260)}
                     className="mt-6 flex-row items-start gap-3 rounded-2xl border p-4"
                     style={{
                       borderColor: isDark ? 'rgba(139,92,246,0.15)' : 'rgba(139,92,246,0.1)',
@@ -1408,7 +1411,7 @@ const NewShard = () => {
                 )}
 
                 {/* CTA Step 1 */}
-                <Animated.View entering={FadeInDown.delay(400).duration(400)} className="mt-10">
+                <Animated.View entering={FadeInDown.delay(150).duration(260)} className="mt-10">
                   <AnimatedPressable
                     onPress={mode === 'ai' ? handleAIContinue : handleManualContinue}
                     disabled={loading}
@@ -1484,7 +1487,7 @@ const NewShard = () => {
                 </View>
 
                 <Animated.View
-                  entering={FadeInDown.delay(200).duration(400)}
+                  entering={FadeInDown.delay(150).duration(260)}
                   style={{ marginTop: 24 }}>
                   <AnimatedPressable
                     onPress={handleManualCreate}

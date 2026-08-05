@@ -2,12 +2,14 @@ import React, { useEffect } from 'react';
 import { View, useColorScheme } from 'react-native';
 import Svg, { Path, Defs, LinearGradient, Stop, RadialGradient } from 'react-native-svg';
 import Animated, {
+  cancelAnimation,
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
   withTiming,
   Easing,
 } from 'react-native-reanimated';
+import { useReducedMotion } from '~/helpers/motion';
 
 const AnimatedCrystal = () => {
   const colorScheme = useColorScheme();
@@ -15,14 +17,24 @@ const AnimatedCrystal = () => {
   const translateY = useSharedValue(0);
   const rotate = useSharedValue(0);
 
+  const reduced = useReducedMotion();
+
   useEffect(() => {
+    // A continuous float is decorative; someone who asked for less motion should
+    // get a still crystal, not a gently bobbing one.
+    if (reduced) {
+      cancelAnimation(translateY);
+      translateY.value = 0;
+      rotate.value = 0;
+      return;
+    }
     translateY.value = withRepeat(
       withTiming(-10, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
       -1,
       true
     );
     rotate.value = 0;
-  }, []);
+  }, [reduced]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [

@@ -9,7 +9,7 @@ const CreateShardFAB = () => {
     <TouchableOpacity
       onPress={() => router.push('/new-shard')}
       style={styles.fab}
-      activeOpacity={0.8}>
+      activeOpacity={0.8} accessibilityLabel="Add">
       <LinearGradient
         colors={['#4135F3', '#7168F6']}
         start={{ x: 0, y: 0 }}

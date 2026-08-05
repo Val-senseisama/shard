@@ -108,7 +108,7 @@ const SelectedChip = ({
           backgroundColor: '#ef4444',
           alignItems: 'center', justifyContent: 'center',
           borderWidth: 2, borderColor: isDark ? '#0f0f0f' : '#fff',
-        }}>
+        }} accessibilityLabel="Close">
         <Ionicons name="close" size={11} color="#fff" />
       </AnimatedPressable>
     </View>
@@ -180,7 +180,7 @@ const CandidateRow = ({
             : isSelected
               ? `${ACCENT}20`
               : ACCENT,
-        }}>
+        }} accessibilityLabel="Confirm">
         {isExisting ? (
           <Ionicons name="checkmark-circle" size={20} color={isDark ? '#4b5563' : '#9ca3af'} />
         ) : isSelected ? (
@@ -316,7 +316,7 @@ const AddPartners = () => {
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       {/* Header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 }}>
-        <AnimatedPressable onPress={() => router.back()} hitSlop={20} scaleDown={0.88}>
+        <AnimatedPressable onPress={() => router.back()} hitSlop={20} scaleDown={0.88} accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={24} color={theme.text} />
         </AnimatedPressable>
         <Text style={{ flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '700', color: theme.text }}>
@@ -374,7 +374,7 @@ const AddPartners = () => {
             autoCapitalize="none"
           />
           {searchQuery.length > 0 && (
-            <AnimatedPressable onPress={() => setSearchQuery('')} hitSlop={12} scaleDown={0.85}>
+            <AnimatedPressable onPress={() => setSearchQuery('')} hitSlop={12} scaleDown={0.85} accessibilityLabel="Clear">
               <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
             </AnimatedPressable>
           )}

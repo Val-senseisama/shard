@@ -37,8 +37,8 @@ export const LOGIN = gql`
 `;
 
 export const GOOGLE_SIGN_IN = gql`
-  mutation GoogleSignIn($idToken: String!, $referralCode: String) {
-    googleSignIn(idToken: $idToken, referralCode: $referralCode) {
+  mutation GoogleSignIn($idToken: String!, $referralCode: String, $timezone: String) {
+    googleSignIn(idToken: $idToken, referralCode: $referralCode, timezone: $timezone) {
       success
       message
       accessToken
@@ -53,6 +53,19 @@ export const GOOGLE_SIGN_IN = gql`
         isNewUser
         authProvider
       }
+    }
+  }
+`;
+
+/**
+ * Fired on every app foreground. Refreshes presence and pushes the device's
+ * IANA timezone up — the server's quiet hours, streak day boundaries and
+ * local-hour reminder scheduling all read that stored zone.
+ */
+export const SYNC_SESSION = gql`
+  mutation SyncSession($timezone: String) {
+    syncSession(timezone: $timezone) {
+      success
     }
   }
 `;
@@ -825,6 +838,71 @@ export const DELETE_TEAM = gql`
 export const LEAVE_TEAM = gql`
   mutation LeaveTeam($teamId: ID!) {
     leaveTeam(teamId: $teamId) {
+      success
+      message
+    }
+  }
+`;
+
+/**
+ * Finish a quest and collect its rewards. Completion used to be a bare
+ * `updateShard(status: 'completed')`, which paid nothing.
+ */
+export const COMPLETE_SHARD = gql`
+  mutation CompleteShard($shardId: ID!) {
+    completeShard(shardId: $shardId) {
+      success
+      message
+      xpEarned
+      completion
+      onTime
+      shareId
+      isFirstCompletion
+      alreadyComplete
+      xpResult {
+        newXP
+        newLevel
+        leveledUp
+      }
+    }
+  }
+`;
+
+/** Restore a streak broken within the repair window. */
+export const REPAIR_STREAK = gql`
+  mutation RepairStreak {
+    repairStreak {
+      success
+      message
+      restored
+    }
+  }
+`;
+
+/** Resolve an overdue task: action is "reschedule" or "drop". */
+export const RESOLVE_OVERDUE_TASK = gql`
+  mutation ResolveOverdueTask(
+    $miniGoalId: ID!
+    $taskIndex: Int!
+    $action: String!
+    $newDueDate: String
+  ) {
+    resolveOverdueTask(
+      miniGoalId: $miniGoalId
+      taskIndex: $taskIndex
+      action: $action
+      newDueDate: $newDueDate
+    ) {
+      success
+      message
+    }
+  }
+`;
+
+/** Records that a completion card actually went out — measures the growth loop. */
+export const RECORD_SHARE = gql`
+  mutation RecordShare($shareId: ID!, $platform: String!) {
+    recordShare(shareId: $shareId, platform: $platform) {
       success
       message
     }

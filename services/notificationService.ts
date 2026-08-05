@@ -38,11 +38,25 @@ class NotificationService {
       // You can handle foreground notifications here
     });
 
-    // Listen for user interactions with notifications
-    this.responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
-      console.log('👆 Notification tapped:', response);
-      this.handleNotificationResponse(response);
-    });
+    // Tap handling lives in app/_layout.tsx, which is where the router is.
+    // This class used to register a second response listener of its own that
+    // only console.logged — dead code that read as if deep-linking were broken.
+  }
+
+  /**
+   * The notification that launched the app from a cold start, if any.
+   *
+   * Without this, a tap that starts the process is lost: the response is
+   * delivered before any listener registered in a React effect exists, so the
+   * user lands on the default screen instead of the thing they tapped.
+   */
+  async getLaunchNotificationData(): Promise<Record<string, any> | null> {
+    try {
+      const response = await Notifications.getLastNotificationResponseAsync();
+      return response?.notification.request.content.data ?? null;
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -190,20 +204,6 @@ class NotificationService {
     await Notifications.setBadgeCountAsync(count);
   }
 
-  /**
-   * Handle notification tap
-   */
-  private handleNotificationResponse(response: Notifications.NotificationResponse) {
-    const data = response.notification.request.content.data;
-
-    // Navigate based on notification data
-    // This will be implemented in the app layout
-    if (data?.shardId) {
-      console.log('Navigate to shard:', data.shardId);
-    } else if (data?.chatId) {
-      console.log('Navigate to chat:', data.chatId);
-    }
-  }
 }
 
 // Export singleton instance

@@ -24,6 +24,7 @@ import Animated, {
   useSharedValue,
   withDelay,
 } from 'react-native-reanimated';
+import { useReducedMotion } from '~/helpers/motion';
 import { formatDistanceToNow, isToday, isYesterday, isThisWeek } from 'date-fns';
 import { t, ACCENT } from '~/components/shard/constants';
 import AnimatedPressable from '~/components/AnimatedPressable';
@@ -34,6 +35,14 @@ const { width } = Dimensions.get('window');
 interface Notification {
   id: string;
   message: string;
+  /** Persisted notification type, e.g. quest_deadline. */
+  type?: string | null;
+  /** Finer-grained bus kind, e.g. streak_at_risk. */
+  kind?: string | null;
+  /** Server-assigned filter category — see categoryOf() in the resolver. */
+  category?: string | null;
+  /** Deep-link target for tapping the row. */
+  screen?: string | null;
   shardId?: string;
   miniGoalId?: string;
   read: boolean;
@@ -41,19 +50,23 @@ interface Notification {
   createdAt: string;
 }
 
-type FilterType = 'all' | 'shards' | 'friends' | 'system';
+type FilterType = 'all' | 'quests' | 'social' | 'rewards' | 'system';
 
 const NotificationSkeleton = ({ isDark }: { isDark: boolean }) => {
   const theme = t(isDark);
   const opacity = useSharedValue(0.3);
 
+  const reducedMotion = useReducedMotion();
+
   useEffect(() => {
+    // Decorative loop — hold still when the user asked for less motion.
+    if (reducedMotion) return;
     opacity.value = withRepeat(
       withSequence(withTiming(0.7, { duration: 1000 }), withTiming(0.3, { duration: 1000 })),
       -1,
       true
     );
-  }, []);
+  }, [reducedMotion]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -160,20 +173,13 @@ const Notifications = () => {
   const groupedNotifications = useMemo(() => {
     const notifications = data?.getNotifications?.notifications || [];
 
-    // Apply filter
-    let filtered = notifications;
-    if (filter === 'shards') {
-      filtered = notifications.filter((n: Notification) => n.shardId);
-    } else if (filter === 'friends') {
-      filtered = notifications.filter(
-        (n: Notification) =>
-          n.message.toLowerCase().includes('friend') || n.message.toLowerCase().includes('invite')
-      );
-    } else if (filter === 'system') {
-      filtered = notifications.filter(
-        (n: Notification) => !n.shardId && !n.message.toLowerCase().includes('friend')
-      );
-    }
+    // Filter on the category the SERVER assigned. This used to substring-match
+    // the message text ("friend", "invite"), so any copy change silently broke
+    // the tabs and a notification could land in two categories at once.
+    const filtered =
+      filter === 'all'
+        ? notifications
+        : notifications.filter((n: Notification) => (n.category ?? 'system') === filter);
 
     const groups: { title: string; data: Notification[] }[] = [];
     const today: Notification[] = [];
@@ -235,17 +241,44 @@ const Notifications = () => {
       }
     }
 
-    // Navigate based on notification type
-    if (notification.shardId) {
+    // Prefer the server's deep link — a streak nudge should open the schedule,
+    // not the shard it happened to reference.
+    if (notification.screen) {
+      router.push(notification.screen as any);
+    } else if (notification.shardId) {
       router.push(`/(screens)/shard/${notification.shardId}`);
     }
   };
 
   const getNotificationIcon = (notification: Notification) => {
-    if (notification.shardId) return 'prism-outline';
-    if (notification.message.toLowerCase().includes('friend')) return 'people-outline';
-    if (notification.message.toLowerCase().includes('message')) return 'chatbubble-outline';
-    return 'notifications-outline';
+    switch (notification.kind) {
+      case 'streak_at_risk':
+      case 'streak_broken':
+      case 'streak_milestone':
+      case 'streak_freeze_used':
+        return 'flame-outline';
+      case 'achievement':
+      case 'level_up':
+      case 'shard_completed':
+        return 'trophy-outline';
+      case 'message':
+        return 'chatbubble-outline';
+      case 'friend_request':
+      case 'friend_accepted':
+      case 'friend_overtook':
+        return 'people-outline';
+      case 'tasks_missed':
+      case 'quest_overdue':
+        return 'alert-circle-outline';
+      case 'daily_digest':
+      case 'task_reminder':
+      case 'empty_schedule':
+        return 'calendar-outline';
+      case 'trial_ending':
+        return 'time-outline';
+      default:
+        return notification.shardId ? 'prism-outline' : 'notifications-outline';
+    }
   };
 
   const renderNotification = ({ item, index }: { item: Notification; index: number }) => (
@@ -378,7 +411,7 @@ const Notifications = () => {
           paddingVertical: 12,
           backgroundColor: theme.bg,
         }}>
-        <AnimatedPressable onPress={() => router.back()} hitSlop={20}>
+        <AnimatedPressable onPress={() => router.back()} hitSlop={20} accessibilityLabel="Go back">
           <Ionicons name="arrow-back" size={24} color={theme.text} />
         </AnimatedPressable>
         <View style={{ flex: 1, alignItems: 'center' }}>
@@ -389,7 +422,8 @@ const Notifications = () => {
             <Text style={{ fontSize: 12, color: ACCENT }}>{unreadCount} unread</Text>
           )}
         </View>
-        <AnimatedPressable onPress={handleMarkAllRead} hitSlop={20} disabled={unreadCount === 0}>
+        <AnimatedPressable onPress={handleMarkAllRead} hitSlop={20} disabled={unreadCount === 0}
+            accessibilityLabel="Mark all as read">
           <Ionicons
             name="checkmark-done-outline"
             size={24}
@@ -405,8 +439,9 @@ const Notifications = () => {
           showsHorizontalScrollIndicator={false}
           data={[
             { type: 'all' as FilterType, label: 'All', icon: 'apps-outline' },
-            { type: 'shards' as FilterType, label: 'Shards', icon: 'prism-outline' },
-            { type: 'friends' as FilterType, label: 'Friends', icon: 'people-outline' },
+            { type: 'quests' as FilterType, label: 'Quests', icon: 'prism-outline' },
+            { type: 'social' as FilterType, label: 'Social', icon: 'people-outline' },
+            { type: 'rewards' as FilterType, label: 'Rewards', icon: 'trophy-outline' },
             { type: 'system' as FilterType, label: 'System', icon: 'settings-outline' },
           ]}
           keyExtractor={(item) => item.type}

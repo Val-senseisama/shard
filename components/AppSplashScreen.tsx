@@ -9,13 +9,18 @@ import Animated, {
   withTiming,
   FadeIn,
 } from 'react-native-reanimated';
+import { useReducedMotion } from '~/helpers/motion';
 import AnimatedCrystal from './AnimatedCrystal';
 
 const Orb = ({ x, y, size, color, delay }: { x: any; y: any; size: number; color: string; delay: number }) => {
   const opacity = useSharedValue(0.1);
   const scale = useSharedValue(1);
 
+  const reducedMotion = useReducedMotion();
+
   useEffect(() => {
+    // Decorative loop — hold still when the user asked for less motion.
+    if (reducedMotion) return;
     opacity.value = withRepeat(
       withSequence(withTiming(0.3, { duration: 2500 + delay }), withTiming(0.1, { duration: 2500 + delay })),
       -1,
@@ -26,7 +31,7 @@ const Orb = ({ x, y, size, color, delay }: { x: any; y: any; size: number; color
       -1,
       true
     );
-  }, []);
+  }, [reducedMotion]);
 
   const style = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -45,8 +50,15 @@ const Orb = ({ x, y, size, color, delay }: { x: any; y: any; size: number; color
 
 const PulseDot = ({ delay }: { delay: number }) => {
   const opacity = useSharedValue(0.2);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
+    // With motion off the dots hold at full opacity: still legible as a loading
+    // indicator, just not pulsing.
+    if (reducedMotion) {
+      opacity.value = 1;
+      return;
+    }
     const timer = setTimeout(() => {
       opacity.value = withRepeat(
         withSequence(withTiming(1, { duration: 500 }), withTiming(0.2, { duration: 500 })),
@@ -55,7 +67,7 @@ const PulseDot = ({ delay }: { delay: number }) => {
       );
     }, delay);
     return () => clearTimeout(timer);
-  }, []);
+  }, [reducedMotion]);
 
   const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
   return (
@@ -84,7 +96,7 @@ export default function AppSplashScreen() {
           <AnimatedCrystal />
         </Animated.View>
 
-        <Animated.View entering={FadeIn.duration(600).delay(200)} style={{ alignItems: 'center' }}>
+        <Animated.View entering={FadeIn.duration(600).delay(150)} style={{ alignItems: 'center' }}>
           <Text style={{ fontSize: 32, fontWeight: '900', letterSpacing: 6, color: '#fff' }}>
             SH<Text style={{ color: '#7c3aed' }}>▲</Text>RD
           </Text>
@@ -93,7 +105,7 @@ export default function AppSplashScreen() {
 
       {/* Loading dots */}
       <Animated.View
-        entering={FadeIn.duration(400).delay(400)}
+        entering={FadeIn.duration(400).delay(150)}
         style={{ position: 'absolute', bottom: 60, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}>
         <PulseDot delay={0} />
         <PulseDot delay={200} />

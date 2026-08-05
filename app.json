@@ -2,7 +2,8 @@
   "expo": {
     "name": "shard",
     "slug": "shard",
-    "version": "1.0.1",
+    "description": "Tell Shard a goal and it builds the plan: milestones, tasks and real dates scheduled around your week. Add a friend as your accountability partner so someone notices if you stop.",
+    "version": "1.0.2",
     "scheme": "shard",
     "web": {
       "favicon": "./assets/favicon.png"
@@ -53,7 +54,7 @@
         "backgroundColor": "#0a0a0f"
       },
       "package": "com.xavitech.shard",
-      "versionCode": 2,
+      "versionCode": 3,
       "permissions": [
         "CAMERA"
       ],

@@ -119,7 +119,7 @@ const InsightCard = ({ text, isDark, index }: { text: string; isDark: boolean; i
   const theme = t(isDark);
   return (
     <Animated.View
-      entering={FadeInDown.delay(index * 60).duration(350)}
+      entering={FadeInDown.delay(index * 30).duration(260)}
       style={{
         flexDirection: 'row',
         gap: 12,
@@ -202,7 +202,7 @@ const ProductivityScreen = () => {
           paddingHorizontal: 16,
           paddingVertical: 12,
         }}>
-        <AnimatedPressable onPress={() => router.back()} hitSlop={20}>
+        <AnimatedPressable onPress={() => router.back()} hitSlop={20} accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={24} color={theme.text} />
         </AnimatedPressable>
         <Text style={{ fontSize: 18, fontWeight: '700', color: theme.text }}>Productivity</Text>
@@ -319,7 +319,7 @@ const ProductivityScreen = () => {
             {/* Charts */}
             {chartData.length > 0 && (
               <Animated.View
-                entering={FadeInDown.delay(100).duration(400)}
+                entering={FadeInDown.delay(100).duration(260)}
                 style={{
                   backgroundColor: theme.card,
                   borderRadius: 18,
@@ -348,7 +348,7 @@ const ProductivityScreen = () => {
 
             {/* AI Insights */}
             {insights.length > 0 && (
-              <Animated.View entering={FadeInDown.delay(200).duration(400)}>
+              <Animated.View entering={FadeInDown.delay(150).duration(260)}>
                 <Text
                   style={{
                     fontSize: 11,
@@ -367,7 +367,7 @@ const ProductivityScreen = () => {
 
             {/* Struggle Areas */}
             {struggleAreas.length > 0 && (
-              <Animated.View entering={FadeInDown.delay(300).duration(400)} style={{ marginTop: 8 }}>
+              <Animated.View entering={FadeInDown.delay(150).duration(260)} style={{ marginTop: 8 }}>
                 <Text
                   style={{
                     fontSize: 11,

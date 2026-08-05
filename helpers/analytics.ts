@@ -14,7 +14,10 @@ export type AnalyticsEventName =
   | 'paywall_impression'
   | 'upgrade_tap'
   | 'purchase_completed'
-  | 'purchase_cancelled';
+  | 'purchase_cancelled'
+  // Growth loop: a completion card was handed to the OS share sheet. Paired with
+  // the server's `share_completed` so share rate per finished quest is measurable.
+  | 'share_tapped';
 
 const ANON_ID_KEY = 'analytics_anon_id';
 let cachedAnonId: string | null = null;

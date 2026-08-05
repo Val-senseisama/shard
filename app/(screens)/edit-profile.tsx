@@ -180,7 +180,7 @@ export default function EditProfilePage() {
         paddingHorizontal: 20, paddingVertical: 14,
         borderBottomWidth: 1, borderBottomColor: theme.border,
       }}>
-        <AnimatedPressable onPress={() => router.back()} hitSlop={20} scaleDown={0.9}>
+        <AnimatedPressable onPress={() => router.back()} hitSlop={20} scaleDown={0.9} accessibilityLabel="Go back">
           <Ionicons name="arrow-back" size={22} color={theme.text} />
         </AnimatedPressable>
         <Text style={{ flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '700', color: theme.text }}>
@@ -197,7 +197,8 @@ export default function EditProfilePage() {
 
         {/* Avatar */}
         <View style={{ alignItems: 'center', paddingVertical: 8 }}>
-          <AnimatedPressable onPress={pickImage} scaleDown={0.95} style={{ position: 'relative' }}>
+          <AnimatedPressable onPress={pickImage} scaleDown={0.95} style={{ position: 'relative' }}
+            accessibilityLabel="Take photo">
             <Image
               source={{ uri: displayImage }}
               style={{ width: 96, height: 96, borderRadius: 48, borderWidth: 3, borderColor: ACCENT }}
@@ -305,7 +306,7 @@ export default function EditProfilePage() {
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               {birthdate && (
-                <AnimatedPressable onPress={() => setBirthdate(null)} hitSlop={8} scaleDown={0.9}>
+                <AnimatedPressable onPress={() => setBirthdate(null)} hitSlop={8} scaleDown={0.9} accessibilityLabel="Clear">
                   <Ionicons name="close-circle" size={18} color="#9ca3af" />
                 </AnimatedPressable>
               )}

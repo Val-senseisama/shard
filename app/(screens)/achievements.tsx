@@ -83,7 +83,7 @@ const AchievementsScreen = () => {
     <SafeAreaView style={[styles.container, { backgroundColor: isDark ? '#0e0e0e' : '#f8f9fa' }]}>
       {/* Header */}
       <View style={styles.header}>
-        <AnimatedPressable onPress={() => router.back()} hitSlop={20}>
+        <AnimatedPressable onPress={() => router.back()} hitSlop={20} accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={24} color={isDark ? '#fff' : '#1a1a1a'} />
         </AnimatedPressable>
         <Text style={[styles.headerTitle, { color: isDark ? '#fff' : '#1a1a1a' }]}>

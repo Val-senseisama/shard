@@ -11,6 +11,9 @@ export interface User {
   subscriptionTier?: 'free' | 'pro' | 'enterprise';
   trialEndsAt?: string | null;
   isInTrial?: boolean;
+  trialDaysRemaining?: number;
+  trialEndReason?: 'milestone' | 'expiry' | null;
+  hasCompletedFirstQuest?: boolean;
   referralCode?: string;
   referralCount?: number;
   emailVerified: boolean;

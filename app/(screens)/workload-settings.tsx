@@ -86,7 +86,7 @@ const WorkloadSettings = () => {
           paddingHorizontal: 20,
           paddingVertical: 14,
         }}>
-        <AnimatedPressable onPress={() => router.back()} hitSlop={20} scaleDown={0.9}>
+        <AnimatedPressable onPress={() => router.back()} hitSlop={20} scaleDown={0.9} accessibilityLabel="Go back">
           <Ionicons name="arrow-back" size={22} color={theme.text} />
         </AnimatedPressable>
         <Text style={{ fontSize: 17, fontWeight: '700', color: theme.text, marginLeft: 12 }}>

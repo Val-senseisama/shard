@@ -149,7 +149,7 @@ const AssignmentSheet: React.FC<Props> = ({
                   const isAssigning = assigningTo === p.user;
 
                   return (
-                    <Animated.View key={p.user} entering={FadeInDown.delay(i * 50).duration(300)}>
+                    <Animated.View key={p.user} entering={FadeInDown.delay(i * 30).duration(260)}>
                       <AnimatedPressable
                         onPress={() => handleAssign(p.user)}
                         disabled={!!assigningTo}

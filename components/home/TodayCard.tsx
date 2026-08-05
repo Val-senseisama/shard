@@ -11,9 +11,15 @@ import { useScheduleStore, ScheduleTask } from '~/store/schedule.store';
 import { useUserStore } from '~/store/user.store';
 import { groupTasksByLocalDate, todayKey } from '~/helpers/dateKeys';
 import { canUndo } from '~/helpers/undo';
+import Animated, { LinearTransition } from 'react-native-reanimated';
 import AnimatedPressable from '~/components/AnimatedPressable';
 import CelebrationOverlay from '~/components/CelebrationOverlay';
+import TaskCheck, { TaskTitle } from '~/components/TaskCheck';
+import { haptic } from '~/helpers/motion';
 import { hud, FONT, HudLabel, Num, ShardBar, HudSkeleton } from '~/components/hud';
+
+/** Shared so every row settles on the same curve. */
+const rowLayout = LinearTransition.duration(200);
 
 const MAX_ROWS = 4;
 
@@ -33,33 +39,26 @@ const TaskRow = ({
     <AnimatedPressable
       scaleDown={0.98}
       onPress={() => (!done || undoable) && onToggle(task)}
+      disabled={done && !undoable}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: done, disabled: done && !undoable }}
+      accessibilityLabel={task.title}
+      accessibilityHint={
+        done
+          ? undoable
+            ? 'Double tap to undo'
+            : undefined
+          : 'Double tap to mark complete'
+      }
       style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10 }}>
-      <View
-        style={{
-          width: 22,
-          height: 22,
-          borderRadius: 11,
-          borderWidth: 1.5,
-          borderColor: done ? c.violet : c.panelBorderStrong,
-          backgroundColor: done ? c.violet : 'transparent',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginRight: 12,
-        }}>
-        {done && <Ionicons name="checkmark" size={13} color="#fff" />}
+      <View style={{ marginRight: 12 }}>
+        <TaskCheck done={done} isDark={isDark} disabled={done && !undoable} />
       </View>
 
       <View style={{ flex: 1 }}>
-        <Text
-          numberOfLines={1}
-          style={{
-            fontSize: 14,
-            fontFamily: FONT.semibold,
-            color: done ? c.textFaint : c.text,
-            textDecorationLine: done ? 'line-through' : 'none',
-          }}>
+        <TaskTitle done={done} isDark={isDark} size={14} style={{ fontFamily: FONT.semibold }}>
           {task.title}
-        </Text>
+        </TaskTitle>
         {!!task.shardTitle && (
           <Text numberOfLines={1} style={{ fontSize: 12, fontFamily: FONT.regular, color: c.textFaint, marginTop: 2 }}>
             {task.shardTitle}
@@ -209,9 +208,14 @@ const TodayCard = ({ isDark: isDarkProp }: { isDark?: boolean }) => {
       try {
         if (task.completed) {
           if (!canUndo(task)) return; // window closed — row is inert, not tappable
+          // Fire the haptic with the OPTIMISTIC state change, not after the
+          // network call — the feedback has to land with the finger, otherwise
+          // it reads as a delayed glitch rather than a response.
+          haptic.undo();
           markLocalIncomplete(task.id);
           await uncompleteTask({ variables: vars });
         } else {
+          haptic.complete();
           markLocalComplete(task.id);
           await completeTask(vars);
         }
@@ -316,7 +320,12 @@ const TodayCard = ({ isDark: isDarkProp }: { isDark?: boolean }) => {
         ) : (
           <View style={{ marginTop: 4 }}>
             {visible.map((task) => (
-              <TaskRow key={task.id} task={task} isDark={isDark} onToggle={handleToggle} />
+              // `layout` makes the list settle instead of jumping when a row's
+              // height changes — the undo chip appearing used to snap everything
+              // below it down by ~20px.
+              <Animated.View key={task.id} layout={rowLayout}>
+                <TaskRow task={task} isDark={isDark} onToggle={handleToggle} />
+              </Animated.View>
             ))}
             {overflow > 0 && (
               <AnimatedPressable

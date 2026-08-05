@@ -2,6 +2,7 @@ import React, { memo } from 'react';
 import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AnimatedPressable from '~/components/AnimatedPressable';
+import TaskCheck, { TaskTitle } from '~/components/TaskCheck';
 import { t, getCardShadow } from './constants';
 
 interface ScheduleTaskCardProps {
@@ -55,29 +56,17 @@ export const ScheduleTaskCard = memo(({ task, color, isDark, onToggle }: Schedul
           <AnimatedPressable
             onPress={() => onToggle(task)}
             scaleDown={0.98}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: !!task.completed }}
+            accessibilityLabel={task.title}
+            accessibilityHint={task.completed ? undefined : 'Double tap to mark complete'}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <View
-              style={{
-                width: 22,
-                height: 22,
-                borderRadius: 11,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: task.completed ? color : 'transparent',
-                borderWidth: task.completed ? 0 : 2,
-                borderColor: theme.border,
-              }}>
-              {task.completed && <Ionicons name="checkmark" size={14} color="#fff" />}
+            <TaskCheck done={!!task.completed} isDark={isDark} tint={color} />
+            <View style={{ flex: 1 }}>
+              <TaskTitle done={!!task.completed} isDark={isDark} size={14}>
+                {task.title}
+              </TaskTitle>
             </View>
-            <Text
-              style={{
-                flex: 1,
-                fontSize: 14,
-                color: task.completed ? theme.textSecondary : theme.text,
-                textDecorationLine: task.completed ? 'line-through' : 'none',
-              }}>
-              {task.title}
-            </Text>
           </AnimatedPressable>
         </View>
       </View>

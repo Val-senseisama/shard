@@ -30,6 +30,7 @@ import Animated, {
   withDelay,
   runOnJS,
 } from 'react-native-reanimated';
+import { useReducedMotion } from '~/helpers/motion';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Animated as RNAnimated } from 'react-native';
 import * as Haptics from 'expo-haptics';
@@ -60,13 +61,17 @@ import MiniTaskAssignmentCard from '~/components/MiniTaskAssignmentCard';
 
 const BubbleSkeleton = ({ isMe, width, isDark }: { isMe: boolean; width: string; isDark: boolean }) => {
   const opacity = useSharedValue(0.3);
+  const reducedMotion = useReducedMotion();
+
   useEffect(() => {
+    // Decorative loop — hold still when the user asked for less motion.
+    if (reducedMotion) return;
     opacity.value = withRepeat(
       withSequence(withTiming(0.7, { duration: 900 }), withTiming(0.3, { duration: 900 })),
       -1,
       true
     );
-  }, []);
+  }, [reducedMotion]);
   const anim = useAnimatedStyle(() => ({ opacity: opacity.value }));
   const bg = isDark ? '#2a2a2a' : '#e5e7eb';
   return (
@@ -94,7 +99,11 @@ const ChatSkeleton = ({ isDark }: { isDark: boolean }) => (
 
 const TypingDot = ({ delay }: { delay: number }) => {
   const y = useSharedValue(0);
+  const reducedMotion = useReducedMotion();
   useEffect(() => {
+    // The bounce is decorative, but the dots themselves carry meaning ("someone
+    // is typing") — so with motion off they stay put and stay visible.
+    if (reducedMotion) return;
     y.value = withDelay(
       delay,
       withRepeat(
@@ -107,7 +116,7 @@ const TypingDot = ({ delay }: { delay: number }) => {
         false
       )
     );
-  }, []);
+  }, [reducedMotion]);
   const style = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
   return (
     <Animated.View style={[{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#8b5cf6' }, style]} />
@@ -243,7 +252,7 @@ const AudioMessagePlayer = memo(
             backgroundColor: isMe ? 'rgba(255,255,255,0.25)' : '#3b82f6',
             alignItems: 'center',
             justifyContent: 'center',
-          }}>
+          }} accessibilityRole="button" accessibilityLabel={isPlaying ? 'Pause' : 'Play'}>
           <Ionicons name={isPlaying ? 'pause' : 'play'} size={18} color="#fff" />
         </TouchableOpacity>
         <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 2, height: 32 }}>
@@ -1325,7 +1334,7 @@ const ShardChat = () => {
     <SafeAreaView className="flex-1 bg-background-paper dark:bg-background-dark-default">
       {/* Header */}
       <View className="z-10 flex-row items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-800">
-        <TouchableOpacity onPress={() => router.back()} hitSlop={20}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={20} accessibilityLabel="Go back">
           <Ionicons name="arrow-back" size={24} color={colorScheme === 'dark' ? '#fff' : '#000'} />
         </TouchableOpacity>
         <View className="items-center">
@@ -1338,7 +1347,7 @@ const ShardChat = () => {
             </Text>
           )}
         </View>
-        <TouchableOpacity onPress={() => setShowMenu(true)} hitSlop={20}>
+        <TouchableOpacity onPress={() => setShowMenu(true)} hitSlop={20} accessibilityLabel="More options">
           <Ionicons name="ellipsis-vertical" size={24} color={colorScheme === 'dark' ? '#fff' : '#000'} />
         </TouchableOpacity>
       </View>
@@ -1417,7 +1426,7 @@ const ShardChat = () => {
                   </Text>
                 </View>
               </View>
-              <TouchableOpacity onPress={() => setReplyingTo(null)} hitSlop={12}>
+              <TouchableOpacity onPress={() => setReplyingTo(null)} hitSlop={12} accessibilityLabel="Close">
                 <Ionicons name="close" size={18} color="#9ca3af" />
               </TouchableOpacity>
             </View>
@@ -1432,7 +1441,7 @@ const ShardChat = () => {
                   Editing: {editingMessage.content.slice(0, 40)}
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => { setEditingMessage(null); setMessage(''); }}>
+              <TouchableOpacity onPress={() => { setEditingMessage(null); setMessage(''); }} accessibilityLabel="Close">
                 <Ionicons name="close" size={18} color="#9ca3af" />
               </TouchableOpacity>
             </View>
@@ -1454,7 +1463,7 @@ const ShardChat = () => {
                   <Text className="mt-1 text-[10px] text-gray-500">{label}</Text>
                 </View>
               ))}
-              <TouchableOpacity onPress={() => setIsAttachmentMenuOpen(false)} className="absolute right-4 top-4">
+              <TouchableOpacity onPress={() => setIsAttachmentMenuOpen(false)} className="absolute right-4 top-4" accessibilityLabel="Clear">
                 <Ionicons name="close-circle" size={20} color="#9ca3af" />
               </TouchableOpacity>
             </Animated.View>
@@ -1465,7 +1474,7 @@ const ShardChat = () => {
             <View className="border-b border-gray-200 p-3 dark:border-gray-800">
               <View className="relative">
                 <Image source={{ uri: selectedMediaUri }} className="h-24 w-32 rounded-lg" resizeMode="cover" />
-                <TouchableOpacity onPress={() => setSelectedMediaUri(null)} className="absolute -right-2 -top-2 rounded-full bg-red-500 p-1">
+                <TouchableOpacity onPress={() => setSelectedMediaUri(null)} className="absolute -right-2 -top-2 rounded-full bg-red-500 p-1" accessibilityLabel="Close">
                   <Ionicons name="close" size={16} color="#fff" />
                 </TouchableOpacity>
               </View>
@@ -1474,7 +1483,7 @@ const ShardChat = () => {
 
           {/* Input row */}
           <View className="flex-row items-center p-4">
-            <TouchableOpacity className="mr-3" onPress={() => setIsAttachmentMenuOpen(!isAttachmentMenuOpen)} disabled={uploading || !!editingMessage}>
+            <TouchableOpacity className="mr-3" onPress={() => setIsAttachmentMenuOpen(!isAttachmentMenuOpen)} disabled={uploading || !!editingMessage} accessibilityLabel="Add">
               <Ionicons name="add-circle-outline" size={28} color={uploading || editingMessage ? '#d1d5db' : colorScheme === 'dark' ? '#9ca3af' : '#6b7280'} />
             </TouchableOpacity>
 
@@ -1506,7 +1515,7 @@ const ShardChat = () => {
                   editable={!sending && !uploading && !isRecording}
                 />
                 {message.length === 0 && !selectedMediaUri && !editingMessage && (
-                  <TouchableOpacity onPressIn={startRecording} onPressOut={() => stopRecording(false)} className="ml-2">
+                  <TouchableOpacity onPressIn={startRecording} onPressOut={() => stopRecording(false)} className="ml-2" accessibilityLabel="Record audio">
                     <Ionicons name="mic-outline" size={24} color="#9ca3af" />
                   </TouchableOpacity>
                 )}
@@ -1514,11 +1523,12 @@ const ShardChat = () => {
             )}
 
             {isRecording ? (
-              <TouchableOpacity onPress={() => stopRecording(true)} style={{ marginLeft: 10, width: 44, height: 44, borderRadius: 22, backgroundColor: '#ef4444', alignItems: 'center', justifyContent: 'center' }}>
+              <TouchableOpacity onPress={() => stopRecording(true)} style={{ marginLeft: 10, width: 44, height: 44, borderRadius: 22, backgroundColor: '#ef4444', alignItems: 'center', justifyContent: 'center' }} accessibilityLabel="Delete">
                 <Ionicons name="trash-outline" size={20} color="#fff" />
               </TouchableOpacity>
             ) : (message.trim() || selectedMediaUri) ? (
-              <AnimatedPressable onPress={handleSend} disabled={sending || uploading} scaleDown={0.88} style={{ marginLeft: 10, width: 44, height: 44, borderRadius: 22, backgroundColor: '#3b82f6', alignItems: 'center', justifyContent: 'center', opacity: sending || uploading ? 0.7 : 1 }}>
+              <AnimatedPressable onPress={handleSend} disabled={sending || uploading} scaleDown={0.88} style={{ marginLeft: 10, width: 44, height: 44, borderRadius: 22, backgroundColor: '#3b82f6', alignItems: 'center', justifyContent: 'center', opacity: sending || uploading ? 0.7 : 1 }}
+            accessibilityLabel="Send">
                 {sending || uploading ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="send" size={20} color="#fff" />}
               </AnimatedPressable>
             ) : null}
@@ -1532,7 +1542,7 @@ const ShardChat = () => {
           <View className="h-[70%] rounded-t-3xl bg-white p-6 dark:bg-gray-900">
             <View className="mb-6 flex-row items-center justify-between">
               <Text className="text-xl font-bold text-text-primary dark:text-text-dark">Create Poll</Text>
-              <TouchableOpacity onPress={() => setShowPollModal(false)}>
+              <TouchableOpacity onPress={() => setShowPollModal(false)} accessibilityLabel="Close">
                 <Ionicons name="close" size={28} color={colorScheme === 'dark' ? '#fff' : '#000'} />
               </TouchableOpacity>
             </View>

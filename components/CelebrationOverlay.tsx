@@ -13,6 +13,7 @@ import Animated, {
   Easing,
   withRepeat,
 } from 'react-native-reanimated';
+import { useReducedMotion, haptic } from '~/helpers/motion';
 import { Ionicons } from '@expo/vector-icons';
 
 interface CelebrationOverlayProps {
@@ -39,6 +40,10 @@ const CelebrationOverlay: React.FC<CelebrationOverlayProps> = ({
 
   useEffect(() => {
     if (visible) {
+      // The milestone moment had no haptic at all — a full-screen celebration
+      // that the hand can't feel is a strange omission when the OS gives you a
+      // success pattern for free.
+      haptic.celebrate();
       opacity.value = withTiming(1, { duration: 300 });
       scale.value = withSpring(1);
 
@@ -136,7 +141,11 @@ const ConfettiParticle = ({
   const rotation = useSharedValue(0);
   const scale = useSharedValue(0);
 
+  const reducedMotion = useReducedMotion();
+
   useEffect(() => {
+    // Decorative loop — hold still when the user asked for less motion.
+    if (reducedMotion) return;
     const angle = (Math.PI * 2 * index) / PARTICLE_COUNT;
     const velocity = 100 + Math.random() * 200;
     const targetX = width / 2 + Math.cos(angle) * width * 0.8;
@@ -162,7 +171,7 @@ const ConfettiParticle = ({
     });
 
     rotation.value = withRepeat(withTiming(360, { duration: 1000 + Math.random() * 1000 }), -1);
-  }, []);
+  }, [reducedMotion]);
 
   const style = useAnimatedStyle(() => ({
     transform: [

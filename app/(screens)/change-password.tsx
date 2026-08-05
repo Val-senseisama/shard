@@ -97,7 +97,7 @@ export default function ChangePasswordPage() {
                   Change Password
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => router.back()}>
+              <TouchableOpacity onPress={() => router.back()} accessibilityLabel="Close">
                 <Ionicons name="close" size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />
               </TouchableOpacity>
             </View>
@@ -127,7 +127,10 @@ export default function ChangePasswordPage() {
                       className="flex-1"
                       style={{ color: isDark ? '#FFF' : '#000' }}
                     />
-                    <TouchableOpacity onPress={() => setShowCurrent(!showCurrent)}>
+                    <TouchableOpacity
+                      onPress={() => setShowCurrent(!showCurrent)}
+                      accessibilityRole="button"
+                      accessibilityLabel={showCurrent ? 'Hide password' : 'Show password'}>
                       <Ionicons
                         name={showCurrent ? 'eye-off-outline' : 'eye-outline'}
                         size={20}
@@ -159,7 +162,10 @@ export default function ChangePasswordPage() {
                       className="flex-1"
                       style={{ color: isDark ? '#FFF' : '#000' }}
                     />
-                    <TouchableOpacity onPress={() => setShowNew(!showNew)}>
+                    <TouchableOpacity
+                      onPress={() => setShowNew(!showNew)}
+                      accessibilityRole="button"
+                      accessibilityLabel={showNew ? 'Hide password' : 'Show password'}>
                       <Ionicons
                         name={showNew ? 'eye-off-outline' : 'eye-outline'}
                         size={20}
@@ -194,7 +200,10 @@ export default function ChangePasswordPage() {
                       className="flex-1"
                       style={{ color: isDark ? '#FFF' : '#000' }}
                     />
-                    <TouchableOpacity onPress={() => setShowConfirm(!showConfirm)}>
+                    <TouchableOpacity
+                      onPress={() => setShowConfirm(!showConfirm)}
+                      accessibilityRole="button"
+                      accessibilityLabel={showConfirm ? 'Hide password' : 'Show password'}>
                       <Ionicons
                         name={showConfirm ? 'eye-off-outline' : 'eye-outline'}
                         size={20}

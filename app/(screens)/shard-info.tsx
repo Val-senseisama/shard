@@ -126,7 +126,8 @@ const AnimatedTaskRow = ({
             borderColor: isDark ? '#4b5563' : '#d1d5db',
             alignItems: 'center',
             justifyContent: 'center',
-          }}>
+          }}
+            accessibilityRole="button" accessibilityLabel="Confirm">
           {task.completed && (
             <Animated.View style={checkStyle}>
               <Ionicons name="checkmark" size={14} color="#fff" />
@@ -721,7 +722,7 @@ const ShardInfo = () => {
         return (
           <Animated.View
             key={goal.id}
-            entering={FadeInDown.delay(goalIndex * 80).duration(350)}
+            entering={FadeInDown.delay(goalIndex * 30).duration(260)}
             style={{ marginBottom: 16 }}>
             {/* Goal header — long-press to assign whole goal */}
             <Pressable
@@ -1006,7 +1007,7 @@ const ShardInfo = () => {
                         router.push(`/shard/${chatIdentifier}/chat`);
                       }}
                       className="items-center justify-center rounded-full p-2"
-                      style={{ backgroundColor: colorScheme === 'dark' ? '#374151' : '#e5e7eb' }}>
+                      style={{ backgroundColor: colorScheme === 'dark' ? '#374151' : '#e5e7eb' }} accessibilityLabel="Open chat">
                       <Ionicons
                         name="chatbubble-outline"
                         size={18}
@@ -1017,7 +1018,7 @@ const ShardInfo = () => {
                     <TouchableOpacity
                       onPress={() => router.push(`/shard/${shard.id}/edit`)}
                       className="items-center justify-center rounded-full p-2"
-                      style={{ backgroundColor: colorScheme === 'dark' ? '#374151' : '#e5e7eb' }}>
+                      style={{ backgroundColor: colorScheme === 'dark' ? '#374151' : '#e5e7eb' }} accessibilityLabel="Edit">
                       <Ionicons
                         name="create-outline"
                         size={18}
@@ -1044,7 +1045,7 @@ const ShardInfo = () => {
                     <TouchableOpacity
                       onPress={() => router.push(`/shard/${shard.id}/notifications`)}
                       className="items-center justify-center rounded-full p-2"
-                      style={{ backgroundColor: colorScheme === 'dark' ? '#374151' : '#e5e7eb' }}>
+                      style={{ backgroundColor: colorScheme === 'dark' ? '#374151' : '#e5e7eb' }} accessibilityLabel="Notifications">
                       <Ionicons
                         name="notifications-outline"
                         size={18}
@@ -1630,7 +1631,7 @@ const ShardInfo = () => {
                   return (
                     <Animated.View
                       key={groupIndex}
-                      entering={FadeInDown.delay(groupIndex * 100)}
+                      entering={FadeInDown.delay(groupIndex * 30)}
                       className="overflow-hidden rounded-2xl"
                       style={{ backgroundColor: colorScheme === 'dark' ? '#1f2937' : '#f9fafb' }}>
                       <View className="flex-row">

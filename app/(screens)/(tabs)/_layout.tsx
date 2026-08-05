@@ -26,7 +26,7 @@ const renderIcon = (name: string, color: string, focused: boolean) => {
 // The core "Forge a quest" action — a crystalline shard, centered in the bar.
 const CenterForge = () => (
   <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-    <Pressable onPress={() => router.push('/new-shard')} style={{ alignItems: 'center', justifyContent: 'center' }} hitSlop={10}>
+    <Pressable onPress={() => router.push('/new-shard')} style={{ alignItems: 'center', justifyContent: 'center' }} hitSlop={10} accessibilityRole="button" accessibilityLabel="New quest">
       <View style={styles.forgeGlow} />
       <LinearGradient colors={SHARD_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.forge}>
         <LinearGradient

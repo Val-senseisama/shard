@@ -49,7 +49,7 @@ const PurchaseHistory = () => {
 
   const renderItem = ({ item, index }: { item: any; index: number }) => (
     <Animated.View
-      entering={FadeInDown.delay(index * 50)}
+      entering={FadeInDown.delay(index * 30)}
       style={[styles.item, { backgroundColor: theme.card, borderColor: theme.border }]}>
       <View
         style={[
@@ -83,7 +83,7 @@ const PurchaseHistory = () => {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       {/* Header */}
       <View style={styles.header}>
-        <AnimatedPressable onPress={() => router.back()} hitSlop={20}>
+        <AnimatedPressable onPress={() => router.back()} hitSlop={20} accessibilityLabel="Go back">
           <Ionicons name="arrow-back" size={24} color={theme.text} />
         </AnimatedPressable>
         <Text style={[styles.headerTitle, { color: theme.text }]}>Purchase History</Text>

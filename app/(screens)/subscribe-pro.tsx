@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -34,14 +34,32 @@ const PRO_FEATURES = [
 const PACKAGE_ID_MAP: Record<string, string> = {
   monthly: '$rc_monthly',
   yearly: '$rc_annual',
-  lifetime: '$rc_lifetime',
 };
 
+/**
+ * The plans we offer, in display order — annual first, because it's the one we
+ * want chosen and the one that's actually good value (~49% off monthly).
+ *
+ * Lifetime is deliberately absent. At $199.99 it bought *unlimited AI* forever:
+ * ~40 months of monthly revenue from the customers most likely to have stayed
+ * longest, with a permanent support obligation, no recurring revenue, and a
+ * margin that goes negative the longer the buyer sticks around. If we ever want
+ * lifetime again it should be a time-boxed founder offer with a stated AI cap,
+ * not a standing option.
+ *
+ * Anything the store returns that isn't on this list is filtered out, so a
+ * leftover RevenueCat package can't render as a half-broken row.
+ */
+const SUPPORTED_PLANS = ['yearly', 'monthly'] as const;
+
 const PLAN_META: Record<string, { label: string; period: string; badge?: string }> = {
-  monthly: { label: 'Monthly', period: 'per month' },
   yearly:  { label: 'Yearly',  period: 'per year',  badge: 'BEST VALUE' },
-  lifetime:{ label: 'Lifetime',period: 'one-time payment' },
+  monthly: { label: 'Monthly', period: 'per month' },
 };
+
+/** Store/DB packages, filtered to what we sell and ordered for display. */
+const orderPlans = (pkgs: any[]): any[] =>
+  SUPPORTED_PLANS.map((id) => pkgs.find((p) => p.identifier === id)).filter(Boolean);
 
 // Reason-specific line shown when the paywall is opened from a cap-hit.
 const SOURCE_REASON: Record<string, string> = {
@@ -49,6 +67,7 @@ const SOURCE_REASON: Record<string, string> = {
   shard_limit: "You've reached your 3-shard free limit.",
   collaborator_limit: 'Your free plan includes 1 collaborator per shard.',
   team_limit: 'Upgrade to create larger teams.',
+  first_completion: 'Your free Pro run ends here — it lasted until you finished something.',
 };
 
 const dayLabel = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
@@ -62,9 +81,11 @@ export default function SubscribeToProPage() {
   const reason = source ? SOURCE_REASON[source] : undefined;
   const user = useUserStore((state) => state.user);
   const isOnboarding = source === 'onboarding';
-  const trialDaysLeft = user?.trialEndsAt
-    ? Math.max(0, Math.ceil((new Date(user.trialEndsAt).getTime() - Date.now()) / 86400000))
-    : 0;
+  const isFirstCompletion = source === 'first_completion';
+  // Server-computed: the trial ends at the first finished quest, so the effective
+  // deadline can be earlier than the stored `trialEndsAt`. Recomputing it here
+  // from the raw date would overstate how long the user has.
+  const trialDaysLeft = user?.trialDaysRemaining ?? 0;
   const inTrial = !!user?.isInTrial && trialDaysLeft > 0;
 
   const [selectedPkgId, setSelectedPkgId] = useState<string>('yearly');
@@ -72,9 +93,60 @@ export default function SubscribeToProPage() {
   const [restoring, setRestoring] = useState(false);
   const purchaseInFlight = useRef(false);
 
+  // The DB `Offering` collection is a FALLBACK only — see below.
   const { data, loading, error } = useQuery(GET_OFFERINGS, { fetchPolicy: 'cache-and-network' });
   const offerings: any[] = data?.listOfferings ?? [];
-  const packages: any[] = offerings.flatMap((o) => o.packages);
+  const dbPackages: any[] = offerings.flatMap((o) => o.packages);
+
+  /**
+   * Prices come from RevenueCat, not from our database.
+   *
+   * The paywall used to render `priceString` straight out of Mongo while charging
+   * whatever Play/App Store actually had configured — two independent sources of
+   * truth for the same number. Two consequences, both bad:
+   *
+   *  - if they drift, we display one price and bill another, which is a store
+   *    policy violation and a refund/chargeback magnet;
+   *  - the stored strings are hardcoded USD, so a user in India or Brazil was
+   *    shown "$50.00" and charged a completely different localised amount.
+   *
+   * RevenueCat's `product.priceString` is already localised and is by definition
+   * the amount that will be charged. The DB values are kept only as a last-resort
+   * fallback for when the store SDK is unreachable, and are labelled as approximate
+   * when used.
+   */
+  const [rcPackages, setRcPackages] = useState<any[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    purchasesService
+      .getOfferings()
+      .then((o) => {
+        if (cancelled || !o?.availablePackages) return;
+        setRcPackages(
+          o.availablePackages.map((p: any) => ({
+            identifier:
+              Object.keys(PACKAGE_ID_MAP).find(
+                (k) => PACKAGE_ID_MAP[k] === p.packageType || PACKAGE_ID_MAP[k] === p.identifier
+              ) ?? p.identifier,
+            priceString: p.product?.priceString ?? '',
+            price: p.product?.price ?? 0,
+            currencyCode: p.product?.currencyCode ?? 'USD',
+            rcPackage: p,
+          }))
+        );
+      })
+      .catch(() => {
+        // Leave rcPackages null so the DB fallback renders.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const storePlans = orderPlans(rcPackages ?? []);
+  const usingStorePrices = storePlans.length > 0;
+  const packages: any[] = usingStorePrices ? storePlans : orderPlans(dbPackages);
 
   const updateUser = useUserStore((state) => state.updateUser);
 
@@ -89,10 +161,16 @@ export default function SubscribeToProPage() {
         Toast.show({ type: 'error', text1: 'Store unavailable', text2: 'Please try again later.' });
         return;
       }
+      // Prefer the exact package the displayed price came from — that's what makes
+      // "what you see is what you're charged" true rather than hopeful.
+      const displayed = packages.find((p) => p.identifier === selectedPkgId)?.rcPackage;
       const rcPkgId = PACKAGE_ID_MAP[selectedPkgId];
-      const pkg = rcOfferings.availablePackages.find(
-        (p) => p.packageType === rcPkgId || p.identifier === rcPkgId
-      ) ?? rcOfferings.availablePackages[0];
+      const pkg =
+        displayed ??
+        rcOfferings.availablePackages.find(
+          (p) => p.packageType === rcPkgId || p.identifier === rcPkgId
+        ) ??
+        rcOfferings.availablePackages[0];
 
       if (!pkg) throw new Error('No packages available in store.');
 
@@ -149,7 +227,7 @@ export default function SubscribeToProPage() {
       <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
 
         {/* Close */}
-        <AnimatedPressable onPress={() => router.back()} scaleDown={0.88} style={{ alignSelf: 'flex-start', marginBottom: 20 }}>
+        <AnimatedPressable onPress={() => router.back()} scaleDown={0.88} style={{ alignSelf: 'flex-start', marginBottom: 20 }} accessibilityLabel="Close">
           <Ionicons name="close" size={24} color={theme.textSecondary} />
         </AnimatedPressable>
 
@@ -161,7 +239,11 @@ export default function SubscribeToProPage() {
             <Ionicons name="flash" size={36} color="#fff" />
           </LinearGradient>
           <Text style={{ fontSize: 28, fontWeight: '800', color: theme.text, textAlign: 'center', letterSpacing: -0.5 }}>
-            {isOnboarding ? 'Your Pro trial is live' : 'Unlock Shard Pro'}
+            {isFirstCompletion
+              ? 'You just finished a quest'
+              : isOnboarding
+                ? 'Your Pro trial is live'
+                : 'Unlock Shard Pro'}
           </Text>
           {inTrial ? (
             <View style={{ backgroundColor: 'rgba(124,58,237,0.12)', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8, marginTop: 12 }}>
@@ -177,15 +259,17 @@ export default function SubscribeToProPage() {
             </View>
           ) : null}
           <Text style={{ fontSize: 15, color: theme.textSecondary, textAlign: 'center', marginTop: 8, lineHeight: 22 }}>
-            {isOnboarding
-              ? 'Keep unlimited AI, advanced analytics and your AI coach after the trial — lock in Pro now.'
-              : 'Supercharge your productivity with unlimited access to all features.'}
+            {isFirstCompletion
+              ? 'That\u2019s the thing working. Pro keeps the AI planning, the coach and the analytics coming for the next one.'
+              : isOnboarding
+                ? 'Keep unlimited AI, advanced analytics and your AI coach after the trial \u2014 lock in Pro now.'
+                : 'Supercharge your productivity with unlimited access to all features.'}
           </Text>
         </Animated.View>
 
         {/* Features */}
         <Animated.View
-          entering={FadeInDown.delay(100).duration(400)}
+          entering={FadeInDown.delay(100).duration(260)}
           style={{ backgroundColor: theme.card, borderRadius: 18, padding: 20, marginBottom: 24, gap: 14, borderWidth: 1, borderColor: isDark ? theme.border : 'rgba(0,0,0,0.05)' }}>
           {PRO_FEATURES.map((f) => (
             <View key={f.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
@@ -206,7 +290,7 @@ export default function SubscribeToProPage() {
             Could not load plans. Check your connection.
           </Text>
         ) : (
-          <Animated.View entering={FadeInDown.delay(200).duration(400)} style={{ gap: 12, marginBottom: 24 }}>
+          <Animated.View entering={FadeInDown.delay(150).duration(260)} style={{ gap: 12, marginBottom: 24 }}>
             {packages.map((pkg) => {
               const selected = selectedPkgId === pkg.identifier;
               const meta = PLAN_META[pkg.identifier] ?? { label: pkg.identifier, period: '' };
@@ -276,14 +360,15 @@ export default function SubscribeToProPage() {
           </LinearGradient>
         </AnimatedPressable>
 
-        {/* Onboarding skip — the trial is already active, so let them explore first */}
-        {isOnboarding && (
+        {/* An easy way out. Someone who just finished a quest has earned goodwill;
+            trapping them behind a wall spends it. */}
+        {(isOnboarding || isFirstCompletion) && (
           <AnimatedPressable
             onPress={() => router.replace('/(screens)/(tabs)/Home')}
             scaleDown={0.94}
             style={{ alignItems: 'center', paddingVertical: 12, marginBottom: 4 }}>
             <Text style={{ color: theme.textSecondary, fontSize: 15, fontWeight: '600' }}>
-              Continue with my free trial →
+              {isFirstCompletion ? 'Maybe later →' : 'Continue with my free trial →'}
             </Text>
           </AnimatedPressable>
         )}
@@ -298,7 +383,9 @@ export default function SubscribeToProPage() {
         </AnimatedPressable>
 
         <Text style={{ color: theme.textSecondary, fontSize: 12, textAlign: 'center', lineHeight: 18 }}>
-          Prices shown in {packages.find(p => p.identifier === selectedPkgId)?.currencyCode ?? 'local currency'}.{' '}
+          {usingStorePrices
+            ? `Prices shown in ${packages.find((p) => p.identifier === selectedPkgId)?.currencyCode ?? 'your local currency'}, charged by the store.`
+            : 'Approximate prices — your store will show the exact amount in your local currency at checkout.'}{' '}
           Subscription renews automatically. Cancel anytime.
         </Text>
       </ScrollView>

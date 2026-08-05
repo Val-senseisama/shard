@@ -8,6 +8,7 @@ import Animated, {
   useSharedValue,
   Easing,
 } from 'react-native-reanimated';
+import { useReducedMotion } from '~/helpers/motion';
 import { Ionicons } from '@expo/vector-icons';
 
 interface RescheduledBadgeProps {
@@ -23,7 +24,11 @@ export default function RescheduledBadge({ originalDate, onPress }: RescheduledB
   const glowOpacity = useSharedValue(0.3);
   const scale = useSharedValue(1);
 
+  const reducedMotion = useReducedMotion();
+
   React.useEffect(() => {
+    // Decorative loop — hold still when the user asked for less motion.
+    if (reducedMotion) return;
     // Pulsing glow effect
     glowOpacity.value = withRepeat(
       withSequence(
@@ -33,7 +38,7 @@ export default function RescheduledBadge({ originalDate, onPress }: RescheduledB
       -1,
       false
     );
-  }, []);
+  }, [reducedMotion]);
 
   const glowStyle = useAnimatedStyle(() => ({
     opacity: glowOpacity.value,

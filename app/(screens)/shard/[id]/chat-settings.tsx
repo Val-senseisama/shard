@@ -115,7 +115,7 @@ const ChatSettings = () => {
   return (
     <SafeAreaView className="flex-1 bg-background-paper dark:bg-background-dark-default">
       <View className="flex-row items-center border-b border-gray-200 px-4 py-3 dark:border-gray-800">
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => router.back()} accessibilityLabel="Go back">
           <Ionicons name="arrow-back" size={24} color={colorScheme === 'dark' ? '#fff' : '#000'} />
         </TouchableOpacity>
         <Text className="ml-4 text-lg font-bold text-text-primary dark:text-text-dark">

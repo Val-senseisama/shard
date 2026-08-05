@@ -104,7 +104,7 @@ const apolloClient = new ApolloClient({
 });
 import { isLoggedIn } from '@/helpers/isLoggedIn';
 import Toast from 'react-native-toast-message';
-import { Text, View } from 'react-native';
+import { AppState, Text, View } from 'react-native';
 import CrystalShape from '@/components/ToastCrystal';
 import UndoToast from '@/components/UndoToast';
 import UserProvider from '@/components/UserProvider';
@@ -115,6 +115,8 @@ import { useAppStore } from '~/store/app.store';
 import { useColorScheme as useNativeWindColorScheme } from 'nativewind';
 import notificationService from '~/services/notificationService';
 import * as Notifications from 'expo-notifications';
+import { SYNC_SESSION } from '@/Graphql/Mutations';
+import { deviceTimeZone } from '~/helpers/dateKeys';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -179,24 +181,41 @@ export default function RootLayout() {
       }
     };
 
-    // Handle notification tap navigation
-    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data;
-
-      if (data?.shardId) {
-        router.push(`/(screens)/shard/${data.shardId as string}`);
-      } else if (data?.chatId) {
+    // Handle notification tap navigation.
+    // `screen` is checked FIRST: the server sends both a deep link and a
+    // shardId on many notifications, and the deep link is the specific
+    // intent — a streak nudge should open the schedule, not the shard it
+    // happens to reference.
+    const routeFromData = (data: Record<string, any> | null | undefined) => {
+      if (!data) return;
+      if (data.screen) {
+        router.push(data.screen as any);
+      } else if (data.chatId) {
         router.push({
           pathname: '/(screens)/shard/[id]/chat',
           params: { id: data.chatId as string },
         });
-      } else if (data?.screen) {
-        router.push(data.screen as any);
+      } else if (data.shardId) {
+        router.push(`/(screens)/shard/${data.shardId as string}`);
       }
+    };
+
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      routeFromData(response.notification.request.content.data);
     });
 
     if (isUserLoggedIn) {
       initNotifications();
+      // A tap that cold-started the app is delivered before this effect ever
+      // runs, so the listener above never sees it. Replay it once, after auth
+      // has resolved — otherwise the push lands the user on the default screen
+      // and the whole point of the notification is lost.
+      notificationService
+        .getLaunchNotificationData()
+        .then((data) => {
+          if (mounted) routeFromData(data);
+        })
+        .catch(() => {});
     }
 
     return () => {
@@ -204,6 +223,27 @@ export default function RootLayout() {
       notificationService.cleanup();
       subscription.remove();
     };
+  }, [isUserLoggedIn]);
+
+  // ─── Session sync (presence + timezone) ──────────────────────────────────
+  // Pushes the device's IANA zone up on mount and on every return to the
+  // foreground. The server schedules every reminder against the STORED zone, so
+  // a user who travels — or who signed up before we captured it — would
+  // otherwise keep getting nudged on someone else's clock.
+  useEffect(() => {
+    if (!isUserLoggedIn) return;
+
+    const sync = () => {
+      apolloClient
+        .mutate({ mutation: SYNC_SESSION, variables: { timezone: deviceTimeZone() } })
+        .catch(() => {}); // best-effort; never block or surface
+    };
+
+    sync();
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') sync();
+    });
+    return () => sub.remove();
   }, [isUserLoggedIn]);
 
   // ─── DB init + auth check + seed stores from SQLite ──────────────────────

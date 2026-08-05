@@ -23,8 +23,10 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
+import { useReducedMotion } from '~/helpers/motion';
 import Toast from 'react-native-toast-message';
 import { MY_SIDE_QUESTS, CAN_GENERATE_SIDE_QUEST, MY_CHALLENGES, MY_SHARDS } from '~/Graphql/Queries';
+import { useUnlocks } from '~/helpers/unlocks';
 import {
   GENERATE_SIDE_QUEST,
   COMPLETE_SIDE_QUEST,
@@ -296,6 +298,13 @@ const SideQuestsScreen = () => {
   const theme = t(isDark);
 
   const [activeTab, setActiveTab] = useState<'quests' | 'challenges'>('quests');
+  const unlocks = useUnlocks();
+  const visibleTabs: ('quests' | 'challenges')[] = unlocks.challenges
+    ? ['quests', 'challenges']
+    : ['quests'];
+  // If challenges lock again (shouldn't happen, but state can arrive late), never
+  // leave the user staring at a tab that isn't offered.
+  const effectiveTab = unlocks.challenges ? activeTab : 'quests';
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [completingId, setCompletingId] = useState<string | null>(null);
   const [exitingIds, setExitingIds] = useState<Set<string>>(new Set());
@@ -330,7 +339,11 @@ const SideQuestsScreen = () => {
   const reasons = canData?.canGenerateSideQuest?.reasons;
 
   // Pulse the generate CTA when available
+  const reducedMotion = useReducedMotion();
+
   useEffect(() => {
+    // Decorative loop — hold still when the user asked for less motion.
+    if (reducedMotion) return;
     if (canGenerate) {
       pulse.value = withRepeat(
         withSequence(withTiming(1.03, { duration: 800 }), withTiming(1, { duration: 800 })),
@@ -340,7 +353,7 @@ const SideQuestsScreen = () => {
     } else {
       pulse.value = withTiming(1, { duration: 200 });
     }
-  }, [canGenerate]);
+  }, [canGenerate, reducedMotion]);
 
   // Mutations
   const [generateQuest] = useMutation(GENERATE_SIDE_QUEST);
@@ -461,14 +474,14 @@ const SideQuestsScreen = () => {
   }, [createChallenge, challengeTitle, challengeDesc, challengeType, challengeXP, chRefetch]);
 
   const onRefresh = useCallback(async () => {
-    if (activeTab === 'quests') {
+    if (effectiveTab === 'quests') {
       await Promise.all([sqRefetch(), canRefetch()]);
     } else {
       await chRefetch();
     }
   }, [activeTab, sqRefetch, canRefetch, chRefetch]);
 
-  const isRefreshing = activeTab === 'quests' ? sqLoading : chLoading;
+  const isRefreshing = effectiveTab === 'quests' ? sqLoading : chLoading;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
@@ -481,12 +494,12 @@ const SideQuestsScreen = () => {
           paddingHorizontal: 16,
           paddingVertical: 12,
         }}>
-        <AnimatedPressable onPress={() => router.back()} hitSlop={20}>
+        <AnimatedPressable onPress={() => router.back()} hitSlop={20} accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={24} color={theme.text} />
         </AnimatedPressable>
         <Text style={{ fontSize: 18, fontWeight: '700', color: theme.text }}>Quests</Text>
-        {activeTab === 'challenges' ? (
-          <AnimatedPressable onPress={() => setShowChallengeModal(true)} hitSlop={20}>
+        {effectiveTab === 'challenges' ? (
+          <AnimatedPressable onPress={() => setShowChallengeModal(true)} hitSlop={20} accessibilityLabel="Add">
             <Ionicons name="add-circle-outline" size={24} color={ACCENT} />
           </AnimatedPressable>
         ) : (
@@ -495,6 +508,10 @@ const SideQuestsScreen = () => {
       </View>
 
       {/* Tabs */}
+      {/* One tab means no switcher. Challenges assume you already know what
+          finishing something feels like, so they appear after the first completed
+          quest — see helpers/unlocks.ts. */}
+      {visibleTabs.length > 1 && (
       <View
         style={{
           flexDirection: 'row',
@@ -504,7 +521,7 @@ const SideQuestsScreen = () => {
           borderRadius: 12,
           padding: 4,
         }}>
-        {(['quests', 'challenges'] as const).map((tab) => (
+        {visibleTabs.map((tab) => (
           <TouchableOpacity
             key={tab}
             onPress={() => setActiveTab(tab)}
@@ -526,6 +543,7 @@ const SideQuestsScreen = () => {
           </TouchableOpacity>
         ))}
       </View>
+      )}
 
       {/* Tab Content */}
       <ScrollView

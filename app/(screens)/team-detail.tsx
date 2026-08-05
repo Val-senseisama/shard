@@ -179,7 +179,7 @@ export default function TeamDetail() {
           paddingHorizontal: 16,
           paddingVertical: 14,
         }}>
-        <AnimatedPressable onPress={() => router.back()} scaleDown={0.9} style={{ padding: 4 }}>
+        <AnimatedPressable onPress={() => router.back()} scaleDown={0.9} style={{ padding: 4 }} accessibilityLabel="Go back">
           <Ionicons name="arrow-back" size={24} color={theme.text} />
         </AnimatedPressable>
         <View style={{ flex: 1, marginHorizontal: 12 }}>
@@ -203,7 +203,8 @@ export default function TeamDetail() {
               {savingName ? (
                 <ActivityIndicator size="small" color={ACCENT} />
               ) : (
-                <AnimatedPressable onPress={handleSaveName} scaleDown={0.9}>
+                <AnimatedPressable onPress={handleSaveName} scaleDown={0.9}
+            accessibilityLabel="Confirm">
                   <Ionicons name="checkmark-circle" size={24} color={ACCENT} />
                 </AnimatedPressable>
               )}
@@ -241,7 +242,7 @@ export default function TeamDetail() {
               alignItems: 'center',
               justifyContent: 'center',
               marginRight: 8,
-            }}>
+            }} accessibilityLabel="Open chat">
             <Ionicons name="chatbubble-outline" size={20} color="#10b981" />
           </AnimatedPressable>
         )}
@@ -282,7 +283,7 @@ export default function TeamDetail() {
           return (
             <Animated.View
               key={member.id}
-              entering={FadeInDown.delay(i * 40).duration(300)}
+              entering={FadeInDown.delay(i * 30).duration(260)}
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -320,7 +321,7 @@ export default function TeamDetail() {
                     backgroundColor: 'rgba(239,68,68,0.1)',
                     alignItems: 'center',
                     justifyContent: 'center',
-                  }}>
+                  }} accessibilityLabel="Remove friend">
                   <Ionicons name="person-remove-outline" size={15} color="#ef4444" />
                 </AnimatedPressable>
               )}

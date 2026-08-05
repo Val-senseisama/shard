@@ -11,6 +11,10 @@ export type PaywallSource =
   | 'collaborator_limit'
   | 'team_limit'
   | 'account'
+  // Shown right after the user's FIRST completed quest — the moment they have
+  // proof the product works, and where the trial now ends. This replaces the
+  // onboarding paywall, which asked for money before anything had been created.
+  | 'first_completion'
   | 'generic';
 
 /**

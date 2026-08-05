@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -32,10 +32,14 @@ import {
   REGENERATE_SHARD,
 } from '~/Graphql/Mutations';
 import { useFriendsStore } from '~/store/friends.store';
+import { useUserStore } from '~/store/user.store';
 
 interface SelectedFriend {
   userId: string;
   role: 'collaborator' | 'accountability_partner';
+  /** Carried from the shard so existing participants render without a friends lookup. */
+  username?: string;
+  profilePic?: string | null;
 }
 
 interface EditingTask {
@@ -60,6 +64,7 @@ const EditShard = () => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { addAlert } = useAppStore();
+  const { user: currentUser } = useUserStore();
   const { friends, setFriends } = useFriendsStore();
 
   const { data: shardData, loading: shardLoading, refetch } = useQuery(GET_SHARD, {
@@ -107,21 +112,38 @@ const EditShard = () => {
   const [deleteTaskMutation] = useMutation(DELETE_TASK);
   const [regenerateShardMutation, { loading: regenerating }] = useMutation(REGENERATE_SHARD);
 
+  // Hydrate the form ONCE per shard.
+  //
+  // This used to run on every `shard` identity change. Because each mini-goal /
+  // task mutation calls refetch(), adding a single task silently reset the
+  // title, description, deadline, privacy toggles and participant list back to
+  // the server's copy — destroying whatever the user had typed but not yet
+  // saved, with no warning. Keyed on the shard id so switching shards still
+  // re-hydrates, while a background refetch leaves the draft alone.
+  const hydratedFor = useRef<string | null>(null);
   useEffect(() => {
-    if (shard) {
-      setTitle(shard.title || '');
-      setDescription(shard.description || '');
-      setDeadline(parseDate(shard.timeline?.endDate));
-      setIsPrivate(shard.isPrivate || false);
-      setIsAnonymous(shard.isAnonymous || false);
-      setUploadedImageUrl(shard.image || null);
-      setSelectedParticipants(
-        shard.participants?.map((p: any) => ({
-          userId: typeof p.user === 'object' ? p.user.id : p.user,
-          role: p.role,
-        })) || []
-      );
-    }
+    if (!shard) return;
+    const shardKey = shard.id ?? shard._id ?? null;
+    if (hydratedFor.current === shardKey) return;
+    hydratedFor.current = shardKey;
+
+    setTitle(shard.title || '');
+    setDescription(shard.description || '');
+    setDeadline(parseDate(shard.timeline?.endDate));
+    setIsPrivate(shard.isPrivate || false);
+    setIsAnonymous(shard.isAnonymous || false);
+    setUploadedImageUrl(shard.image || null);
+    setSelectedParticipants(
+      shard.participants?.map((p: any) => ({
+        userId: typeof p.user === 'object' ? p.user.id : p.user,
+        role: p.role,
+        // Carried from the shard itself so participants render as people even
+        // when they aren't in your friends list — the old lookup fell back to
+        // printing the raw ObjectId.
+        username: p.username || (typeof p.user === 'object' ? p.user.username : undefined),
+        profilePic: p.profilePic || (typeof p.user === 'object' ? p.user.profilePic : undefined),
+      })) || []
+    );
   }, [shard]);
 
   // Populate mini-goal edit state when expanded
@@ -204,6 +226,8 @@ const EditShard = () => {
 
       if (data?.updateShard?.success) {
         addAlert({ str: 'Shard updated!', type: 'success' });
+        // The draft is now the server's state, so leaving is no longer a loss.
+        hydratedFor.current = null;
         router.back();
       } else {
         addAlert({ str: data?.updateShard?.message || 'Failed to update', type: 'error' });
@@ -211,6 +235,46 @@ const EditShard = () => {
     } catch {
       addAlert({ str: 'Failed to update shard', type: 'error' });
     }
+  };
+
+  // Shard-level fields are draft-until-Save (mini-goal and task edits commit as
+  // you make them), so backing out silently discarded them. Ask instead.
+  const hasUnsavedShardEdits = () => {
+    if (!shard || !isOwner) return false;
+    const serverParticipants = (shard.participants || [])
+      .map((p: any) => `${typeof p.user === 'object' ? p.user.id : p.user}:${p.role}`)
+      .sort()
+      .join('|');
+    const draftParticipants = selectedParticipants
+      .map((p) => `${p.userId}:${p.role}`)
+      .sort()
+      .join('|');
+    const serverDeadline = parseDate(shard.timeline?.endDate)?.getTime() ?? null;
+
+    return (
+      title !== (shard.title || '') ||
+      description !== (shard.description || '') ||
+      isPrivate !== (shard.isPrivate || false) ||
+      isAnonymous !== (shard.isAnonymous || false) ||
+      (uploadedImageUrl || null) !== (shard.image || null) ||
+      (deadline?.getTime() ?? null) !== serverDeadline ||
+      draftParticipants !== serverParticipants
+    );
+  };
+
+  const handleBack = () => {
+    if (!hasUnsavedShardEdits()) {
+      router.back();
+      return;
+    }
+    Alert.alert(
+      'Discard changes?',
+      "You've edited this quest's details but haven't saved. Mini-goal and task changes are already saved.",
+      [
+        { text: 'Keep editing', style: 'cancel' },
+        { text: 'Discard', style: 'destructive', onPress: () => router.back() },
+      ]
+    );
   };
 
   // ── Delete shard ──────────────────────────────────────────────────────────
@@ -249,29 +313,47 @@ const EditShard = () => {
       addAlert({ str: 'Mini-goal title cannot be empty', type: 'error' });
       return;
     }
-    const { data } = await updateMiniGoalMutation({
-      variables: { miniGoalId, input: { title: edits.title.trim(), description: edits.description } },
-    });
-    if (data?.updateMiniGoal?.success) {
-      refetch();
-    } else {
-      addAlert({ str: data?.updateMiniGoal?.message || 'Failed to update', type: 'error' });
+    try {
+      const { data } = await updateMiniGoalMutation({
+        variables: { miniGoalId, input: { title: edits.title.trim(), description: edits.description } },
+      });
+      if (data?.updateMiniGoal?.success) {
+        refetch();
+      } else {
+        addAlert({ str: data?.updateMiniGoal?.message || 'Failed to update', type: 'error' });
+      }
+    } catch {
+      addAlert({ str: 'Failed to update mini-goal', type: 'error' });
     }
   };
 
-  const handleDeleteMiniGoal = (miniGoalId: string, miniGoalTitle: string) => {
-    Alert.alert('Delete Mini-Goal', `Delete "${miniGoalTitle}"? All its tasks will be lost.`, [
+  const handleDeleteMiniGoal = (
+    miniGoalId: string,
+    miniGoalTitle: string,
+    counts?: { total: number; done: number }
+  ) => {
+    // Spell out the finished work at stake. The list above this button hid
+    // completed tasks, so a fully-finished mini-goal looked empty and this
+    // read as a harmless tidy-up rather than throwing away earned progress.
+    const detail = counts?.done
+      ? `Delete "${miniGoalTitle}"? Its ${counts.total} task${counts.total !== 1 ? 's' : ''} — including ${counts.done} you've already completed — will be lost.`
+      : `Delete "${miniGoalTitle}"? All its tasks will be lost.`;
+    Alert.alert('Delete Mini-Goal', detail, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          const { data } = await deleteMiniGoalMutation({ variables: { miniGoalId } });
-          if (data?.deleteMiniGoal?.success) {
-            setExpandedGoals((prev) => { const n = new Set(prev); n.delete(miniGoalId); return n; });
-            refetch();
-          } else {
-            addAlert({ str: data?.deleteMiniGoal?.message || 'Failed to delete', type: 'error' });
+          try {
+            const { data } = await deleteMiniGoalMutation({ variables: { miniGoalId } });
+            if (data?.deleteMiniGoal?.success) {
+              setExpandedGoals((prev) => { const n = new Set(prev); n.delete(miniGoalId); return n; });
+              refetch();
+            } else {
+              addAlert({ str: data?.deleteMiniGoal?.message || 'Failed to delete', type: 'error' });
+            }
+          } catch {
+            addAlert({ str: 'Failed to delete mini-goal', type: 'error' });
           }
         },
       },
@@ -283,28 +365,36 @@ const EditShard = () => {
       addAlert({ str: 'Title is required', type: 'error' });
       return;
     }
-    const { data } = await addMiniGoalMutation({
-      variables: { shardId: id, input: { title: newMiniGoalTitle.trim(), description: newMiniGoalDesc.trim() || undefined } },
-    });
-    if (data?.addMiniGoal?.success) {
-      setNewMiniGoalTitle('');
-      setNewMiniGoalDesc('');
-      setShowAddMiniGoal(false);
-      refetch();
-    } else {
-      addAlert({ str: data?.addMiniGoal?.message || 'Failed to add', type: 'error' });
+    try {
+      const { data } = await addMiniGoalMutation({
+        variables: { shardId: id, input: { title: newMiniGoalTitle.trim(), description: newMiniGoalDesc.trim() || undefined } },
+      });
+      if (data?.addMiniGoal?.success) {
+        setNewMiniGoalTitle('');
+        setNewMiniGoalDesc('');
+        setShowAddMiniGoal(false);
+        refetch();
+      } else {
+        addAlert({ str: data?.addMiniGoal?.message || 'Failed to add', type: 'error' });
+      }
+    } catch {
+      addAlert({ str: 'Failed to add mini-goal', type: 'error' });
     }
   };
 
   const handleAddTask = async (miniGoalId: string) => {
     const text = (newTaskText[miniGoalId] || '').trim();
     if (!text) return;
-    const { data } = await addTaskMutation({ variables: { miniGoalId, title: text } });
-    if (data?.addTask?.success) {
-      setNewTaskText((prev) => ({ ...prev, [miniGoalId]: '' }));
-      refetch();
-    } else {
-      addAlert({ str: data?.addTask?.message || 'Failed to add task', type: 'error' });
+    try {
+      const { data } = await addTaskMutation({ variables: { miniGoalId, title: text } });
+      if (data?.addTask?.success) {
+        setNewTaskText((prev) => ({ ...prev, [miniGoalId]: '' }));
+        refetch();
+      } else {
+        addAlert({ str: data?.addTask?.message || 'Failed to add task', type: 'error' });
+      }
+    } catch {
+      addAlert({ str: 'Failed to add task', type: 'error' });
     }
   };
 
@@ -314,14 +404,18 @@ const EditShard = () => {
       addAlert({ str: 'Task title cannot be empty', type: 'error' });
       return;
     }
-    const { data } = await updateTaskMutation({
-      variables: { miniGoalId: editingTask.miniGoalId, taskIndex: editingTask.taskIndex, title: editingTask.title.trim() },
-    });
-    if (data?.updateTask?.success) {
-      setEditingTask(null);
-      refetch();
-    } else {
-      addAlert({ str: data?.updateTask?.message || 'Failed to update task', type: 'error' });
+    try {
+      const { data } = await updateTaskMutation({
+        variables: { miniGoalId: editingTask.miniGoalId, taskIndex: editingTask.taskIndex, title: editingTask.title.trim() },
+      });
+      if (data?.updateTask?.success) {
+        setEditingTask(null);
+        refetch();
+      } else {
+        addAlert({ str: data?.updateTask?.message || 'Failed to update task', type: 'error' });
+      }
+    } catch {
+      addAlert({ str: 'Failed to update task', type: 'error' });
     }
   };
 
@@ -332,11 +426,15 @@ const EditShard = () => {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          const { data } = await deleteTaskMutation({ variables: { miniGoalId, taskTitle } });
-          if (data?.deleteTask?.success) {
-            refetch();
-          } else {
-            addAlert({ str: data?.deleteTask?.message || 'Failed to delete task', type: 'error' });
+          try {
+            const { data } = await deleteTaskMutation({ variables: { miniGoalId, taskTitle } });
+            if (data?.deleteTask?.success) {
+              refetch();
+            } else {
+              addAlert({ str: data?.deleteTask?.message || 'Failed to delete task', type: 'error' });
+            }
+          } catch {
+            addAlert({ str: 'Failed to delete task', type: 'error' });
           }
         },
       },
@@ -373,13 +471,47 @@ const EditShard = () => {
   };
 
   // ── Participants ──────────────────────────────────────────────────────────
-  const toggleParticipant = (userId: string, role: 'collaborator' | 'accountability_partner' | null) => {
+  const toggleParticipant = (
+    userId: string,
+    role: 'collaborator' | 'accountability_partner' | null,
+    meta?: { username?: string; profilePic?: string | null }
+  ) => {
     if (!role) {
       setSelectedParticipants((prev) => prev.filter((p) => p.userId !== userId));
     } else {
-      setSelectedParticipants((prev) => [...prev.filter((p) => p.userId !== userId), { userId, role }]);
+      setSelectedParticipants((prev) => [
+        ...prev.filter((p) => p.userId !== userId),
+        { userId, role, username: meta?.username, profilePic: meta?.profilePic },
+      ]);
     }
   };
+
+  // Cutting someone out of a shard costs them their access and their view of the
+  // shared progress. Deleting a single task already asks first; removing a person
+  // did not, and one mis-tap on a small icon did it silently.
+  const confirmRemoveParticipant = (userId: string, displayName?: string) => {
+    Alert.alert(
+      'Remove participant',
+      `Remove ${displayName || 'this member'} from the quest? They'll lose access to it. This takes effect when you save.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => toggleParticipant(userId, null),
+        },
+      ]
+    );
+  };
+
+  // Shard-level edits (title, description, privacy, participants, deletion) are
+  // owner-only on the server; mini-goal and task edits are open to collaborators
+  // too. The screen used to offer all of it to everyone, so a collaborator could
+  // retype the title, work through the participant list, hit Save and only then
+  // be told they had no permission — and the Danger Zone invited them to confirm
+  // a delete that could never succeed.
+  const ownerId = shard?.owner?.id || shard?.owner?._id;
+  const isOwner = !!ownerId && !!currentUser?.id && String(ownerId) === String(currentUser.id);
 
   // ── Loading / error states ────────────────────────────────────────────────
   if (shardLoading || !shard) {
@@ -402,23 +534,37 @@ const EditShard = () => {
     <SafeAreaView className="flex-1 bg-background-paper dark:bg-background-dark-default">
       {/* Header */}
       <View className="flex-row items-center justify-between px-4 py-3">
-        <TouchableOpacity onPress={() => router.back()} hitSlop={20}>
+        <TouchableOpacity onPress={handleBack} hitSlop={20} accessibilityLabel="Go back">
           <Ionicons name="arrow-back" size={24} color={isDark ? '#fff' : '#000'} />
         </TouchableOpacity>
         <Text className="text-lg font-bold text-text-primary dark:text-text-dark">Edit Shard</Text>
-        <TouchableOpacity onPress={handleSave} disabled={saving || deleting} hitSlop={20}>
-          {saving ? (
-            <ActivityIndicator size="small" color="#3b82f6" />
-          ) : (
-            <Text className={`text-base font-semibold ${saving || deleting ? 'text-gray-400' : 'text-blue-500'}`}>Save</Text>
-          )}
-        </TouchableOpacity>
+        {isOwner ? (
+          <TouchableOpacity onPress={handleSave} disabled={saving || deleting} hitSlop={20}>
+            {saving ? (
+              <ActivityIndicator size="small" color="#3b82f6" />
+            ) : (
+              <Text className={`text-base font-semibold ${saving || deleting ? 'text-gray-400' : 'text-blue-500'}`}>Save</Text>
+            )}
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 40 }} />
+        )}
       </View>
+
+      {!isOwner && (
+        <View className="mx-4 mb-2 rounded-xl bg-amber-50 px-3 py-2 dark:bg-amber-950/40">
+          <Text className="text-xs text-amber-800 dark:text-amber-300">
+            You&apos;re a collaborator on this quest. You can add and edit mini-goals and
+            tasks — only the owner can change the quest details or delete it.
+          </Text>
+        </View>
+      )}
 
       <ScrollView className="flex-1 px-4" keyboardShouldPersistTaps="handled">
         {/* Image */}
         <View className="mb-4 mt-2">
           <AddImageInput
+            shape="banner"
             initialImage={uploadedImageUrl}
             onImage={(uri) => {
               setSelectedImageUri(uri);
@@ -431,6 +577,7 @@ const EditShard = () => {
         <View className="mb-4">
           <Text className={labelClass}>Title</Text>
           <TextInput value={title} onChangeText={setTitle} placeholder="Shard title"
+            editable={isOwner}
             placeholderTextColor={isDark ? '#9ca3af' : '#6b7280'} className={inputClass} />
         </View>
 
@@ -438,6 +585,7 @@ const EditShard = () => {
         <View className="mb-4">
           <Text className={labelClass}>Description</Text>
           <TextInput value={description} onChangeText={setDescription}
+            editable={isOwner}
             placeholder="Describe your shard..." placeholderTextColor={isDark ? '#9ca3af' : '#6b7280'}
             multiline numberOfLines={4} textAlignVertical="top" className={inputClass} />
         </View>
@@ -446,7 +594,8 @@ const EditShard = () => {
         <View className="mb-4">
           <Text className={labelClass}>Deadline</Text>
           <TouchableOpacity
-            onPress={() => setShowDatePicker(true)}
+            onPress={() => isOwner && setShowDatePicker(true)}
+            disabled={!isOwner}
             className={`flex-row items-center justify-between rounded-xl border px-4 py-3 ${
               isDark ? 'border-gray-700 bg-background-dark-paper' : 'border-gray-300 bg-background-default'
             }`}>
@@ -455,7 +604,7 @@ const EditShard = () => {
             </Text>
             <View className="flex-row items-center gap-2">
               {deadline && (
-                <TouchableOpacity onPress={() => setDeadline(null)} hitSlop={8}>
+                <TouchableOpacity onPress={() => setDeadline(null)} hitSlop={8} accessibilityLabel="Clear">
                   <Ionicons name="close-circle" size={18} color="#9ca3af" />
                 </TouchableOpacity>
               )}
@@ -483,7 +632,7 @@ const EditShard = () => {
               <Text className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>Private Quest</Text>
               <Text className="text-xs text-gray-500">Only you and participants can see this</Text>
             </View>
-            <Switch value={isPrivate} onValueChange={setIsPrivate} trackColor={{ true: '#7c3aed' }} />
+            <Switch value={isPrivate} onValueChange={setIsPrivate} disabled={!isOwner} trackColor={{ true: '#7c3aed' }} />
           </View>
           <View className="my-1 border-t border-gray-200 dark:border-gray-700" />
           <View className="flex-row items-center justify-between py-2">
@@ -491,7 +640,7 @@ const EditShard = () => {
               <Text className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>Anonymous</Text>
               <Text className="text-xs text-gray-500">Hide your identity from other participants</Text>
             </View>
-            <Switch value={isAnonymous} onValueChange={setIsAnonymous} trackColor={{ true: '#7c3aed' }} />
+            <Switch value={isAnonymous} onValueChange={setIsAnonymous} disabled={!isOwner} trackColor={{ true: '#7c3aed' }} />
           </View>
         </View>
 
@@ -499,37 +648,49 @@ const EditShard = () => {
         <View className="mb-4">
           <View className="mb-2 flex-row items-center justify-between">
             <Text className={labelClass}>Participants ({selectedParticipants.length})</Text>
-            <TouchableOpacity
-              onPress={() => setShowParticipantSelector(!showParticipantSelector)}
-              className="rounded-lg bg-purple-600 px-3 py-1">
-              <Text className="text-xs font-semibold text-white">
-                {showParticipantSelector ? 'Done' : 'Manage'}
-              </Text>
-            </TouchableOpacity>
+            {isOwner && (
+              <TouchableOpacity
+                onPress={() => setShowParticipantSelector(!showParticipantSelector)}
+                className="rounded-lg bg-purple-600 px-3 py-1">
+                <Text className="text-xs font-semibold text-white">
+                  {showParticipantSelector ? 'Done' : 'Manage'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {selectedParticipants.length > 0 && (
             <View className="mb-3 space-y-2">
               {selectedParticipants.map((participant) => {
+                // Prefer what the shard already told us about this person, and
+                // only fall back to the friends list. Looking them up in
+                // `friends` first meant any collaborator you weren't friends
+                // with rendered as a raw ObjectId with a blank avatar.
                 const friend = friends.find((f) => f.id === participant.userId);
+                const displayName = participant.username || friend?.username;
+                const avatar = participant.profilePic || friend?.profilePic || FALLBACK_AVATAR;
                 return (
                   <View key={participant.userId}
                     className="flex-row items-center justify-between rounded-xl bg-background-default p-3 dark:bg-background-dark-paper">
                     <View className="flex-row items-center">
-                      <Image source={{ uri: friend?.profilePic || FALLBACK_AVATAR }}
+                      <Image source={{ uri: avatar }}
                         className="mr-3 h-10 w-10 rounded-full bg-gray-200" />
                       <View>
                         <Text className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                          {friend?.username || participant.userId}
+                          {displayName || 'Unknown member'}
                         </Text>
                         <Text className="text-xs text-gray-500">
                           {participant.role === 'collaborator' ? 'Collaborator' : 'Accountability Partner'}
                         </Text>
                       </View>
                     </View>
-                    <TouchableOpacity onPress={() => toggleParticipant(participant.userId, null)}>
-                      <Ionicons name="close-circle" size={24} color="#ef4444" />
-                    </TouchableOpacity>
+                    {isOwner && (
+                      <TouchableOpacity
+                        onPress={() => confirmRemoveParticipant(participant.userId, displayName)}
+                        accessibilityLabel={`Remove ${displayName || 'member'}`}>
+                        <Ionicons name="close-circle" size={24} color="#ef4444" />
+                      </TouchableOpacity>
+                    )}
                   </View>
                 );
               })}
@@ -551,11 +712,23 @@ const EditShard = () => {
                       <Text className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>{friend.username}</Text>
                     </View>
                     <View className="flex-row gap-2">
-                      <TouchableOpacity onPress={() => toggleParticipant(friend.id, 'collaborator')}
+                      <TouchableOpacity
+                        onPress={() =>
+                          toggleParticipant(friend.id, 'collaborator', {
+                            username: friend.username,
+                            profilePic: friend.profilePic,
+                          })
+                        }
                         className="flex-1 items-center rounded-lg bg-purple-600 py-2">
                         <Text className="text-xs font-semibold text-white">Collaborator</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity onPress={() => toggleParticipant(friend.id, 'accountability_partner')}
+                      <TouchableOpacity
+                        onPress={() =>
+                          toggleParticipant(friend.id, 'accountability_partner', {
+                            username: friend.username,
+                            profilePic: friend.profilePic,
+                          })
+                        }
                         className="flex-1 items-center rounded-lg bg-blue-600 py-2">
                         <Text className="text-xs font-semibold text-white">Accountability</Text>
                       </TouchableOpacity>
@@ -590,7 +763,20 @@ const EditShard = () => {
           {miniGoals.map((mg: any) => {
             const isExpanded = expandedGoals.has(mg.id);
             const edits = miniGoalEdits[mg.id] || { title: mg.title, description: mg.description || '' };
-            const activeTasks = (mg.tasks || []).filter((t: any) => !t.deleted && !t.completed);
+            // Completed tasks are still real tasks. Filtering them out here meant
+            // a finished mini-goal reported "0 tasks" and opened to an empty list
+            // directly above Delete Mini-Goal — it read as empty, so deleting it
+            // felt safe when it actually destroyed the finished work. Keep them
+            // listed (and rendered as done), and only hide soft-deleted ones.
+            //
+            // `index` is carried alongside because it is the position in the FULL
+            // tasks array, which is what updateTask expects. Using the filtered
+            // list's own index renamed whichever task happened to sit at that
+            // offset once anything ahead of it had been filtered away.
+            const activeTasks = (mg.tasks || [])
+              .map((task: any, index: number) => ({ task, index }))
+              .filter(({ task }: any) => !task.deleted);
+            const doneCount = activeTasks.filter(({ task }: any) => task.completed).length;
 
             return (
               <View key={mg.id}
@@ -610,7 +796,9 @@ const EditShard = () => {
                     </Text>
                   </View>
                   <Text className="text-xs text-gray-500">
-                    {activeTasks.length} task{activeTasks.length !== 1 ? 's' : ''}
+                    {doneCount > 0
+                      ? `${doneCount}/${activeTasks.length} done`
+                      : `${activeTasks.length} task${activeTasks.length !== 1 ? 's' : ''}`}
                   </Text>
                 </TouchableOpacity>
 
@@ -644,17 +832,26 @@ const EditShard = () => {
 
                     {/* Tasks */}
                     <Text className="mb-2 text-xs font-medium text-gray-500">Tasks</Text>
-                    {activeTasks.map((task: any, idx: number) => {
-                      const isEditingThis =
-                        editingTask?.miniGoalId === mg.id && editingTask?.taskIndex === idx;
+                    {activeTasks.map(({ task, index }: { task: any; index: number }) => {
+                      // Bound to a local so the null check narrows inside the JSX.
+                      const activeEdit =
+                        editingTask &&
+                        editingTask.miniGoalId === mg.id &&
+                        editingTask.taskIndex === index
+                          ? editingTask
+                          : null;
                       return (
-                        <View key={idx}
+                        <View key={index}
                           className="mb-2 flex-row items-center gap-2 rounded-lg bg-white px-3 py-2 dark:bg-gray-800">
-                          <Ionicons name="ellipse-outline" size={14} color="#9ca3af" />
-                          {isEditingThis ? (
+                          <Ionicons
+                            name={task.completed ? 'checkmark-circle' : 'ellipse-outline'}
+                            size={14}
+                            color={task.completed ? '#8b5cf6' : '#9ca3af'}
+                          />
+                          {activeEdit ? (
                             <TextInput
-                              value={editingTask.title}
-                              onChangeText={(v) => setEditingTask({ ...editingTask, title: v })}
+                              value={activeEdit.title}
+                              onChangeText={(v) => setEditingTask({ ...activeEdit, title: v })}
                               onBlur={handleSaveTask}
                               onSubmitEditing={handleSaveTask}
                               autoFocus
@@ -663,13 +860,22 @@ const EditShard = () => {
                           ) : (
                             <TouchableOpacity
                               className="flex-1"
-                              onPress={() => setEditingTask({ miniGoalId: mg.id, taskIndex: idx, title: task.title })}>
-                              <Text className={`text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>{task.title}</Text>
+                              onPress={() => setEditingTask({ miniGoalId: mg.id, taskIndex: index, title: task.title })}>
+                              <Text
+                                className={`text-sm ${
+                                  task.completed
+                                    ? 'text-gray-400 line-through dark:text-gray-500'
+                                    : isDark
+                                      ? 'text-white'
+                                      : 'text-gray-900'
+                                }`}>
+                                {task.title}
+                              </Text>
                             </TouchableOpacity>
                           )}
                           <TouchableOpacity
                             onPress={() => handleDeleteTask(mg.id, task.title)}
-                            hitSlop={8}>
+                            hitSlop={8} accessibilityLabel={`Delete ${task.title}`}>
                             <Ionicons name="close" size={16} color="#ef4444" />
                           </TouchableOpacity>
                         </View>
@@ -691,14 +897,19 @@ const EditShard = () => {
                       />
                       <TouchableOpacity
                         onPress={() => handleAddTask(mg.id)}
-                        className="rounded-lg bg-purple-600 px-3 py-2">
+                        className="rounded-lg bg-purple-600 px-3 py-2" accessibilityLabel="Add">
                         <Ionicons name="add" size={16} color="#fff" />
                       </TouchableOpacity>
                     </View>
 
                     {/* Delete mini-goal */}
                     <TouchableOpacity
-                      onPress={() => handleDeleteMiniGoal(mg.id, mg.title)}
+                      onPress={() =>
+                        handleDeleteMiniGoal(mg.id, mg.title, {
+                          total: activeTasks.length,
+                          done: doneCount,
+                        })
+                      }
                       className="flex-row items-center justify-center gap-1 rounded-lg border border-red-300 py-2 dark:border-red-800">
                       <Ionicons name="trash-outline" size={14} color="#ef4444" />
                       <Text className="text-xs font-medium text-red-500">Delete Mini-Goal</Text>
@@ -753,23 +964,28 @@ const EditShard = () => {
           )}
         </View>
 
-        {/* Danger Zone */}
-        <View className="mb-8 mt-4 rounded-xl border border-red-300 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
-          <Text className="mb-2 text-base font-bold text-red-600 dark:text-red-400">Danger Zone</Text>
-          <Text className="mb-4 text-sm text-red-600 dark:text-red-400">
-            Once you delete a shard, there is no going back. Please be certain.
-          </Text>
-          <TouchableOpacity
-            onPress={handleDelete}
-            disabled={deleting}
-            className="items-center rounded-xl bg-red-500 py-3">
-            {deleting ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text className="font-semibold text-white">Delete Shard</Text>
-            )}
-          </TouchableOpacity>
-        </View>
+        {/* Danger Zone — owner only; deleteShard is owner-gated server-side, so
+            showing this to a collaborator only bought them a scary confirm
+            followed by a permission error. */}
+        {isOwner && (
+          <View className="mb-8 mt-4 rounded-xl border border-red-300 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
+            <Text className="mb-2 text-base font-bold text-red-600 dark:text-red-400">Danger Zone</Text>
+            <Text className="mb-4 text-sm text-red-600 dark:text-red-400">
+              Once you delete a shard, there is no going back. Please be certain.
+            </Text>
+            <TouchableOpacity
+              onPress={handleDelete}
+              disabled={deleting}
+              className="items-center rounded-xl bg-red-500 py-3">
+              {deleting ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text className="font-semibold text-white">Delete Shard</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+        {!isOwner && <View className="mb-8" />}
       </ScrollView>
     </SafeAreaView>
   );

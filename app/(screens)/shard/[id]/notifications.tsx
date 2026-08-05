@@ -21,6 +21,7 @@ import Animated, {
   withTiming,
   useSharedValue,
 } from 'react-native-reanimated';
+import { useReducedMotion } from '~/helpers/motion';
 import { formatDistanceToNow, isToday, isYesterday, isThisWeek } from 'date-fns';
 
 interface Notification {
@@ -38,13 +39,17 @@ const Skeleton = ({ width, height, style }: { width: number | string; height: nu
   const isDark = useColorScheme() === 'dark';
   const opacity = useSharedValue(0.3);
 
+  const reducedMotion = useReducedMotion();
+
   useEffect(() => {
+    // Decorative loop — hold still when the user asked for less motion.
+    if (reducedMotion) return;
     opacity.value = withRepeat(
       withSequence(withTiming(0.7, { duration: 800 }), withTiming(0.3, { duration: 800 })),
       -1,
       true
     );
-  }, []);
+  }, [reducedMotion]);
 
   const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
@@ -212,7 +217,7 @@ const ShardNotifications = () => {
     <SafeAreaView className="flex-1 bg-background-paper dark:bg-background-dark-default">
       {/* Header */}
       <View className="flex-row items-center justify-between px-5 py-3">
-        <AnimatedPressable onPress={() => router.back()} hitSlop={20} scaleDown={0.9}>
+        <AnimatedPressable onPress={() => router.back()} hitSlop={20} scaleDown={0.9} accessibilityLabel="Go back">
           <Ionicons name="arrow-back" size={24} color={isDark ? '#8b5cf6' : '#1a1a1a'} />
         </AnimatedPressable>
         <View className="items-center">
@@ -229,7 +234,8 @@ const ShardNotifications = () => {
           onPress={handleMarkAllRead}
           hitSlop={20}
           scaleDown={0.9}
-          disabled={unreadCount === 0}>
+          disabled={unreadCount === 0}
+            accessibilityLabel="Mark all as read">
           <Ionicons
             name="checkmark-done-outline"
             size={22}

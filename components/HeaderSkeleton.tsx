@@ -1,25 +1,12 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, useColorScheme } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  interpolate,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { useShimmer } from '~/helpers/motion';
 
 const HeaderSkeleton: React.FC = () => {
   const colorScheme = useColorScheme();
-  const shimmerValue = useSharedValue(0);
-
-  useEffect(() => {
-    shimmerValue.value = withRepeat(withTiming(1, { duration: 1500 }), -1, false);
-  }, []);
-
-  const shimmerStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(shimmerValue.value, [0, 0.5, 1], [0.3, 0.6, 0.3]);
-    return { opacity };
-  });
+  // Shared so reduced-motion is honoured in one place, not eight.
+  const shimmerStyle = useShimmer(0.3, 0.6, 750);
 
   const isDark = colorScheme === 'dark';
 

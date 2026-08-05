@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useMutation } from '@apollo/client';
 import { LOGIN, GOOGLE_SIGN_IN } from '@/Graphql/Mutations';
+import { deviceTimeZone } from '~/helpers/dateKeys';
 import Session from '@/helpers/Session';
 import { getClientId, WEB_CLIENT_ID } from '~/helpers/ClientID';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
@@ -160,7 +161,9 @@ const Login = () => {
       const tokens = await GoogleSignin.getTokens();
       if (!tokens?.idToken) throw new Error('No ID token received from Google');
       console.log('Google Sign-In: ID token received, authenticating with backend...');
-      await googleSignIn({ variables: { idToken: tokens.idToken } });
+      await googleSignIn({
+        variables: { idToken: tokens.idToken, ...(deviceTimeZone() ? { timezone: deviceTimeZone() } : {}) },
+      });
     } catch (error: any) {
       console.error('Google Sign-In error:', { message: error.message, code: error.code, details: error });
       addAlert({ str: error.message || 'Failed to sign in with Google', type: 'error' });
