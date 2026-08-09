@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, Image, ScrollView, useColorScheme } from 'react-native';
+import { View, Text, Image, ScrollView } from 'react-native';
+import { brand, FONT, RADIUS } from '~/components/hud';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -89,8 +91,8 @@ const FriendProfile = () => {
   const subtleText = isDark ? '#767575' : '#9ca3af';
 
   const actions = [
-    { icon: 'chatbubble-outline', label: 'Message', color: '#8b5cf6', onPress: handleMessage },
-    { icon: 'add-circle-outline', label: 'Add to Shard', color: '#8b5cf6', onPress: handleAddToShard },
+    { icon: 'chatbubble-outline', label: 'Message', color: brand.violet, onPress: handleMessage },
+    { icon: 'add-circle-outline', label: 'Add to Shard', color: brand.violet, onPress: handleAddToShard },
     { icon: 'person-remove-outline', label: 'Remove Friend', color: '#ef4444', onPress: () => setRemoveModalVisible(true) },
   ];
 
@@ -103,7 +105,7 @@ const FriendProfile = () => {
           style={{
             width: 36,
             height: 5,
-            borderRadius: 3,
+            borderRadius: RADIUS.xs,
             backgroundColor: isDark ? '#484847' : '#d1d5db',
           }}
         />
@@ -123,7 +125,7 @@ const FriendProfile = () => {
                 height: 80,
                 borderRadius: 40,
                 borderWidth: 3,
-                borderColor: '#8b5cf6',
+                borderColor: brand.violet,
               }}
             />
             <View
@@ -143,7 +145,7 @@ const FriendProfile = () => {
           <Text
             style={{
               fontSize: 20,
-              fontWeight: '700',
+              fontFamily: FONT.bold,
               color: isDark ? '#fff' : '#1a1a1a',
               marginTop: 12,
             }}>
@@ -163,7 +165,7 @@ const FriendProfile = () => {
                 backgroundColor: isOnline ? '#10b981' : '#9ca3af',
               }}
             />
-            <Text style={{ fontSize: 11, fontWeight: '600', color: isOnline ? '#10b981' : subtleText }}>
+            <Text style={{ fontSize: 11, fontFamily: FONT.semibold, color: isOnline ? '#10b981' : subtleText }}>
               {isOnline ? 'Online' : 'Offline'}
             </Text>
           </View>
@@ -184,7 +186,7 @@ const FriendProfile = () => {
                 }}>
                 <Ionicons name="chatbubble-outline" size={22} color="#8b5cf6" />
               </View>
-              <Text style={{ fontSize: 10, fontWeight: '600', color: subtleText, marginTop: 6 }}>
+              <Text style={{ fontSize: 10, fontFamily: FONT.semibold, color: subtleText, marginTop: 6 }}>
                 Message
               </Text>
             </View>
@@ -203,7 +205,7 @@ const FriendProfile = () => {
                 }}>
                 <Ionicons name="add-circle-outline" size={22} color="#8b5cf6" />
               </View>
-              <Text style={{ fontSize: 10, fontWeight: '600', color: subtleText, marginTop: 6 }}>
+              <Text style={{ fontSize: 10, fontFamily: FONT.semibold, color: subtleText, marginTop: 6 }}>
                 Add to Shard
               </Text>
             </View>
@@ -228,7 +230,7 @@ const FriendProfile = () => {
                 <Text
                   style={{
                     fontSize: 15,
-                    fontWeight: '500',
+                    fontFamily: FONT.medium,
                     color: action.color === '#ef4444' ? '#ef4444' : isDark ? '#fff' : '#1a1a1a',
                     flex: 1,
                   }}>
@@ -245,7 +247,7 @@ const FriendProfile = () => {
           <AnimatedPressable onPress={() => setBlockModalVisible(true)} scaleDown={0.97}>
             <View
               style={{
-                borderRadius: 14,
+                borderRadius: RADIUS.sm,
                 paddingVertical: 13,
                 alignItems: 'center',
                 backgroundColor: isDark ? 'rgba(239,68,68,0.1)' : 'rgba(239,68,68,0.06)',
@@ -254,7 +256,7 @@ const FriendProfile = () => {
               }}>
               <View className="flex-row items-center gap-2">
                 <Ionicons name="ban-outline" size={16} color="#ef4444" />
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#ef4444' }}>Block User</Text>
+                <Text style={{ fontSize: 14, fontFamily: FONT.semibold, color: '#ef4444' }}>Block User</Text>
               </View>
             </View>
           </AnimatedPressable>

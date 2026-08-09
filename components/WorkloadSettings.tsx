@@ -4,10 +4,10 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
-  useColorScheme,
   Dimensions,
   Switch,
 } from 'react-native';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import Animated, {
   withSpring,
   withTiming,

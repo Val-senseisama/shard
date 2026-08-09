@@ -7,11 +7,12 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
-  useColorScheme,
   Image,
   ActivityIndicator,
   Modal,
 } from 'react-native';
+import { brand, FONT, RADIUS } from '~/components/hud';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -119,7 +120,8 @@ const TypingDot = ({ delay }: { delay: number }) => {
   }, [reducedMotion]);
   const style = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
   return (
-    <Animated.View style={[{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#8b5cf6' }, style]} />
+    // 3.5 is half of 7 — a circle, not a token.
+    <Animated.View style={[{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: brand.violet }, style]} />
   );
 };
 
@@ -130,14 +132,14 @@ const TypingIndicator = ({ users }: { users: string[] }) => (
     style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 6 }}>
     <View style={{
       flexDirection: 'row', alignItems: 'center', gap: 4,
-      backgroundColor: 'rgba(139,92,246,0.1)', borderRadius: 16,
+      backgroundColor: 'rgba(139,92,246,0.1)', borderRadius: RADIUS.md,
       paddingHorizontal: 12, paddingVertical: 8,
     }}>
       <TypingDot delay={0} />
       <TypingDot delay={150} />
       <TypingDot delay={300} />
     </View>
-    <Text style={{ fontSize: 11, color: '#8b5cf6', fontWeight: '500' }}>
+    <Text style={{ fontSize: 11, color: brand.violet, fontFamily: FONT.medium }}>
       {users.join(', ')} {users.length === 1 ? 'is' : 'are'} typing
     </Text>
   </Animated.View>
@@ -264,7 +266,7 @@ const AudioMessagePlayer = memo(
                 style={{
                   flex: 1,
                   height: `${h * 100}%`,
-                  borderRadius: 2,
+                  borderRadius: RADIUS.xs,
                   backgroundColor: filled
                     ? isMe ? '#fff' : '#3b82f6'
                     : isMe ? 'rgba(255,255,255,0.35)' : colorScheme === 'dark' ? '#4b5563' : '#d1d5db',
@@ -1068,10 +1070,10 @@ const ShardChat = () => {
               flexDirection: 'row', alignItems: 'center', gap: 6,
               backgroundColor: colorScheme === 'dark' ? 'rgba(139,92,246,0.12)' : 'rgba(139,92,246,0.08)',
               borderWidth: 1, borderColor: colorScheme === 'dark' ? 'rgba(139,92,246,0.25)' : 'rgba(139,92,246,0.2)',
-              borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7,
+              borderRadius: RADIUS.lg, paddingHorizontal: 14, paddingVertical: 7,
             }}>
               <Ionicons name={item.type === 'summary_ping' ? 'stats-chart' : 'flag'} size={13} color={colorScheme === 'dark' ? '#c4b5fd' : '#7c3aed'} />
-              <Text style={{ color: colorScheme === 'dark' ? '#c4b5fd' : '#7c3aed', fontSize: 12, fontWeight: '500', textAlign: 'center' }}>
+              <Text style={{ color: colorScheme === 'dark' ? '#c4b5fd' : '#7c3aed', fontSize: 12, fontFamily: FONT.medium, textAlign: 'center' }}>
                 {item.content}
               </Text>
             </View>
@@ -1117,7 +1119,7 @@ const ShardChat = () => {
                 />
               ) : (
                 <View className="mr-2 h-8 w-8 items-center justify-center rounded-full bg-purple-200 dark:bg-purple-900">
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#7c3aed' }}>
+                  <Text style={{ fontSize: 13, fontFamily: FONT.bold, color: '#7c3aed' }}>
                     {(item.sender.username?.[0] ?? '?').toUpperCase()}
                   </Text>
                 </View>
@@ -1143,14 +1145,14 @@ const ShardChat = () => {
                   <View
                     style={{
                       borderLeftWidth: 3,
-                      borderLeftColor: isMe ? 'rgba(255,255,255,0.5)' : '#8b5cf6',
+                      borderLeftColor: isMe ? 'rgba(255,255,255,0.5)' : brand.violet,
                       paddingLeft: 8,
                       paddingVertical: 4,
                       marginBottom: 6,
-                      borderRadius: 4,
+                      borderRadius: RADIUS.xs,
                       backgroundColor: isMe ? 'rgba(0,0,0,0.1)' : colorScheme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
                     }}>
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: isMe ? '#dbeafe' : '#8b5cf6', marginBottom: 2 }}>
+                    <Text style={{ fontSize: 11, fontFamily: FONT.bold, color: isMe ? '#dbeafe' : brand.violet, marginBottom: 2 }}>
                       {quotedMessage.sender.id === user?.id ? 'You' : quotedMessage.sender.username}
                     </Text>
                     <Text style={{ fontSize: 12, color: isMe ? 'rgba(255,255,255,0.65)' : colorScheme === 'dark' ? '#9ca3af' : '#6b7280' }} numberOfLines={1}>
@@ -1183,7 +1185,7 @@ const ShardChat = () => {
                 const totalVotes = item.poll.options.reduce((s, o) => s + o.votes.length, 0);
                 return (
                   <View style={{ paddingVertical: 8, minWidth: 220 }}>
-                    <Text style={{ fontSize: 15, fontWeight: '700', color: isMe ? '#fff' : colorScheme === 'dark' ? '#fff' : '#111827', marginBottom: 10 }}>
+                    <Text style={{ fontSize: 15, fontFamily: FONT.bold, color: isMe ? '#fff' : colorScheme === 'dark' ? '#fff' : '#111827', marginBottom: 10 }}>
                       {item.poll.question}
                     </Text>
                     {item.poll.options.map((opt, idx) => {
@@ -1195,10 +1197,10 @@ const ShardChat = () => {
                           onPress={() => handleVotePoll(item.id, idx)}
                           style={{
                             marginBottom: 8,
-                            borderRadius: 10,
+                            borderRadius: RADIUS.sm,
                             overflow: 'hidden',
                             borderWidth: iVoted ? 1.5 : 1,
-                            borderColor: iVoted ? (isMe ? 'rgba(255,255,255,0.6)' : '#8b5cf6') : isMe ? 'rgba(255,255,255,0.25)' : colorScheme === 'dark' ? '#374151' : '#e5e7eb',
+                            borderColor: iVoted ? (isMe ? 'rgba(255,255,255,0.6)' : brand.violet) : isMe ? 'rgba(255,255,255,0.25)' : colorScheme === 'dark' ? '#374151' : '#e5e7eb',
                           }}>
                           {/* Progress fill behind text */}
                           <View style={{
@@ -1208,12 +1210,12 @@ const ShardChat = () => {
                           }} />
                           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 10 }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
-                              {iVoted && <Ionicons name="checkmark-circle" size={14} color={isMe ? '#86efac' : '#8b5cf6'} />}
+                              {iVoted && <Ionicons name="checkmark-circle" size={14} color={isMe ? '#86efac' : brand.violet} />}
                               <Text style={{ fontSize: 14, color: isMe ? '#fff' : colorScheme === 'dark' ? '#f9fafb' : '#111827', flex: 1 }} numberOfLines={1}>
                                 {opt.text}
                               </Text>
                             </View>
-                            <Text style={{ fontSize: 12, fontWeight: '700', color: isMe ? 'rgba(255,255,255,0.7)' : colorScheme === 'dark' ? '#9ca3af' : '#6b7280', marginLeft: 8 }}>
+                            <Text style={{ fontSize: 12, fontFamily: FONT.bold, color: isMe ? 'rgba(255,255,255,0.7)' : colorScheme === 'dark' ? '#9ca3af' : '#6b7280', marginLeft: 8 }}>
                               {pct}%
                             </Text>
                           </View>
@@ -1287,7 +1289,7 @@ const ShardChat = () => {
                       backgroundColor: mine
                         ? colorScheme === 'dark' ? 'rgba(59,130,246,0.3)' : 'rgba(59,130,246,0.15)'
                         : colorScheme === 'dark' ? '#374151' : '#f3f4f6',
-                      borderRadius: 12, paddingHorizontal: 6, paddingVertical: 2,
+                      borderRadius: RADIUS.sm, paddingHorizontal: 6, paddingVertical: 2,
                       borderWidth: mine ? 1 : 0,
                       borderColor: '#3b82f6',
                     }}>
@@ -1316,9 +1318,9 @@ const ShardChat = () => {
       <SafeAreaView className="flex-1 bg-background-paper dark:bg-background-dark-default">
         {/* Header skeleton */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colorScheme === 'dark' ? '#1f2937' : '#f3f4f6' }}>
-          <View style={{ width: 24, height: 24, borderRadius: 6, backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#e5e7eb' }} />
-          <View style={{ width: 120, height: 18, borderRadius: 6, backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#e5e7eb' }} />
-          <View style={{ width: 24, height: 24, borderRadius: 6, backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#e5e7eb' }} />
+          <View style={{ width: 24, height: 24, borderRadius: RADIUS.xs, backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#e5e7eb' }} />
+          <View style={{ width: 120, height: 18, borderRadius: RADIUS.xs, backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#e5e7eb' }} />
+          <View style={{ width: 24, height: 24, borderRadius: RADIUS.xs, backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#e5e7eb' }} />
         </View>
         <ChatSkeleton isDark={colorScheme === 'dark'} />
       </SafeAreaView>
@@ -1412,9 +1414,9 @@ const ShardChat = () => {
           {replyingTo && (
             <View className="flex-row items-center justify-between border-b border-gray-200 px-4 py-2 dark:border-gray-700">
               <View className="flex-row items-center gap-2 flex-1 mr-3">
-                <View style={{ width: 3, height: '100%', backgroundColor: '#8b5cf6', borderRadius: 2 }} />
+                <View style={{ width: 3, height: '100%', backgroundColor: brand.violet, borderRadius: RADIUS.xs }} />
                 <View className="flex-1">
-                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#8b5cf6' }}>
+                  <Text style={{ fontSize: 11, fontFamily: FONT.bold, color: brand.violet }}>
                     {replyingTo.sender.id === user?.id ? 'Replying to yourself' : `Replying to ${replyingTo.sender.username}`}
                   </Text>
                   <Text style={{ fontSize: 12, color: colorScheme === 'dark' ? '#9ca3af' : '#6b7280' }} numberOfLines={1}>
@@ -1488,15 +1490,15 @@ const ShardChat = () => {
             </TouchableOpacity>
 
             {isRecording ? (
-              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: colorScheme === 'dark' ? '#1f2937' : '#f3f4f6', borderRadius: 24, paddingHorizontal: 14, paddingVertical: 10, gap: 8 }}>
+              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: colorScheme === 'dark' ? '#1f2937' : '#f3f4f6', borderRadius: RADIUS.xl, paddingHorizontal: 14, paddingVertical: 10, gap: 8 }}>
                 <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#ef4444' }} />
-                <Text style={{ color: '#ef4444', fontWeight: '600', fontSize: 13 }}>
+                <Text style={{ color: '#ef4444', fontFamily: FONT.semibold, fontSize: 13 }}>
                   {Math.floor(recordingDuration / 60)}:{String(recordingDuration % 60).padStart(2, '0')}
                 </Text>
                 <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 3, height: 24 }}>
                   {[0.5, 0.9, 0.6, 1, 0.7, 0.4, 0.8, 0.6, 1, 0.5].map((h, i) => (
                     <RNAnimated.View key={i} style={{
-                      flex: 1, borderRadius: 2, backgroundColor: '#ef4444', height: `${h * 100}%`,
+                      flex: 1, borderRadius: RADIUS.xs, backgroundColor: '#ef4444', height: `${h * 100}%`,
                       opacity: waveAnim.interpolate({ inputRange: [0, 1], outputRange: [i % 2 === 0 ? 0.4 : 1, i % 2 === 0 ? 1 : 0.4] }),
                     }} />
                   ))}
@@ -1599,7 +1601,7 @@ const ShardChat = () => {
               </View>
 
               {/* Action row */}
-              <View style={{ backgroundColor: colorScheme === 'dark' ? '#1f2937' : '#ffffff', borderRadius: 14, overflow: 'hidden', minWidth: 180, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, elevation: 6 }}>
+              <View style={{ backgroundColor: colorScheme === 'dark' ? '#1f2937' : '#ffffff', borderRadius: RADIUS.sm, overflow: 'hidden', minWidth: 180, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, elevation: 6 }}>
                 <TouchableOpacity
                   style={{ flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: colorScheme === 'dark' ? '#374151' : '#f3f4f6' }}
                   onPress={async () => { if (reactionTarget.message.content) { await Clipboard.setStringAsync(reactionTarget.message.content); addAlert({ str: 'Copied!', type: 'success' }); } setReactionTarget(null); }}>

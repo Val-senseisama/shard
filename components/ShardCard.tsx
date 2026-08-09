@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Image, useColorScheme } from 'react-native';
+import { View, Text, Image } from 'react-native';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { LinearGradient } from 'expo-linear-gradient';
 import AnimatedPressable from './AnimatedPressable';
 import { Ionicons } from '@expo/vector-icons';

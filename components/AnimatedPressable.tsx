@@ -25,7 +25,23 @@ interface AnimatedPressableProps {
   onPress?: () => void;
   onLongPress?: () => void;
   disabled?: boolean;
+  /**
+   * Styles the **inner** animated view — backgrounds, padding, borders, radius.
+   * Anything that positions this control *within its parent* belongs in
+   * `containerStyle` instead; see the note there.
+   */
   style?: StyleProp<ViewStyle>;
+  /**
+   * Styles the outer `Pressable`. Use this for `flex`, `alignSelf`, margins —
+   * anything about how the control sits in its parent's layout.
+   *
+   * Passing `flex: 1` via `style` silently does nothing useful: it lands on the
+   * inner view, whose parent Pressable is unstyled and therefore sized to its
+   * content, so the control doesn't flex and its siblings absorb the slack. That
+   * is what opened a gap around the tab bar's centre button, and it's latent at
+   * every "row of equal-width buttons" call site.
+   */
+  containerStyle?: StyleProp<ViewStyle>;
   className?: string;
   children: React.ReactNode;
   scaleDown?: number;
@@ -47,6 +63,7 @@ const AnimatedPressable = ({
   onLongPress,
   disabled = false,
   style,
+  containerStyle,
   className,
   children,
   scaleDown = 0.96,
@@ -88,6 +105,7 @@ const AnimatedPressable = ({
       onPressOut={handlePressOut}
       disabled={disabled}
       hitSlop={hitSlop}
+      style={containerStyle}
       accessible={accessible}
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint}

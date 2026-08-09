@@ -5,11 +5,11 @@ import {
   TextInput,
   Image,
   ScrollView,
-  useColorScheme,
   RefreshControl,
   ActivityIndicator,
   Modal,
 } from 'react-native';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import ConfirmModal from '~/components/ConfirmModal';
 import { Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -49,7 +49,7 @@ import { useUserStore } from '~/store/user.store';
 import { useAppStore } from '~/store/app.store';
 import AnimatedPressable from '~/components/AnimatedPressable';
 
-import { hud, FONT } from '~/components/hud';
+import { hud, FONT, RADIUS } from '~/components/hud';
 import { avatarUri } from '~/helpers/avatarUri';
 import { useUnlocks } from '~/helpers/unlocks';
 import { formatDistanceToNow } from 'date-fns';
@@ -88,7 +88,7 @@ const cardBase = (c: ReturnType<typeof hud>) =>
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: c.panel,
-    borderRadius: 16,
+    borderRadius: RADIUS.md,
     borderWidth: 1,
     borderColor: c.panelBorder,
     padding: 14,
@@ -141,10 +141,10 @@ const FriendSkeleton = ({ isDark }: { isDark: boolean }) => {
           />
           <View style={{ flex: 1, marginLeft: 12, gap: 8 }}>
             <Animated.View
-              style={[{ height: 14, borderRadius: 3, backgroundColor: c.track, width: '50%' }, anim]}
+              style={[{ height: 14, borderRadius: RADIUS.xs, backgroundColor: c.track, width: '50%' }, anim]}
             />
             <Animated.View
-              style={[{ height: 11, borderRadius: 3, backgroundColor: c.track, width: '35%' }, anim]}
+              style={[{ height: 11, borderRadius: RADIUS.xs, backgroundColor: c.track, width: '35%' }, anim]}
             />
           </View>
         </View>
@@ -177,11 +177,11 @@ const FriendCard = ({
           justifyContent: 'center',
           paddingHorizontal: 20,
           marginBottom: 10,
-          borderRadius: 12,
+          borderRadius: RADIUS.sm,
           marginLeft: 6,
         }}>
         <Ionicons name="person-remove-outline" size={20} color="#fff" />
-        <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700', marginTop: 3 }}>Remove</Text>
+        <Text style={{ color: '#fff', fontSize: 10, fontFamily: FONT.bold, marginTop: 3 }}>Remove</Text>
       </AnimatedPressable>
     </View>
   );
@@ -219,7 +219,7 @@ const FriendCard = ({
               right: 1,
               width: 12,
               height: 12,
-              borderRadius: 12,
+              borderRadius: RADIUS.sm,
               backgroundColor: friend.isOnline ? '#10b981' : c.textFaint,
               borderWidth: 2,
               borderColor: c.panel,
@@ -283,7 +283,7 @@ const RequestCard = ({
           style={{
             width: 36,
             height: 36,
-            borderRadius: 12,
+            borderRadius: RADIUS.sm,
             backgroundColor: 'rgba(239,68,68,0.14)',
             borderWidth: 1,
             borderColor: 'rgba(239,68,68,0.28)',
@@ -298,7 +298,7 @@ const RequestCard = ({
           style={{
             width: 36,
             height: 36,
-            borderRadius: 12,
+            borderRadius: RADIUS.sm,
             backgroundColor: 'rgba(16,185,129,0.14)',
             borderWidth: 1,
             borderColor: 'rgba(16,185,129,0.30)',
@@ -359,7 +359,7 @@ const UserRow = ({
         style={{
           paddingHorizontal: 16,
           paddingVertical: 9,
-          borderRadius: 12,
+          borderRadius: RADIUS.sm,
           backgroundColor: disabled ? c.track : actionColor,
           minWidth: 76,
           alignItems: 'center',
@@ -386,7 +386,7 @@ const EmptyState = ({ icon, text, isDark }: { icon: string; text: string; isDark
         style={{
           width: 64,
           height: 64,
-          borderRadius: 12,
+          borderRadius: RADIUS.sm,
           borderWidth: 1,
           borderColor: c.panelBorder,
           backgroundColor: c.panel,
@@ -444,7 +444,7 @@ const TeamCard = ({
         onPress={onPress}
         style={{
           backgroundColor: c.panel,
-          borderRadius: 10,
+          borderRadius: RADIUS.sm,
           padding: 16,
           marginBottom: 12,
           borderWidth: 1,
@@ -456,7 +456,7 @@ const TeamCard = ({
             style={{
               width: 40,
               height: 40,
-              borderRadius: 12,
+              borderRadius: RADIUS.sm,
               backgroundColor: 'rgba(139,92,246,0.14)',
               borderWidth: 1,
               borderColor: 'rgba(139,92,246,0.30)',
@@ -482,7 +482,7 @@ const TeamCard = ({
                 style={{
                   width: 34,
                   height: 34,
-                  borderRadius: 12,
+                  borderRadius: RADIUS.sm,
                   backgroundColor: 'rgba(16,185,129,0.14)',
                   borderWidth: 1,
                   borderColor: 'rgba(16,185,129,0.28)',
@@ -499,7 +499,7 @@ const TeamCard = ({
               style={{
                 width: 34,
                 height: 34,
-                borderRadius: 12,
+                borderRadius: RADIUS.sm,
                 backgroundColor: 'rgba(239,68,68,0.12)',
                 borderWidth: 1,
                 borderColor: 'rgba(239,68,68,0.26)',
@@ -636,7 +636,7 @@ const CreateTeamModal = ({
               backgroundColor: name.trim() ? c.violet : c.track,
               paddingHorizontal: 16,
               paddingVertical: 9,
-              borderRadius: 12,
+              borderRadius: RADIUS.sm,
             }}>
             {loading ? (
               <ActivityIndicator size="small" color="#fff" />
@@ -654,7 +654,7 @@ const CreateTeamModal = ({
           <View
             style={{
               backgroundColor: c.bgElev,
-              borderRadius: 12,
+              borderRadius: RADIUS.sm,
               paddingHorizontal: 16,
               paddingVertical: 14,
               marginBottom: 24,
@@ -682,7 +682,7 @@ const CreateTeamModal = ({
               flexDirection: 'row',
               alignItems: 'center',
               backgroundColor: c.bgElev,
-              borderRadius: 12,
+              borderRadius: RADIUS.sm,
               paddingHorizontal: 12,
               paddingVertical: 10,
               marginBottom: 14,
@@ -722,7 +722,7 @@ const CreateTeamModal = ({
                     flexDirection: 'row',
                     alignItems: 'center',
                     backgroundColor: checked ? 'rgba(139,92,246,0.12)' : c.panel,
-                    borderRadius: 10,
+                    borderRadius: RADIUS.sm,
                     padding: 12,
                     marginBottom: 8,
                     borderWidth: 1,
@@ -746,7 +746,7 @@ const CreateTeamModal = ({
                     style={{
                       width: 22,
                       height: 22,
-                      borderRadius: 6,
+                      borderRadius: RADIUS.xs,
                       borderWidth: 2,
                       borderColor: checked ? c.violet : c.track,
                       backgroundColor: checked ? c.violet : 'transparent',
@@ -1103,7 +1103,7 @@ const Friends = () => {
                 backgroundColor: c.violet,
                 paddingHorizontal: 14,
                 paddingVertical: 9,
-                borderRadius: 12,
+                borderRadius: RADIUS.sm,
               }}>
               <Ionicons name="add" size={16} color="#fff" />
               <Text style={{ color: '#fff', fontFamily: FONT.bold, fontSize: 13 }}>New team</Text>
@@ -1126,7 +1126,7 @@ const Friends = () => {
             backgroundColor: 'rgba(139,92,246,0.10)',
             borderWidth: 1,
             borderColor: 'rgba(139,92,246,0.28)',
-            borderRadius: 16,
+            borderRadius: RADIUS.md,
             paddingHorizontal: 14,
             paddingVertical: 12,
           }}>
@@ -1149,7 +1149,7 @@ const Friends = () => {
             flexDirection: 'row',
             alignItems: 'center',
             backgroundColor: c.bgElev,
-            borderRadius: 12,
+            borderRadius: RADIUS.sm,
             paddingHorizontal: 14,
             paddingVertical: 11,
             borderWidth: 1,
@@ -1197,7 +1197,7 @@ const Friends = () => {
                   gap: 6,
                   paddingVertical: 9,
                   paddingHorizontal: 14,
-                  borderRadius: 999,
+                  borderRadius: RADIUS.pill,
                   backgroundColor: active ? 'rgba(139,92,246,0.16)' : c.bgElev,
                   borderWidth: 1,
                   borderColor: active ? 'rgba(139,92,246,0.45)' : c.panelBorder,
@@ -1209,7 +1209,7 @@ const Friends = () => {
                   <View
                     style={{
                       backgroundColor: active ? c.violet : '#ef4444',
-                      borderRadius: 999,
+                      borderRadius: RADIUS.pill,
                       minWidth: 16,
                       height: 16,
                       alignItems: 'center',
@@ -1390,7 +1390,7 @@ const Friends = () => {
                   backgroundColor: c.violet,
                   paddingHorizontal: 24,
                   paddingVertical: 13,
-                  borderRadius: 12,
+                  borderRadius: RADIUS.sm,
                   flexDirection: 'row',
                   alignItems: 'center',
                   gap: 8,

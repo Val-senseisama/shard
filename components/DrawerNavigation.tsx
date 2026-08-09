@@ -7,12 +7,14 @@ if ((!Object.prototype as any)._toString) {
 }
 
 import React from 'react';
-import { View, Text, Pressable, Image, useColorScheme } from 'react-native';
+import { View, Text, Pressable, Image } from 'react-native';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { router } from 'expo-router';
 import Session from '@/helpers/Session';
 import images from '@/constants/images';
 import { AntDesign, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { avatarUri } from '~/helpers/avatarUri';
+import { hud, RADIUS } from '~/components/hud';
 import { useRoute } from '@react-navigation/native';
 import Animated, {
   useAnimatedStyle,
@@ -94,7 +96,9 @@ const AnimatedMenuItem = ({
             marginLeft: -50,
             marginTop: -50,
             borderRadius: 50,
-            backgroundColor: colorScheme === 'dark' ? '#667EEA' : '#4135F3',
+            // Was the old blue (#667EEA / #4135F3) — the accent that shipped
+            // alongside the violet everywhere else. One brand.
+            backgroundColor: hud(colorScheme === 'dark').violet,
           },
         ]}
       />
@@ -108,7 +112,7 @@ const AnimatedMenuItem = ({
             inset: 0,
             backgroundColor:
               colorScheme === 'dark' ? 'rgba(102, 126, 234, 0.1)' : 'rgba(65, 53, 243, 0.05)',
-            borderRadius: 8,
+            borderRadius: RADIUS.xs,
           },
         ]}
       />

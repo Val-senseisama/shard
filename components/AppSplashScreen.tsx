@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { FONT, RADIUS } from '~/components/hud';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
@@ -71,7 +72,7 @@ const PulseDot = ({ delay }: { delay: number }) => {
 
   const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
   return (
-    <Animated.View style={[{ width: 5, height: 5, borderRadius: 3, backgroundColor: '#7c3aed', marginHorizontal: 3 }, style]} />
+    <Animated.View style={[{ width: 5, height: 5, borderRadius: RADIUS.xs, backgroundColor: '#7c3aed', marginHorizontal: 3 }, style]} />
   );
 };
 
@@ -97,7 +98,7 @@ export default function AppSplashScreen() {
         </Animated.View>
 
         <Animated.View entering={FadeIn.duration(600).delay(150)} style={{ alignItems: 'center' }}>
-          <Text style={{ fontSize: 32, fontWeight: '900', letterSpacing: 6, color: '#fff' }}>
+          <Text style={{ fontSize: 32, fontFamily: FONT.black, letterSpacing: 6, color: '#fff' }}>
             SH<Text style={{ color: '#7c3aed' }}>▲</Text>RD
           </Text>
         </Animated.View>

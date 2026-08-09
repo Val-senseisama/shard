@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
 import { View, Text } from 'react-native';
+import { FONT, RADIUS } from '~/components/hud';
 import { Ionicons } from '@expo/vector-icons';
 import AnimatedPressable from '~/components/AnimatedPressable';
 import TaskCheck, { TaskTitle } from '~/components/TaskCheck';
@@ -28,12 +29,12 @@ export const ScheduleTaskCard = memo(({ task, color, isDark, onToggle }: Schedul
   const theme = t(isDark);
   const shadow = getCardShadow(isDark);
   return (
-    <View style={{ backgroundColor: theme.card, borderRadius: 16, overflow: 'hidden', ...(shadow as any) }}>
+    <View style={{ backgroundColor: theme.card, borderRadius: RADIUS.md, overflow: 'hidden', ...(shadow as any) }}>
       <View style={{ flexDirection: 'row' }}>
         <View style={{ width: 4, backgroundColor: color, borderRadius: 2 }} />
         <View style={{ flex: 1, padding: 16 }}>
           {task.miniGoalTitle && (
-            <Text style={{ fontSize: 12, fontWeight: '600', color, marginBottom: 4 }}>
+            <Text style={{ fontSize: 12, fontFamily: FONT.semibold, color, marginBottom: 4 }}>
               {task.miniGoalTitle}
             </Text>
           )}
@@ -43,11 +44,11 @@ export const ScheduleTaskCard = memo(({ task, color, isDark, onToggle }: Schedul
               <View
                 style={{
                   backgroundColor: `${color}15`,
-                  borderRadius: 8,
+                  borderRadius: RADIUS.xs,
                   paddingHorizontal: 8,
                   paddingVertical: 4,
                 }}>
-                <Text style={{ fontSize: 12, fontWeight: '600', color }}>
+                <Text style={{ fontSize: 12, fontFamily: FONT.semibold, color }}>
                   {formatDate(task.dueDate)}
                 </Text>
               </View>

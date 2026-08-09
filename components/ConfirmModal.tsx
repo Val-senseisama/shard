@@ -1,5 +1,7 @@
 import React from 'react';
-import { View, Text, Modal, Pressable, useColorScheme } from 'react-native';
+import { View, Text, Modal, Pressable } from 'react-native';
+import { brand, FONT, RADIUS } from '~/components/hud';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
 import AnimatedPressable from './AnimatedPressable';
@@ -33,7 +35,7 @@ const ConfirmModal = ({
 }: ConfirmModalProps) => {
   const isDark = useColorScheme() === 'dark';
 
-  const accentColor = confirmColor || (destructive ? '#ef4444' : '#8b5cf6');
+  const accentColor = confirmColor || (destructive ? '#ef4444' : brand.violet);
   const resolvedIcon = icon || (destructive ? 'warning-outline' : 'help-circle-outline');
   const resolvedIconColor = iconColor || accentColor;
 
@@ -48,7 +50,7 @@ const ConfirmModal = ({
                 width: '100%',
                 maxWidth: 340,
                 backgroundColor: isDark ? '#1a1a1a' : '#fff',
-                borderRadius: 24,
+                borderRadius: RADIUS.xl,
                 borderWidth: 1,
                 borderColor: isDark ? 'rgba(72,72,71,0.15)' : 'rgba(0,0,0,0.06)',
                 overflow: 'hidden',
@@ -71,7 +73,7 @@ const ConfirmModal = ({
                 <Text
                   style={{
                     fontSize: 18,
-                    fontWeight: '700',
+                    fontFamily: FONT.bold,
                     color: isDark ? '#fff' : '#1a1a1a',
                     textAlign: 'center',
                     marginBottom: 8,
@@ -94,12 +96,12 @@ const ConfirmModal = ({
                 <AnimatedPressable onPress={onConfirm} scaleDown={0.97}>
                   <View
                     style={{
-                      borderRadius: 14,
+                      borderRadius: RADIUS.sm,
                       paddingVertical: 14,
                       alignItems: 'center',
                       backgroundColor: accentColor,
                     }}>
-                    <Text style={{ fontSize: 15, fontWeight: '600', color: '#fff' }}>
+                    <Text style={{ fontSize: 15, fontFamily: FONT.semibold, color: '#fff' }}>
                       {confirmLabel}
                     </Text>
                   </View>
@@ -108,7 +110,7 @@ const ConfirmModal = ({
                 <AnimatedPressable onPress={onClose} scaleDown={0.97}>
                   <View
                     style={{
-                      borderRadius: 14,
+                      borderRadius: RADIUS.sm,
                       paddingVertical: 14,
                       alignItems: 'center',
                       backgroundColor: isDark ? '#262626' : '#f3f4f6',
@@ -116,7 +118,7 @@ const ConfirmModal = ({
                     <Text
                       style={{
                         fontSize: 15,
-                        fontWeight: '600',
+                        fontFamily: FONT.semibold,
                         color: isDark ? '#fff' : '#1a1a1a',
                       }}>
                       {cancelLabel}

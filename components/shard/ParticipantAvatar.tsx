@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
 import { View, Text, Image } from 'react-native';
+import { FONT } from '~/components/hud';
 import { avatarUri } from '~/helpers/avatarUri';
 import { ACCENT } from './constants';
 
@@ -29,7 +30,7 @@ export const ParticipantAvatar = memo(({ participant, size = 52 }: ParticipantAv
         />
       </View>
       {participant.username && (
-        <Text style={{ fontSize: 11, color: '#767575', fontWeight: '500' }} numberOfLines={1}>
+        <Text style={{ fontSize: 11, color: '#767575', fontFamily: FONT.medium }} numberOfLines={1}>
           {participant.username}
         </Text>
       )}

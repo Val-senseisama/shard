@@ -5,13 +5,14 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  useColorScheme,
   Image,
   Alert,
   ActivityIndicator,
   Switch,
   Platform,
 } from 'react-native';
+import { brand } from '~/components/hud';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -846,7 +847,7 @@ const EditShard = () => {
                           <Ionicons
                             name={task.completed ? 'checkmark-circle' : 'ellipse-outline'}
                             size={14}
-                            color={task.completed ? '#8b5cf6' : '#9ca3af'}
+                            color={task.completed ? brand.violet : '#9ca3af'}
                           />
                           {activeEdit ? (
                             <TextInput

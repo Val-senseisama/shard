@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, Share, Platform } from 'react-native';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,7 +13,6 @@ import { GET_SHARE_CARD } from '~/Graphql/Queries';
 import { RECORD_SHARE } from '~/Graphql/Mutations';
 import ShareCard from '~/components/ShareCard';
 import { hud, FONT, RADIUS, HudLabel, HudButton, Num } from '~/components/hud';
-import { useAppStore } from '~/store/app.store';
 import { track } from '~/helpers/analytics';
 import { openPaywall } from '~/helpers/paywall';
 import { haptic } from '~/helpers/motion';
@@ -38,7 +38,7 @@ export default function QuestComplete() {
     firstCompletion?: string;
   }>();
 
-  const isDark = useAppStore((s) => s.isDarkMode);
+  const isDark = useColorScheme() === 'dark';
   const c = hud(isDark);
   const cardRef = useRef<View>(null);
   const [sharing, setSharing] = useState(false);

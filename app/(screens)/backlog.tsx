@@ -5,9 +5,9 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
-  useColorScheme,
   RefreshControl,
 } from 'react-native';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { AntDesign, MaterialIcons, Ionicons } from '@expo/vector-icons';

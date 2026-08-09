@@ -1,11 +1,11 @@
 import React, { useCallback } from 'react';
 import { View, Text } from 'react-native';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_STREAKS } from '~/Graphql/Queries';
 import { REPAIR_STREAK } from '~/Graphql/Mutations';
 import { hud, FONT, RADIUS, HudLabel, Num, HudButton } from '~/components/hud';
-import { useAppStore } from '~/store/app.store';
 
 /**
  * The streak, with the state it's actually in.
@@ -28,7 +28,7 @@ interface StreakInfo {
 }
 
 export default function StreakCard({ onRepaired }: { onRepaired?: (days: number) => void }) {
-  const isDark = useAppStore((s) => s.isDarkMode);
+  const isDark = useColorScheme() === 'dark';
   const c = hud(isDark);
 
   const { data, refetch } = useQuery(GET_STREAKS, { fetchPolicy: 'cache-and-network' });

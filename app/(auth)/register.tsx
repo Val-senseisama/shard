@@ -8,8 +8,8 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
-  useColorScheme,
 } from 'react-native';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -24,7 +24,7 @@ import { useUserStore } from '~/store/user.store';
 import { useAppStore } from '~/store/app.store';
 import AnimatedPressable from '~/components/AnimatedPressable';
 import icons from '@/constants/icons';
-import { hud, FONT, HudField, HudLabel, WordMark } from '~/components/hud';
+import { brand, hud, FONT, HudField, HudLabel, WordMark, RADIUS } from '~/components/hud';
 import { deviceTimeZone } from '~/helpers/dateKeys';
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -254,7 +254,7 @@ const Register = () => {
           <View
             style={{
               backgroundColor: c.panel,
-              borderRadius: 20,
+              borderRadius: RADIUS.lg,
               borderWidth: 1,
               borderColor: c.panelBorder,
               padding: 22,
@@ -279,7 +279,7 @@ const Register = () => {
                 style={{
                   width: 22,
                   height: 22,
-                  borderRadius: 6,
+                  borderRadius: RADIUS.xs,
                   borderWidth: 1.5,
                   borderColor: accepted ? c.violet : c.panelBorderStrong,
                   backgroundColor: accepted ? c.violet : 'transparent',
@@ -298,7 +298,7 @@ const Register = () => {
 
             {/* Primary */}
             <AnimatedPressable onPress={handleSubmit} scaleDown={0.96} disabled={isLoading} style={{ marginBottom: 18 }}>
-              <LinearGradient colors={['#8b5cf6', '#6d28d9']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ borderRadius: 16, height: 52, alignItems: 'center', justifyContent: 'center' }}>
+              <LinearGradient colors={[brand.violet, brand.violetDeep]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ borderRadius: RADIUS.md, height: 52, alignItems: 'center', justifyContent: 'center' }}>
                 {registering ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
@@ -315,7 +315,7 @@ const Register = () => {
             </View>
 
             {/* Google */}
-            <TouchableOpacity onPress={handleGooglePress} disabled={isLoading} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 52, borderRadius: 16, backgroundColor: c.bgElev, borderWidth: 1, borderColor: c.panelBorder, gap: 10 }}>
+            <TouchableOpacity onPress={handleGooglePress} disabled={isLoading} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 52, borderRadius: RADIUS.md, backgroundColor: c.bgElev, borderWidth: 1, borderColor: c.panelBorder, gap: 10 }}>
               {googleInProgress || googleLoading ? (
                 <ActivityIndicator color={c.textDim} />
               ) : (

@@ -5,11 +5,10 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Modal,
-  useColorScheme,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation } from '@apollo/client';
@@ -35,6 +34,7 @@ import {
 } from '~/Graphql/Mutations';
 import { ACCENT, t } from '~/components/shard/constants';
 import AnimatedPressable from '~/components/AnimatedPressable';
+import { brand, FONT, Sheet, RADIUS } from '~/components/hud';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -97,7 +97,7 @@ const SideQuestCard = ({
       exiting={exiting ? FadeOutDown.duration(350).springify() : undefined}
       style={{
         backgroundColor: theme.card,
-        borderRadius: 18,
+        borderRadius: RADIUS.md,
         overflow: 'hidden',
         borderWidth: 1,
         borderColor: isDark ? theme.border : 'rgba(0,0,0,0.06)',
@@ -111,35 +111,35 @@ const SideQuestCard = ({
             <View
               style={{
                 backgroundColor: `${diffColor}20`,
-                borderRadius: 6,
+                borderRadius: RADIUS.xs,
                 paddingHorizontal: 8,
                 paddingVertical: 3,
                 marginRight: 8,
               }}>
-              <Text style={{ fontSize: 10, fontWeight: '700', color: diffColor }}>
+              <Text style={{ fontSize: 10, fontFamily: FONT.bold, color: diffColor }}>
                 {quest.difficulty.toUpperCase()}
               </Text>
             </View>
             <View
               style={{
                 backgroundColor: isDark ? 'rgba(124,58,237,0.15)' : 'rgba(124,58,237,0.08)',
-                borderRadius: 6,
+                borderRadius: RADIUS.xs,
                 paddingHorizontal: 8,
                 paddingVertical: 3,
               }}>
-              <Text style={{ fontSize: 10, fontWeight: '600', color: ACCENT }}>
+              <Text style={{ fontSize: 10, fontFamily: FONT.semibold, color: ACCENT }}>
                 {quest.category}
               </Text>
             </View>
             <View style={{ flex: 1 }} />
             <Ionicons name="flash" size={13} color="#f59e0b" />
-            <Text style={{ fontSize: 13, fontWeight: '700', color: '#f59e0b', marginLeft: 3 }}>
+            <Text style={{ fontSize: 13, fontFamily: FONT.bold, color: '#f59e0b', marginLeft: 3 }}>
               +{quest.xpReward} XP
             </Text>
           </View>
 
           <Text
-            style={{ fontSize: 16, fontWeight: '700', color: theme.text, marginBottom: 6 }}
+            style={{ fontSize: 16, fontFamily: FONT.bold, color: theme.text, marginBottom: 6 }}
             numberOfLines={2}>
             {quest.title}
           </Text>
@@ -161,7 +161,7 @@ const SideQuestCard = ({
               justifyContent: 'center',
               gap: 6,
               backgroundColor: ACCENT,
-              borderRadius: 10,
+              borderRadius: RADIUS.sm,
               paddingVertical: 10,
               opacity: completing ? 0.6 : 1,
             }}>
@@ -170,7 +170,7 @@ const SideQuestCard = ({
             ) : (
               <>
                 <Ionicons name="checkmark-circle-outline" size={16} color="#fff" />
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#fff' }}>Mark Complete</Text>
+                <Text style={{ fontSize: 14, fontFamily: FONT.semibold, color: '#fff' }}>Mark Complete</Text>
               </>
             )}
           </AnimatedPressable>
@@ -197,7 +197,7 @@ const ChallengeCard = ({
 }) => {
   const theme = t(isDark);
   const isDaily = challenge.type === 'daily';
-  const typeColor = isDaily ? '#3b82f6' : '#8b5cf6';
+  const typeColor = isDaily ? '#3b82f6' : brand.violet;
   const daysLeft = Math.ceil(
     (new Date(parseInt(challenge.targetDate)).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
   );
@@ -208,7 +208,7 @@ const ChallengeCard = ({
       exiting={exiting ? FadeOutDown.duration(350).springify() : undefined}
       style={{
         backgroundColor: theme.card,
-        borderRadius: 18,
+        borderRadius: RADIUS.md,
         overflow: 'hidden',
         borderWidth: 1,
         borderColor: isDark ? theme.border : 'rgba(0,0,0,0.06)',
@@ -221,12 +221,12 @@ const ChallengeCard = ({
             <View
               style={{
                 backgroundColor: `${typeColor}20`,
-                borderRadius: 6,
+                borderRadius: RADIUS.xs,
                 paddingHorizontal: 8,
                 paddingVertical: 3,
                 marginRight: 8,
               }}>
-              <Text style={{ fontSize: 10, fontWeight: '700', color: typeColor }}>
+              <Text style={{ fontSize: 10, fontFamily: FONT.bold, color: typeColor }}>
                 {challenge.type.toUpperCase()}
               </Text>
             </View>
@@ -238,7 +238,7 @@ const ChallengeCard = ({
           </View>
 
           <Text
-            style={{ fontSize: 16, fontWeight: '700', color: theme.text, marginBottom: 4 }}
+            style={{ fontSize: 16, fontFamily: FONT.bold, color: theme.text, marginBottom: 4 }}
             numberOfLines={2}>
             {challenge.title}
           </Text>
@@ -256,21 +256,20 @@ const ChallengeCard = ({
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <Ionicons name="flash" size={13} color="#f59e0b" />
-              <Text style={{ fontSize: 13, fontWeight: '700', color: '#f59e0b' }}>
+              <Text style={{ fontSize: 13, fontFamily: FONT.bold, color: '#f59e0b' }}>
                 +{challenge.xpReward} XP
               </Text>
             </View>
             <AnimatedPressable
               onPress={() => onComplete(challenge.id)}
               scaleDown={0.96}
-              style={{
-                flex: 1,
+              containerStyle={{ flex: 1 }} style={{
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 6,
                 backgroundColor: typeColor,
-                borderRadius: 10,
+                borderRadius: RADIUS.sm,
                 paddingVertical: 10,
                 opacity: completing ? 0.6 : 1,
               }}>
@@ -279,7 +278,7 @@ const ChallengeCard = ({
               ) : (
                 <>
                   <Ionicons name="checkmark-circle-outline" size={16} color="#fff" />
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#fff' }}>Complete</Text>
+                  <Text style={{ fontSize: 14, fontFamily: FONT.semibold, color: '#fff' }}>Complete</Text>
                 </>
               )}
             </AnimatedPressable>
@@ -497,7 +496,7 @@ const SideQuestsScreen = () => {
         <AnimatedPressable onPress={() => router.back()} hitSlop={20} accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={24} color={theme.text} />
         </AnimatedPressable>
-        <Text style={{ fontSize: 18, fontWeight: '700', color: theme.text }}>Quests</Text>
+        <Text style={{ fontSize: 18, fontFamily: FONT.bold, color: theme.text }}>Quests</Text>
         {effectiveTab === 'challenges' ? (
           <AnimatedPressable onPress={() => setShowChallengeModal(true)} hitSlop={20} accessibilityLabel="Add">
             <Ionicons name="add-circle-outline" size={24} color={ACCENT} />
@@ -518,7 +517,7 @@ const SideQuestsScreen = () => {
           marginHorizontal: 16,
           marginBottom: 16,
           backgroundColor: isDark ? '#1a1a1a' : '#f3f4f6',
-          borderRadius: 12,
+          borderRadius: RADIUS.sm,
           padding: 4,
         }}>
         {visibleTabs.map((tab) => (
@@ -528,14 +527,14 @@ const SideQuestsScreen = () => {
             style={{
               flex: 1,
               paddingVertical: 8,
-              borderRadius: 10,
+              borderRadius: RADIUS.sm,
               alignItems: 'center',
               backgroundColor: activeTab === tab ? ACCENT : 'transparent',
             }}>
             <Text
               style={{
                 fontSize: 14,
-                fontWeight: '600',
+                fontFamily: FONT.semibold,
                 color: activeTab === tab ? '#fff' : theme.textSecondary,
               }}>
               {tab === 'quests' ? 'Side Quests' : 'Challenges'}
@@ -565,7 +564,7 @@ const SideQuestsScreen = () => {
               style={[
                 {
                   backgroundColor: isDark ? 'rgba(124,58,237,0.1)' : 'rgba(124,58,237,0.06)',
-                  borderRadius: 18,
+                  borderRadius: RADIUS.md,
                   padding: 18,
                   marginBottom: 20,
                   borderWidth: 1,
@@ -577,7 +576,7 @@ const SideQuestsScreen = () => {
               ]}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                 <Ionicons name="sparkles-outline" size={20} color={ACCENT} />
-                <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text }}>
+                <Text style={{ fontSize: 15, fontFamily: FONT.bold, color: theme.text }}>
                   AI Side Quests
                 </Text>
               </View>
@@ -602,7 +601,7 @@ const SideQuestsScreen = () => {
                   justifyContent: 'center',
                   gap: 8,
                   backgroundColor: canGenerate ? ACCENT : isDark ? '#2a2a2a' : '#e5e7eb',
-                  borderRadius: 12,
+                  borderRadius: RADIUS.sm,
                   paddingVertical: 12,
                   opacity: generatingId ? 0.6 : 1,
                 }}>
@@ -618,7 +617,7 @@ const SideQuestsScreen = () => {
                     <Text
                       style={{
                         fontSize: 14,
-                        fontWeight: '600',
+                        fontFamily: FONT.semibold,
                         color: canGenerate ? '#fff' : theme.textSecondary,
                       }}>
                       Generate Quest
@@ -681,26 +680,14 @@ const SideQuestsScreen = () => {
         )}
       </ScrollView>
 
-      {/* Category Picker Modal */}
-      <Modal
+      {/* Category picker */}
+      <Sheet
         visible={showCategoryModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowCategoryModal(false)}>
-        <TouchableOpacity
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}
-          activeOpacity={1}
-          onPress={() => setShowCategoryModal(false)}>
-          <View
-            style={{
-              backgroundColor: isDark ? '#1a1a1a' : '#fff',
-              borderTopLeftRadius: 24,
-              borderTopRightRadius: 24,
-              padding: 24,
-            }}
-            onStartShouldSetResponder={() => true}>
+        onClose={() => setShowCategoryModal(false)}
+        isDark={isDark}>
+        <View style={{ paddingHorizontal: 24, paddingTop: 12, paddingBottom: 24 }}>
             <Text
-              style={{ fontSize: 18, fontWeight: '700', color: theme.text, marginBottom: 6 }}>
+              style={{ fontSize: 18, fontFamily: FONT.bold, color: theme.text, marginBottom: 6 }}>
               Choose a Category
             </Text>
             <Text
@@ -720,7 +707,7 @@ const SideQuestsScreen = () => {
                       gap: 8,
                       paddingHorizontal: 14,
                       paddingVertical: 10,
-                      borderRadius: 12,
+                      borderRadius: RADIUS.sm,
                       borderWidth: 1.5,
                       borderColor: isSelected ? ACCENT : isDark ? '#374151' : '#e5e7eb',
                       backgroundColor: isSelected
@@ -737,7 +724,7 @@ const SideQuestsScreen = () => {
                     <Text
                       style={{
                         fontSize: 14,
-                        fontWeight: '600',
+                        fontFamily: FONT.semibold,
                         color: isSelected ? ACCENT : theme.text,
                       }}>
                       {cat.label}
@@ -751,38 +738,25 @@ const SideQuestsScreen = () => {
               scaleDown={0.96}
               style={{
                 backgroundColor: ACCENT,
-                borderRadius: 14,
+                borderRadius: RADIUS.sm,
                 paddingVertical: 14,
                 alignItems: 'center',
               }}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: '#fff' }}>
+              <Text style={{ fontSize: 16, fontFamily: FONT.bold, color: '#fff' }}>
                 Generate {selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1)} Quest
               </Text>
             </AnimatedPressable>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+        </View>
+      </Sheet>
 
-      {/* Create Challenge Modal */}
-      <Modal
+      {/* Create challenge */}
+      <Sheet
         visible={showChallengeModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowChallengeModal(false)}>
-        <TouchableOpacity
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}
-          activeOpacity={1}
-          onPress={() => setShowChallengeModal(false)}>
-          <View
-            style={{
-              backgroundColor: isDark ? '#1a1a1a' : '#fff',
-              borderTopLeftRadius: 24,
-              borderTopRightRadius: 24,
-              padding: 24,
-            }}
-            onStartShouldSetResponder={() => true}>
+        onClose={() => setShowChallengeModal(false)}
+        isDark={isDark}>
+        <View style={{ paddingHorizontal: 24, paddingTop: 12, paddingBottom: 24 }}>
             <Text
-              style={{ fontSize: 18, fontWeight: '700', color: theme.text, marginBottom: 20 }}>
+              style={{ fontSize: 18, fontFamily: FONT.bold, color: theme.text, marginBottom: 20 }}>
               New Challenge
             </Text>
 
@@ -795,7 +769,7 @@ const SideQuestsScreen = () => {
                   style={{
                     flex: 1,
                     paddingVertical: 10,
-                    borderRadius: 10,
+                    borderRadius: RADIUS.sm,
                     alignItems: 'center',
                     borderWidth: 1.5,
                     borderColor: challengeType === type ? ACCENT : isDark ? '#374151' : '#e5e7eb',
@@ -809,7 +783,7 @@ const SideQuestsScreen = () => {
                   <Text
                     style={{
                       fontSize: 14,
-                      fontWeight: '600',
+                      fontFamily: FONT.semibold,
                       color: challengeType === type ? ACCENT : theme.textSecondary,
                     }}>
                     {type === 'daily' ? 'Daily (1 day)' : 'Weekly (7 days)'}
@@ -827,7 +801,7 @@ const SideQuestsScreen = () => {
               style={{
                 backgroundColor: isDark ? '#2a2a2a' : '#f3f4f6',
                 color: theme.text,
-                borderRadius: 10,
+                borderRadius: RADIUS.sm,
                 paddingHorizontal: 14,
                 paddingVertical: 12,
                 fontSize: 15,
@@ -846,7 +820,7 @@ const SideQuestsScreen = () => {
               style={{
                 backgroundColor: isDark ? '#2a2a2a' : '#f3f4f6',
                 color: theme.text,
-                borderRadius: 10,
+                borderRadius: RADIUS.sm,
                 paddingHorizontal: 14,
                 paddingVertical: 12,
                 fontSize: 14,
@@ -858,7 +832,7 @@ const SideQuestsScreen = () => {
             {/* XP */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 }}>
               <Ionicons name="flash" size={16} color="#f59e0b" />
-              <Text style={{ fontSize: 14, color: theme.text, fontWeight: '600' }}>XP Reward:</Text>
+              <Text style={{ fontSize: 14, color: theme.text, fontFamily: FONT.semibold }}>XP Reward:</Text>
               <TextInput
                 value={challengeXP}
                 onChangeText={setChallengeXP}
@@ -866,7 +840,7 @@ const SideQuestsScreen = () => {
                 style={{
                   backgroundColor: isDark ? '#2a2a2a' : '#f3f4f6',
                   color: theme.text,
-                  borderRadius: 8,
+                  borderRadius: RADIUS.xs,
                   paddingHorizontal: 10,
                   paddingVertical: 6,
                   fontSize: 14,
@@ -881,7 +855,7 @@ const SideQuestsScreen = () => {
               scaleDown={0.96}
               style={{
                 backgroundColor: ACCENT,
-                borderRadius: 14,
+                borderRadius: RADIUS.sm,
                 paddingVertical: 14,
                 alignItems: 'center',
                 opacity: creatingChallenge ? 0.6 : 1,
@@ -889,14 +863,13 @@ const SideQuestsScreen = () => {
               {creatingChallenge ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <Text style={{ fontSize: 16, fontWeight: '700', color: '#fff' }}>
+                <Text style={{ fontSize: 16, fontFamily: FONT.bold, color: '#fff' }}>
                   Create Challenge
                 </Text>
               )}
             </AnimatedPressable>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+        </View>
+      </Sheet>
     </SafeAreaView>
   );
 };

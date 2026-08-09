@@ -4,8 +4,9 @@ import {
   Text,
   ActivityIndicator,
   ScrollView,
-  useColorScheme,
 } from 'react-native';
+import { brand, FONT, RADIUS } from '~/components/hud';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@apollo/client';
@@ -234,11 +235,11 @@ export default function SubscribeToProPage() {
         {/* Hero */}
         <Animated.View entering={FadeInDown.duration(400)} style={{ alignItems: 'center', marginBottom: 28 }}>
           <LinearGradient
-            colors={['#7c3aed', '#6d28d9']}
-            style={{ borderRadius: 22, padding: 18, marginBottom: 16 }}>
+            colors={['#7c3aed', brand.violetDeep]}
+            style={{ borderRadius: RADIUS.lg, padding: 18, marginBottom: 16 }}>
             <Ionicons name="flash" size={36} color="#fff" />
           </LinearGradient>
-          <Text style={{ fontSize: 28, fontWeight: '800', color: theme.text, textAlign: 'center', letterSpacing: -0.5 }}>
+          <Text style={{ fontSize: 28, fontFamily: FONT.extrabold, color: theme.text, textAlign: 'center', letterSpacing: -0.5 }}>
             {isFirstCompletion
               ? 'You just finished a quest'
               : isOnboarding
@@ -246,14 +247,14 @@ export default function SubscribeToProPage() {
                 : 'Unlock Shard Pro'}
           </Text>
           {inTrial ? (
-            <View style={{ backgroundColor: 'rgba(124,58,237,0.12)', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8, marginTop: 12 }}>
-              <Text style={{ fontSize: 14, color: ACCENT, textAlign: 'center', fontWeight: '600' }}>
+            <View style={{ backgroundColor: 'rgba(124,58,237,0.12)', borderRadius: RADIUS.sm, paddingHorizontal: 14, paddingVertical: 8, marginTop: 12 }}>
+              <Text style={{ fontSize: 14, color: ACCENT, textAlign: 'center', fontFamily: FONT.semibold }}>
                 🎉 {dayLabel(trialDaysLeft)} of Pro, on the house — everything below is unlocked.
               </Text>
             </View>
           ) : reason ? (
-            <View style={{ backgroundColor: 'rgba(124,58,237,0.12)', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8, marginTop: 12 }}>
-              <Text style={{ fontSize: 14, color: ACCENT, textAlign: 'center', fontWeight: '600' }}>
+            <View style={{ backgroundColor: 'rgba(124,58,237,0.12)', borderRadius: RADIUS.sm, paddingHorizontal: 14, paddingVertical: 8, marginTop: 12 }}>
+              <Text style={{ fontSize: 14, color: ACCENT, textAlign: 'center', fontFamily: FONT.semibold }}>
                 {reason}
               </Text>
             </View>
@@ -270,13 +271,13 @@ export default function SubscribeToProPage() {
         {/* Features */}
         <Animated.View
           entering={FadeInDown.delay(100).duration(260)}
-          style={{ backgroundColor: theme.card, borderRadius: 18, padding: 20, marginBottom: 24, gap: 14, borderWidth: 1, borderColor: isDark ? theme.border : 'rgba(0,0,0,0.05)' }}>
+          style={{ backgroundColor: theme.card, borderRadius: RADIUS.md, padding: 20, marginBottom: 24, gap: 14, borderWidth: 1, borderColor: isDark ? theme.border : 'rgba(0,0,0,0.05)' }}>
           {PRO_FEATURES.map((f) => (
             <View key={f.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-              <View style={{ backgroundColor: isDark ? 'rgba(124,58,237,0.15)' : 'rgba(124,58,237,0.08)', borderRadius: 10, padding: 9 }}>
+              <View style={{ backgroundColor: isDark ? 'rgba(124,58,237,0.15)' : 'rgba(124,58,237,0.08)', borderRadius: RADIUS.sm, padding: 9 }}>
                 <Ionicons name={f.icon as any} size={18} color={ACCENT} />
               </View>
-              <Text style={{ fontSize: 15, color: theme.text, fontWeight: '500', flex: 1 }}>{f.label}</Text>
+              <Text style={{ fontSize: 15, color: theme.text, fontFamily: FONT.medium, flex: 1 }}>{f.label}</Text>
               <Ionicons name="checkmark-circle" size={18} color="#10b981" />
             </View>
           ))}
@@ -301,7 +302,7 @@ export default function SubscribeToProPage() {
                   scaleDown={0.97}
                   style={{
                     backgroundColor: selected ? isDark ? 'rgba(124,58,237,0.15)' : 'rgba(124,58,237,0.07)' : theme.card,
-                    borderRadius: 16,
+                    borderRadius: RADIUS.md,
                     borderWidth: 2,
                     borderColor: selected ? ACCENT : isDark ? theme.border : 'rgba(0,0,0,0.06)',
                     padding: 16,
@@ -322,10 +323,10 @@ export default function SubscribeToProPage() {
                     </View>
                     <View>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <Text style={{ fontSize: 16, fontWeight: '700', color: theme.text }}>{meta.label}</Text>
+                        <Text style={{ fontSize: 16, fontFamily: FONT.bold, color: theme.text }}>{meta.label}</Text>
                         {meta.badge && (
-                          <View style={{ backgroundColor: ACCENT, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
-                            <Text style={{ color: '#fff', fontSize: 9, fontWeight: '800' }}>
+                          <View style={{ backgroundColor: ACCENT, borderRadius: RADIUS.xs, paddingHorizontal: 6, paddingVertical: 2 }}>
+                            <Text style={{ color: '#fff', fontSize: 9, fontFamily: FONT.extrabold }}>
                               {meta.badge}{savingsPct && pkg.identifier === 'yearly' ? ` · SAVE ${savingsPct}%` : ''}
                             </Text>
                           </View>
@@ -334,7 +335,7 @@ export default function SubscribeToProPage() {
                       <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 2 }}>{meta.period}</Text>
                     </View>
                   </View>
-                  <Text style={{ fontSize: 18, fontWeight: '800', color: selected ? ACCENT : theme.text }}>
+                  <Text style={{ fontSize: 18, fontFamily: FONT.extrabold, color: selected ? ACCENT : theme.text }}>
                     {pkg.priceString}
                   </Text>
                 </AnimatedPressable>
@@ -346,14 +347,14 @@ export default function SubscribeToProPage() {
         {/* CTA */}
         <AnimatedPressable onPress={handlePurchase} disabled={purchasing || loading || !selectedPkgId} scaleDown={0.96} style={{ marginBottom: 14 }}>
           <LinearGradient
-            colors={['#7c3aed', '#6d28d9']}
+            colors={['#7c3aed', brand.violetDeep]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={{ borderRadius: 16, height: 56, alignItems: 'center', justifyContent: 'center', opacity: purchasing ? 0.7 : 1 }}>
+            style={{ borderRadius: RADIUS.md, height: 56, alignItems: 'center', justifyContent: 'center', opacity: purchasing ? 0.7 : 1 }}>
             {purchasing ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={{ color: '#fff', fontSize: 17, fontWeight: '800' }}>
+              <Text style={{ color: '#fff', fontSize: 17, fontFamily: FONT.extrabold }}>
                 Continue with {PLAN_META[selectedPkgId]?.label ?? 'Plan'}
               </Text>
             )}
@@ -367,7 +368,7 @@ export default function SubscribeToProPage() {
             onPress={() => router.replace('/(screens)/(tabs)/Home')}
             scaleDown={0.94}
             style={{ alignItems: 'center', paddingVertical: 12, marginBottom: 4 }}>
-            <Text style={{ color: theme.textSecondary, fontSize: 15, fontWeight: '600' }}>
+            <Text style={{ color: theme.textSecondary, fontSize: 15, fontFamily: FONT.semibold }}>
               {isFirstCompletion ? 'Maybe later →' : 'Continue with my free trial →'}
             </Text>
           </AnimatedPressable>

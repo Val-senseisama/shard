@@ -5,9 +5,10 @@ import {
   TextInput,
   ScrollView,
   Image,
-  useColorScheme,
   ActivityIndicator,
 } from 'react-native';
+import { brand, FONT, RADIUS } from '~/components/hud';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -39,7 +40,7 @@ interface Selected extends Candidate {
 // ─── Role chip ────────────────────────────────────────────────────────────────
 
 const ROLE_META: Record<Role, { label: string; color: string; icon: string }> = {
-  collaborator: { label: 'Collaborator', color: '#8b5cf6', icon: 'people' },
+  collaborator: { label: 'Collaborator', color: brand.violet, icon: 'people' },
   accountability: { label: 'Accountability', color: '#f59e0b', icon: 'shield-checkmark' },
 };
 
@@ -62,14 +63,14 @@ const RoleToggle = ({
         alignItems: 'center',
         gap: 4,
         backgroundColor: `${meta.color}20`,
-        borderRadius: 8,
+        borderRadius: RADIUS.xs,
         paddingHorizontal: 8,
         paddingVertical: 4,
         borderWidth: 1,
         borderColor: `${meta.color}40`,
       }}>
       <Ionicons name={meta.icon as any} size={11} color={meta.color} />
-      <Text style={{ fontSize: 10, fontWeight: '700', color: meta.color }}>
+      <Text style={{ fontSize: 10, fontFamily: FONT.bold, color: meta.color }}>
         {role === 'collaborator' ? 'Collab' : 'Acct.'}
       </Text>
       <Ionicons name="swap-horizontal" size={9} color={meta.color} />
@@ -113,7 +114,7 @@ const SelectedChip = ({
       </AnimatedPressable>
     </View>
     <Text
-      style={{ fontSize: 11, fontWeight: '600', color: isDark ? '#fff' : '#1a1a1a', marginTop: 6, textAlign: 'center' }}
+      style={{ fontSize: 11, fontFamily: FONT.semibold, color: isDark ? '#fff' : '#1a1a1a', marginTop: 6, textAlign: 'center' }}
       numberOfLines={1}>
       {user.username}
     </Text>
@@ -148,7 +149,7 @@ const CandidateRow = ({
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: theme.card,
-        borderRadius: 14,
+        borderRadius: RADIUS.sm,
         padding: 12,
         marginBottom: 8,
         borderWidth: 1,
@@ -161,7 +162,7 @@ const CandidateRow = ({
         style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: ACCENT }}
       />
       <View style={{ flex: 1, marginLeft: 12 }}>
-        <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text }}>{user.username}</Text>
+        <Text style={{ fontSize: 15, fontFamily: FONT.bold, color: theme.text }}>{user.username}</Text>
         {(user.mutualFriends ?? 0) > 0 && (
           <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 2 }}>
             {user.mutualFriends} mutual
@@ -319,7 +320,7 @@ const AddPartners = () => {
         <AnimatedPressable onPress={() => router.back()} hitSlop={20} scaleDown={0.88} accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={24} color={theme.text} />
         </AnimatedPressable>
-        <Text style={{ flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '700', color: theme.text }}>
+        <Text style={{ flex: 1, textAlign: 'center', fontSize: 18, fontFamily: FONT.bold, color: theme.text }}>
           Add Partners
         </Text>
         <View style={{ width: 24 }} />
@@ -335,7 +336,7 @@ const AddPartners = () => {
             borderColor: isDark ? 'rgba(139,92,246,0.15)' : 'rgba(139,92,246,0.1)',
             paddingVertical: 14,
           }}>
-          <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary, letterSpacing: 0.2, marginLeft: 16, marginBottom: 12 }}>
+          <Text style={{ fontSize: 11, fontFamily: FONT.bold, color: theme.textSecondary, letterSpacing: 0.2, marginLeft: 16, marginBottom: 12 }}>
             Selected ({selected.length}) — tap role to switch
           </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16 }}>
@@ -356,7 +357,7 @@ const AddPartners = () => {
       <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 }}>
         <View style={{
           flexDirection: 'row', alignItems: 'center',
-          backgroundColor: theme.card, borderRadius: 14,
+          backgroundColor: theme.card, borderRadius: RADIUS.sm,
           paddingHorizontal: 14, paddingVertical: 11,
           borderWidth: 1, borderColor: isDark ? theme.border : 'rgba(0,0,0,0.06)',
         }}>
@@ -388,7 +389,7 @@ const AddPartners = () => {
           return (
             <View key={role} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
               <Ionicons name={m.icon as any} size={12} color={m.color} />
-              <Text style={{ fontSize: 11, color: theme.textSecondary, fontWeight: '600' }}>{m.label}</Text>
+              <Text style={{ fontSize: 11, color: theme.textSecondary, fontFamily: FONT.semibold }}>{m.label}</Text>
             </View>
           );
         })}
@@ -408,7 +409,7 @@ const AddPartners = () => {
             {/* Friends (filtered) */}
             {filteredFriends.length > 0 && (
               <>
-                <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary, letterSpacing: 0.2, marginBottom: 10 }}>
+                <Text style={{ fontSize: 11, fontFamily: FONT.bold, color: theme.textSecondary, letterSpacing: 0.2, marginBottom: 10 }}>
                   Friends
                 </Text>
                 {filteredFriends.map(f => (
@@ -427,7 +428,7 @@ const AddPartners = () => {
             {/* Non-friend search results */}
             {nonFriendResults.length > 0 && (
               <>
-                <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary, letterSpacing: 0.2, marginTop: 16, marginBottom: 10 }}>
+                <Text style={{ fontSize: 11, fontFamily: FONT.bold, color: theme.textSecondary, letterSpacing: 0.2, marginTop: 16, marginBottom: 10 }}>
                   Other Users
                 </Text>
                 {nonFriendResults.map(u => (
@@ -470,7 +471,7 @@ const AddPartners = () => {
           disabled={saving || selected.length === 0}
           style={{
             backgroundColor: selected.length === 0 ? (isDark ? '#2a2a2a' : '#e5e7eb') : ACCENT,
-            borderRadius: 16,
+            borderRadius: RADIUS.md,
             paddingVertical: 15,
             alignItems: 'center',
             opacity: saving ? 0.7 : 1,
@@ -479,7 +480,7 @@ const AddPartners = () => {
             <ActivityIndicator color="#fff" />
           ) : (
             <Text style={{
-              fontSize: 16, fontWeight: '700',
+              fontSize: 16, fontFamily: FONT.bold,
               color: selected.length === 0 ? theme.textSecondary : '#fff',
             }}>
               {selected.length === 0

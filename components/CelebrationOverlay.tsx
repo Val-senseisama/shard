@@ -1,5 +1,7 @@
 import React, { useEffect } from 'react';
-import { View, Text, Pressable, useWindowDimensions, StyleSheet, useColorScheme } from 'react-native';
+import { View, Text, Pressable, useWindowDimensions, StyleSheet } from 'react-native';
+import { brand } from '~/components/hud';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { hud, FONT, Num, SHARD_GRADIENT } from './hud';
 import Animated, {
@@ -183,7 +185,7 @@ const ConfettiParticle = ({
   }));
 
   // The app's palette — violet / cyan refraction / ember — not generic rainbow.
-  const colors = ['#8B5CF6', '#A78BFA', '#48E0EE', '#F5A524', '#6D28D9', '#FFFFFF'];
+  const colors = [brand.violet, brand.violetLight, '#48E0EE', '#F5A524', brand.violetDeep, '#FFFFFF'];
   const color = colors[index % colors.length];
 
   return <Animated.View style={[styles.particle, style, { backgroundColor: color }]} />;

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { brand, FONT, RADIUS } from '~/components/hud';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useMutation } from '@apollo/client';
@@ -47,7 +48,7 @@ const Avatar = ({ user, size = 32, isDark }: { user: Participant; size?: number;
         alignItems: 'center',
         justifyContent: 'center',
       }}>
-      <Text style={{ fontSize: size * 0.4, fontWeight: '700', color: '#8b5cf6' }}>
+      <Text style={{ fontSize: size * 0.4, fontFamily: FONT.bold, color: brand.violet }}>
         {(user.username?.[0] ?? '?').toUpperCase()}
       </Text>
     </View>
@@ -102,7 +103,7 @@ const MiniTaskAssignmentCard: React.FC<Props> = ({
         style={{
           width: '100%',
           backgroundColor: cardBg,
-          borderRadius: 20,
+          borderRadius: RADIUS.lg,
           borderWidth: 1.5,
           borderColor,
           overflow: 'hidden',
@@ -120,7 +121,7 @@ const MiniTaskAssignmentCard: React.FC<Props> = ({
               gap: 6,
             }}>
             <Ionicons name="person" size={12} color="#8b5cf6" />
-            <Text style={{ color: '#8b5cf6', fontSize: 12, fontWeight: '700', letterSpacing: 0.3 }}>
+            <Text style={{ color: brand.violet, fontSize: 12, fontFamily: FONT.bold, letterSpacing: 0.3 }}>
               Assigned to you
             </Text>
           </View>
@@ -134,11 +135,11 @@ const MiniTaskAssignmentCard: React.FC<Props> = ({
             <Avatar user={minitaskRef.assignedTo} size={30} isDark={isDark} />
             <View style={{ flex: 1 }}>
               <Text style={{ color: subColor, fontSize: 12 }} numberOfLines={1}>
-                <Text style={{ color: isDark ? '#d1d5db' : '#374151', fontWeight: '600' }}>
+                <Text style={{ color: isDark ? '#d1d5db' : '#374151', fontFamily: FONT.semibold }}>
                   @{sender.username}
                 </Text>
                 {' '}assigned{' '}
-                <Text style={{ color: isDark ? '#d1d5db' : '#374151', fontWeight: '600' }}>
+                <Text style={{ color: isDark ? '#d1d5db' : '#374151', fontFamily: FONT.semibold }}>
                   @{minitaskRef.assignedTo.username}
                 </Text>
               </Text>
@@ -149,7 +150,7 @@ const MiniTaskAssignmentCard: React.FC<Props> = ({
           <View
             style={{
               backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-              borderRadius: 12,
+              borderRadius: RADIUS.sm,
               padding: 12,
               marginBottom: 12,
               flexDirection: 'row',
@@ -160,7 +161,7 @@ const MiniTaskAssignmentCard: React.FC<Props> = ({
               style={{
                 width: 32,
                 height: 32,
-                borderRadius: 10,
+                borderRadius: RADIUS.sm,
                 backgroundColor: isDark ? 'rgba(139,92,246,0.2)' : 'rgba(139,92,246,0.12)',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -169,7 +170,7 @@ const MiniTaskAssignmentCard: React.FC<Props> = ({
               <Ionicons name="clipboard-outline" size={16} color="#8b5cf6" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: titleColor, fontWeight: '700', fontSize: 14, lineHeight: 20 }}>
+              <Text style={{ color: titleColor, fontFamily: FONT.bold, fontSize: 14, lineHeight: 20 }}>
                 {taskLabel}
               </Text>
               {questLabel && (
@@ -186,7 +187,7 @@ const MiniTaskAssignmentCard: React.FC<Props> = ({
               {done ? (
                 <>
                   <Ionicons name="checkmark-circle" size={16} color="#22c55e" />
-                  <Text style={{ color: '#22c55e', fontSize: 13, fontWeight: '600' }}>Done</Text>
+                  <Text style={{ color: '#22c55e', fontSize: 13, fontFamily: FONT.semibold }}>Done</Text>
                 </>
               ) : (
                 <>
@@ -198,7 +199,7 @@ const MiniTaskAssignmentCard: React.FC<Props> = ({
                       backgroundColor: '#f59e0b',
                     }}
                   />
-                  <Text style={{ color: '#f59e0b', fontSize: 13, fontWeight: '600' }}>Pending</Text>
+                  <Text style={{ color: '#f59e0b', fontSize: 13, fontFamily: FONT.semibold }}>Pending</Text>
                 </>
               )}
             </View>
@@ -213,7 +214,7 @@ const MiniTaskAssignmentCard: React.FC<Props> = ({
                   alignItems: 'center',
                   gap: 5,
                   backgroundColor: isDark ? 'rgba(139,92,246,0.25)' : 'rgba(139,92,246,0.12)',
-                  borderRadius: 20,
+                  borderRadius: RADIUS.lg,
                   paddingHorizontal: 14,
                   paddingVertical: 7,
                   borderWidth: 1,
@@ -224,7 +225,7 @@ const MiniTaskAssignmentCard: React.FC<Props> = ({
                 ) : (
                   <>
                     <Ionicons name="checkmark" size={14} color="#8b5cf6" />
-                    <Text style={{ color: '#8b5cf6', fontSize: 13, fontWeight: '700' }}>
+                    <Text style={{ color: brand.violet, fontSize: 13, fontFamily: FONT.bold }}>
                       Mark Complete
                     </Text>
                   </>

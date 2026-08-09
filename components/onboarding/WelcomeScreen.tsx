@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { brand, FONT, RADIUS } from '~/components/hud';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -116,7 +117,7 @@ export default function WelcomeScreen() {
         {/* Logo */}
         <View style={{ flex: 1, alignItems: 'center' }}>
           <Animated.View entering={FadeIn.duration(600)}>
-            <Text style={{ fontSize: 30, fontWeight: '900', letterSpacing: 5, color: '#fff' }}>
+            <Text style={{ fontSize: 30, fontFamily: FONT.black, letterSpacing: 5, color: '#fff' }}>
               SH<Text style={{ color: '#7c3aed' }}>▲</Text>RD
             </Text>
           </Animated.View>
@@ -142,7 +143,7 @@ export default function WelcomeScreen() {
             <Text
               style={{
                 fontSize: 34,
-                fontWeight: '900',
+                fontFamily: FONT.black,
                 color: '#fff',
                 textAlign: 'center',
                 letterSpacing: -0.5,
@@ -164,18 +165,18 @@ export default function WelcomeScreen() {
           <AnimatedPressable
             onPress={() => router.push('/(auth)/register')}
             scaleDown={0.97}
-            style={{ borderRadius: 18, overflow: 'hidden' }}>
+            style={{ borderRadius: RADIUS.md, overflow: 'hidden' }}>
             <LinearGradient
-              colors={['#7c3aed', '#6d28d9']}
+              colors={['#7c3aed', brand.violetDeep]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={{
                 height: 56,
                 alignItems: 'center',
                 justifyContent: 'center',
-                borderRadius: 18,
+                borderRadius: RADIUS.md,
               }}>
-              <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700', letterSpacing: 0.2 }}>
+              <Text style={{ color: '#fff', fontSize: 17, fontFamily: FONT.bold, letterSpacing: 0.2 }}>
                 Create Account
               </Text>
             </LinearGradient>
@@ -186,14 +187,14 @@ export default function WelcomeScreen() {
             scaleDown={0.97}
             style={{
               height: 56,
-              borderRadius: 18,
+              borderRadius: RADIUS.md,
               borderWidth: 1.5,
               borderColor: 'rgba(124,58,237,0.4)',
               backgroundColor: 'rgba(124,58,237,0.08)',
               alignItems: 'center',
               justifyContent: 'center',
             }}>
-            <Text style={{ fontSize: 17, fontWeight: '600', color: '#7c3aed' }}>Log In</Text>
+            <Text style={{ fontSize: 17, fontFamily: FONT.semibold, color: '#7c3aed' }}>Log In</Text>
           </AnimatedPressable>
         </Animated.View>
         </View>

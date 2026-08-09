@@ -20,10 +20,12 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import AnimatedPressable from '../AnimatedPressable';
-import { hud, FONT, RADIUS, SHARD_GRADIENT } from './tokens';
+import { hud, FONT, RADIUS, TYPE, tracking, SHARD_GRADIENT } from './tokens';
 import { useReducedMotion, useShimmer, SPRING_TIGHT, TIMING } from '~/helpers/motion';
 
-export { hud, FONT, RADIUS, TYPE, SHARD_GRADIENT, REFRACT_GRADIENT } from './tokens';
+export { hud, brand, FONT, RADIUS, TYPE, tracking, SHARD_GRADIENT, REFRACT_GRADIENT } from './tokens';
+export { default as Sheet } from './Sheet';
+export type { SheetProps } from './Sheet';
 export type { HudPalette } from './tokens';
 
 /**
@@ -41,9 +43,7 @@ export const HudLabel = ({
   size?: number;
   style?: StyleProp<TextStyle>;
 }) => (
-  <Text style={[{ fontFamily: FONT.semibold, fontSize: size, letterSpacing: 0.2, color: color ?? '#8E8CA0' }, style]}>
-    {children}
-  </Text>
+  <Text style={[TYPE.label(size), { color: color ?? '#8E8CA0' }, style]}>{children}</Text>
 );
 
 /**
@@ -61,13 +61,7 @@ export const Num = ({
   size?: number;
   style?: StyleProp<TextStyle>;
 }) => (
-  <Text
-    style={[
-      { fontFamily: FONT.mono, fontSize: size, letterSpacing: 0.5, fontVariant: ['tabular-nums'], color: color ?? '#F3F2F8' },
-      style,
-    ]}>
-    {children}
-  </Text>
+  <Text style={[TYPE.num(size), { color: color ?? '#F3F2F8' }, style]}>{children}</Text>
 );
 
 /** @deprecated Use `Num` — it says what it's for. Same component. */
@@ -123,7 +117,11 @@ export const HudButton = ({
       ) : (
         <>
           {icon && <Ionicons name={icon} size={s.fontSize + 3} color={fg} style={{ marginRight: 8 }} />}
-          <Text style={{ fontFamily: FONT.bold, fontSize: s.fontSize, letterSpacing: 0, color: fg }}>{label}</Text>
+          {/* Sentence case, size-aware tracking. A button that SHOUTS "FORGE
+              QUEST" in tracked-out mono is the single loudest robotic tell. */}
+          <Text style={{ fontFamily: FONT.bold, fontSize: s.fontSize, letterSpacing: tracking(s.fontSize, true), color: fg }}>
+            {label}
+          </Text>
         </>
       )}
     </>

@@ -6,8 +6,9 @@ import {
   TouchableOpacity,
   FlatList,
   RefreshControl,
-  useColorScheme,
 } from 'react-native';
+import { useColorScheme } from '~/hooks/useColorScheme';
+import { brand, FONT } from '~/components/hud';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation } from '@apollo/client';
@@ -72,14 +73,14 @@ const getIcon = (msg: string): { name: string; color: string; bg: string } => {
   if (lower.includes('complete') || lower.includes('finished'))
     return { name: 'checkmark-circle-outline', color: '#22c55e', bg: 'rgba(34,197,94,0.1)' };
   if (lower.includes('task'))
-    return { name: 'calendar-outline', color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)' };
+    return { name: 'calendar-outline', color: brand.violet, bg: 'rgba(139,92,246,0.1)' };
   if (lower.includes('joined') || lower.includes('added') || lower.includes('participant'))
     return { name: 'person-add-outline', color: '#3b82f6', bg: 'rgba(59,130,246,0.1)' };
   if (lower.includes('updated') || lower.includes('changed'))
     return { name: 'create-outline', color: '#6366f1', bg: 'rgba(99,102,241,0.1)' };
   if (lower.includes('reflection') || lower.includes('side quest'))
     return { name: 'sparkles-outline', color: '#d946ef', bg: 'rgba(217,70,239,0.1)' };
-  return { name: 'notifications-outline', color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)' };
+  return { name: 'notifications-outline', color: brand.violet, bg: 'rgba(139,92,246,0.1)' };
 };
 
 // ─── Main Component ───────────────────────────────────────────────────
@@ -184,7 +185,7 @@ const ShardNotifications = () => {
               className="text-sm leading-5"
               style={{
                 color: isDark ? '#fff' : '#1a1a1a',
-                fontWeight: n.read ? '400' : '600',
+                fontFamily: n.read ? FONT.regular : FONT.semibold,
               }}>
               {n.message}
             </Text>
@@ -198,7 +199,7 @@ const ShardNotifications = () => {
                 width: 8,
                 height: 8,
                 borderRadius: 4,
-                backgroundColor: '#8b5cf6',
+                backgroundColor: brand.violet,
                 marginTop: 6,
               }}
             />
@@ -218,10 +219,10 @@ const ShardNotifications = () => {
       {/* Header */}
       <View className="flex-row items-center justify-between px-5 py-3">
         <AnimatedPressable onPress={() => router.back()} hitSlop={20} scaleDown={0.9} accessibilityLabel="Go back">
-          <Ionicons name="arrow-back" size={24} color={isDark ? '#8b5cf6' : '#1a1a1a'} />
+          <Ionicons name="arrow-back" size={24} color={isDark ? brand.violet : '#1a1a1a'} />
         </AnimatedPressable>
         <View className="items-center">
-          <Text className="text-base font-bold" style={{ color: '#8b5cf6' }}>
+          <Text className="text-base font-bold" style={{ color: brand.violet }}>
             Quest Activity
           </Text>
           {unreadCount > 0 && (

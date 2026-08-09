@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, useColorScheme } from 'react-native';
+import { View, Text } from 'react-native';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { useQuery, useMutation, useApolloClient } from '@apollo/client';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -16,7 +17,7 @@ import AnimatedPressable from '~/components/AnimatedPressable';
 import CelebrationOverlay from '~/components/CelebrationOverlay';
 import TaskCheck, { TaskTitle } from '~/components/TaskCheck';
 import { haptic } from '~/helpers/motion';
-import { hud, FONT, HudLabel, Num, ShardBar, HudSkeleton } from '~/components/hud';
+import { hud, FONT, HudLabel, Num, ShardBar, HudSkeleton, RADIUS } from '~/components/hud';
 
 /** Shared so every row settles on the same curve. */
 const rowLayout = LinearTransition.duration(200);
@@ -74,7 +75,7 @@ const TaskRow = ({
             gap: 4,
             paddingHorizontal: 10,
             paddingVertical: 5,
-            borderRadius: 999,
+            borderRadius: RADIUS.pill,
             borderWidth: 1,
             borderColor: c.panelBorderStrong,
           }}>
@@ -245,7 +246,7 @@ const TodayCard = ({ isDark: isDarkProp }: { isDark?: boolean }) => {
       <View
         style={{
           backgroundColor: c.panel,
-          borderRadius: 16,
+          borderRadius: RADIUS.md,
           borderWidth: 1,
           borderColor: c.panelBorder,
           padding: 16,

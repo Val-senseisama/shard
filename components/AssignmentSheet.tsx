@@ -1,20 +1,13 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  Modal,
-  useColorScheme,
-  ScrollView,
-  Image,
-  ActivityIndicator,
-  TouchableOpacity,
-} from 'react-native';
+import { View, Text, ScrollView, Image, ActivityIndicator } from 'react-native';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation } from '@apollo/client';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { ASSIGN_MINI_GOAL } from '~/Graphql/Mutations';
 import AnimatedPressable from './AnimatedPressable';
 import { useAppStore } from '~/store/app.store';
+import { hud, FONT, RADIUS, Sheet } from '~/components/hud';
 
 export interface Participant {
   user: string;
@@ -47,6 +40,7 @@ const AssignmentSheet: React.FC<Props> = ({
   onAssigned,
 }) => {
   const isDark = useColorScheme() === 'dark';
+  const c = hud(isDark);
   const { addAlert } = useAppStore();
   const [assigningTo, setAssigningTo] = useState<string | null>(null);
 
@@ -79,156 +73,141 @@ const AssignmentSheet: React.FC<Props> = ({
   };
 
   const targetLabel = taskTitle || miniGoalTitle;
-  const bg = isDark ? '#131313' : '#f8f8fa';
-  const cardBg = isDark ? '#1e1e1e' : '#ffffff';
-  const borderColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)';
-  const subText = isDark ? '#666' : '#aaa';
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <TouchableOpacity
-        activeOpacity={1}
-        onPress={onClose}
-        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-        <TouchableOpacity activeOpacity={1}>
-          <Animated.View
-            entering={FadeInDown.duration(300)}
+    // The drag handle this used to draw was decorative — the sheet couldn't be
+    // dragged at all. `Sheet` provides a real one.
+    <Sheet visible={visible} onClose={onClose} isDark={isDark}>
+      <View style={{ paddingHorizontal: 20, paddingTop: 6 }}>
+        <View style={{ marginBottom: 6 }}>
+          <Text
             style={{
-              backgroundColor: bg,
-              borderTopLeftRadius: 28,
-              borderTopRightRadius: 28,
-              paddingTop: 12,
-              paddingBottom: 40,
-              paddingHorizontal: 20,
-              maxHeight: '70%',
+              color: c.text,
+              fontSize: 17,
+              fontFamily: FONT.bold,
+              marginBottom: 4,
             }}>
-            {/* Drag handle */}
-            <View style={{ alignItems: 'center', marginBottom: 20 }}>
-              <View
-                style={{
-                  width: 36,
-                  height: 4,
-                  borderRadius: 2,
-                  backgroundColor: isDark ? '#333' : '#ddd',
-                }}
-              />
-            </View>
+            Assign to teammate
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Ionicons name="flag-outline" size={13} color={c.violet} />
+            <Text
+              style={{ color: c.violet, fontSize: 13, fontFamily: FONT.medium }}
+              numberOfLines={1}>
+              {targetLabel}
+            </Text>
+          </View>
+        </View>
 
-            {/* Header */}
-            <View style={{ marginBottom: 6 }}>
-              <Text
-                style={{
-                  color: isDark ? '#fff' : '#1a1a1a',
-                  fontSize: 17,
-                  fontWeight: '700',
-                  marginBottom: 4,
-                }}>
-                Assign to teammate
-              </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Ionicons name="flag-outline" size={13} color="#8b5cf6" />
-                <Text
-                  style={{ color: '#8b5cf6', fontSize: 13, fontWeight: '500' }}
-                  numberOfLines={1}>
-                  {targetLabel}
-                </Text>
-              </View>
-            </View>
+        <View style={{ height: 1, backgroundColor: c.panelBorder, marginVertical: 16 }} />
 
-            <View style={{ height: 1, backgroundColor: borderColor, marginVertical: 16 }} />
+        {participants.length === 0 ? (
+          <Text
+            style={{
+              color: c.textFaint,
+              textAlign: 'center',
+              paddingVertical: 32,
+              fontSize: 13,
+              fontFamily: FONT.regular,
+            }}>
+            No participants on this quest yet.
+          </Text>
+        ) : (
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {participants.map((p, i) => {
+              const isCurrentAssignee = currentAssigneeId === p.user;
+              const isAssigning = assigningTo === p.user;
 
-            {participants.length === 0 ? (
-              <Text
-                style={{ color: subText, textAlign: 'center', paddingVertical: 32, fontSize: 13 }}>
-                No participants on this quest yet.
-              </Text>
-            ) : (
-              <ScrollView showsVerticalScrollIndicator={false}>
-                {participants.map((p, i) => {
-                  const isCurrentAssignee = currentAssigneeId === p.user;
-                  const isAssigning = assigningTo === p.user;
-
-                  return (
-                    <Animated.View key={p.user} entering={FadeInDown.delay(i * 30).duration(260)}>
-                      <AnimatedPressable
-                        onPress={() => handleAssign(p.user)}
-                        disabled={!!assigningTo}
+              return (
+                <Animated.View
+                  key={p.user}
+                  entering={FadeInDown.delay(Math.min(i, 4) * 30).duration(260)}>
+                  <AnimatedPressable
+                    onPress={() => handleAssign(p.user)}
+                    disabled={!!assigningTo}
+                    accessibilityLabel={`Assign to ${p.username || 'teammate'}`}
+                    accessibilityState={{ selected: isCurrentAssignee }}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      backgroundColor: isCurrentAssignee ? `${c.violet}1A` : c.panel,
+                      borderRadius: RADIUS.md,
+                      padding: 14,
+                      marginBottom: 10,
+                      borderWidth: 1,
+                      borderColor: isCurrentAssignee ? `${c.violet}4D` : c.panelBorder,
+                    }}>
+                    {/* Avatar */}
+                    {p.profilePic ? (
+                      <Image
+                        source={{ uri: p.profilePic }}
                         style={{
-                          flexDirection: 'row',
+                          width: 42,
+                          height: 42,
+                          borderRadius: RADIUS.pill,
+                          marginRight: 12,
+                        }}
+                      />
+                    ) : (
+                      <View
+                        style={{
+                          width: 42,
+                          height: 42,
+                          borderRadius: RADIUS.pill,
+                          backgroundColor: `${c.violet}33`,
                           alignItems: 'center',
-                          backgroundColor: isCurrentAssignee ? 'rgba(139,92,246,0.1)' : cardBg,
-                          borderRadius: 16,
-                          padding: 14,
-                          marginBottom: 10,
-                          borderWidth: 1,
-                          borderColor: isCurrentAssignee ? 'rgba(139,92,246,0.3)' : borderColor,
+                          justifyContent: 'center',
+                          marginRight: 12,
                         }}>
-                        {/* Avatar */}
-                        {p.profilePic ? (
-                          <Image
-                            source={{ uri: p.profilePic }}
-                            style={{ width: 42, height: 42, borderRadius: 21, marginRight: 12 }}
-                          />
-                        ) : (
-                          <View
-                            style={{
-                              width: 42,
-                              height: 42,
-                              borderRadius: 21,
-                              backgroundColor: 'rgba(139,92,246,0.2)',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              marginRight: 12,
-                            }}>
-                            <Text style={{ color: '#8b5cf6', fontWeight: '700', fontSize: 16 }}>
-                              {(p.username || '?')[0].toUpperCase()}
-                            </Text>
-                          </View>
-                        )}
+                        <Text style={{ color: c.violet, fontFamily: FONT.bold, fontSize: 16 }}>
+                          {(p.username || '?')[0].toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
 
-                        {/* Info */}
-                        <View style={{ flex: 1 }}>
-                          <Text
-                            style={{
-                              color: isDark ? '#fff' : '#1a1a1a',
-                              fontWeight: '600',
-                              fontSize: 14,
-                            }}>
-                            {p.username || 'Teammate'}
-                          </Text>
-                          <Text
-                            style={{ color: subText, fontSize: 12, textTransform: 'capitalize' }}>
-                            {p.role.replace('_', ' ')}
-                          </Text>
-                        </View>
+                    {/* Info */}
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={{
+                          color: c.text,
+                          fontFamily: FONT.semibold,
+                          fontSize: 14,
+                        }}>
+                        {p.username || 'Teammate'}
+                      </Text>
+                      <Text
+                        style={{
+                          color: c.textFaint,
+                          fontSize: 12,
+                          fontFamily: FONT.regular,
+                          textTransform: 'capitalize',
+                        }}>
+                        {p.role.replace('_', ' ')}
+                      </Text>
+                    </View>
 
-                        {/* State */}
-                        {isAssigning ? (
-                          <ActivityIndicator size="small" color="#8b5cf6" />
-                        ) : isCurrentAssignee ? (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                            <Ionicons name="checkmark-circle" size={18} color="#8b5cf6" />
-                            <Text style={{ color: '#8b5cf6', fontSize: 12, fontWeight: '600' }}>
-                              Assigned
-                            </Text>
-                          </View>
-                        ) : (
-                          <Ionicons
-                            name="add-circle-outline"
-                            size={20}
-                            color={isDark ? '#444' : '#ccc'}
-                          />
-                        )}
-                      </AnimatedPressable>
-                    </Animated.View>
-                  );
-                })}
-              </ScrollView>
-            )}
-          </Animated.View>
-        </TouchableOpacity>
-      </TouchableOpacity>
-    </Modal>
+                    {/* State */}
+                    {isAssigning ? (
+                      <ActivityIndicator size="small" color={c.violet} />
+                    ) : isCurrentAssignee ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <Ionicons name="checkmark-circle" size={18} color={c.violet} />
+                        <Text
+                          style={{ color: c.violet, fontSize: 12, fontFamily: FONT.semibold }}>
+                          Assigned
+                        </Text>
+                      </View>
+                    ) : (
+                      <Ionicons name="add-circle-outline" size={20} color={c.textFaint} />
+                    )}
+                  </AnimatedPressable>
+                </Animated.View>
+              );
+            })}
+          </ScrollView>
+        )}
+      </View>
+    </Sheet>
   );
 };
 

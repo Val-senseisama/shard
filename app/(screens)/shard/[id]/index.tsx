@@ -6,9 +6,9 @@ import {
   ScrollView,
   StyleSheet,
   RefreshControl,
-  useColorScheme,
   useWindowDimensions,
 } from 'react-native';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,7 +24,7 @@ import {
 import CelebrationOverlay from '~/components/CelebrationOverlay';
 import { useAppStore } from '~/store/app.store';
 import AnimatedPressable from '~/components/AnimatedPressable';
-import { HudButton } from '~/components/hud';
+import { FONT, HudButton, RADIUS } from '~/components/hud';
 
 import {
   ACCENT,
@@ -39,6 +39,7 @@ import { DonutChart } from '~/components/shard/DonutChart';
 import { MiniBarChart } from '~/components/shard/MiniBarChart';
 import { GoalCard } from '~/components/shard/GoalCard';
 import { ScheduleTaskCard } from '~/components/shard/ScheduleTaskCard';
+import { haptic } from '~/helpers/motion';
 import { ParticipantAvatar } from '~/components/shard/ParticipantAvatar';
 
 // ─── Static constants ──────────────────────────────────────────────
@@ -65,7 +66,7 @@ const S = StyleSheet.create({
   },
   heroTitle: {
     fontSize: 28,
-    fontWeight: '800',
+    fontFamily: FONT.extrabold,
     color: '#fff',
     textAlign: 'center',
     textShadowColor: 'rgba(0,0,0,0.5)',
@@ -103,23 +104,23 @@ const S = StyleSheet.create({
   },
   sectionLabel: {
     fontSize: 10,
-    fontWeight: '800',
+    fontFamily: FONT.extrabold,
     letterSpacing: 0.2,
   },
   statRow: { flexDirection: 'row', gap: 12 },
-  statCard: { flex: 1, borderRadius: 16, padding: 16 },
+  statCard: { flex: 1, borderRadius: RADIUS.md, padding: 16 },
   statLabelTxt: {
     fontSize: 10,
-    fontWeight: '800',
+    fontFamily: FONT.extrabold,
     letterSpacing: 0.2,
     color: 'rgba(255,255,255,0.7)',
   },
-  statValueTxt: { fontSize: 28, fontWeight: '800', color: '#fff', marginTop: 4 },
+  statValueTxt: { fontSize: 28, fontFamily: FONT.extrabold, color: '#fff', marginTop: 4 },
   emptyCenter: { alignItems: 'center', justifyContent: 'center', paddingVertical: 80 },
   emptyIconBg: {
     width: 80,
     height: 80,
-    borderRadius: 20,
+    borderRadius: RADIUS.lg,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -142,7 +143,7 @@ const ShardLoadError = memo(
         <View style={[S.emptyIconBg, { backgroundColor: theme.trackBg }]}>
           <Ionicons name="cloud-offline-outline" size={34} color={theme.textSecondary} />
         </View>
-        <Text style={{ fontSize: 16, fontWeight: '700', color: theme.text, marginBottom: 6 }}>
+        <Text style={{ fontSize: 16, fontFamily: FONT.bold, color: theme.text, marginBottom: 6 }}>
           Couldn&apos;t load this quest
         </Text>
         <Text
@@ -186,7 +187,7 @@ const ProgressGoalRow = memo(({ g, isDark }: { g: GoalStat; isDark: boolean }) =
     <View
       style={{
         backgroundColor: theme.card,
-        borderRadius: 16,
+        borderRadius: RADIUS.md,
         padding: 14,
         flexDirection: 'row',
         alignItems: 'center',
@@ -202,10 +203,10 @@ const ProgressGoalRow = memo(({ g, isDark }: { g: GoalStat; isDark: boolean }) =
           alignItems: 'center',
           justifyContent: 'center',
         }}>
-        <Text style={{ fontSize: 14, fontWeight: '800', color: g.color }}>{g.pct}%</Text>
+        <Text style={{ fontSize: 14, fontFamily: FONT.extrabold, color: g.color }}>{g.pct}%</Text>
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 13, fontWeight: '600', color: theme.text }} numberOfLines={1}>
+        <Text style={{ fontSize: 13, fontFamily: FONT.semibold, color: theme.text }} numberOfLines={1}>
           {g.title}
         </Text>
         <Text style={{ fontSize: 11, color: theme.textSecondary, marginTop: 2 }}>
@@ -260,7 +261,7 @@ const OverviewTab = memo(
         <View
           style={{
             backgroundColor: theme.card,
-            borderRadius: 16,
+            borderRadius: RADIUS.md,
             padding: 16,
             borderLeftWidth: 4,
             borderLeftColor: ACCENT,
@@ -284,9 +285,9 @@ const OverviewTab = memo(
                 backgroundColor: ACCENT,
                 paddingHorizontal: 20,
                 paddingVertical: 8,
-                borderRadius: 16,
+                borderRadius: RADIUS.md,
               }}>
-              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>
+              <Text style={{ color: '#fff', fontSize: 13, fontFamily: FONT.semibold }}>
                 {expandedSummary ? 'Show Less' : 'Read More'}
               </Text>
             </AnimatedPressable>
@@ -360,7 +361,7 @@ const ProgressTab = memo(
             <View
               style={{
                 backgroundColor: theme.card,
-                borderRadius: 16,
+                borderRadius: RADIUS.md,
                 padding: 20,
                 alignItems: 'center',
                 ...(shadow as any),
@@ -391,7 +392,7 @@ const ProgressTab = memo(
             <View
               style={{
                 backgroundColor: theme.card,
-                borderRadius: 16,
+                borderRadius: RADIUS.md,
                 padding: 20,
                 alignItems: 'center',
                 ...(shadow as any),
@@ -410,7 +411,7 @@ const ProgressTab = memo(
               <View
                 style={{
                   backgroundColor: theme.card,
-                  borderRadius: 16,
+                  borderRadius: RADIUS.md,
                   padding: 16,
                   ...(shadow as any),
                 }}>
@@ -468,7 +469,7 @@ const ScheduleTab = memo(
                 key={i}
                 style={{
                   backgroundColor: theme.card,
-                  borderRadius: 16,
+                  borderRadius: RADIUS.md,
                   overflow: 'hidden',
                   flexDirection: 'row',
                   ...(shadow as any),
@@ -480,7 +481,7 @@ const ScheduleTab = memo(
                   <Skeleton
                     width={60}
                     height={22}
-                    style={{ borderRadius: 8 }}
+                    style={{ borderRadius: RADIUS.xs }}
                     animStyle={skeletonAnim}
                   />
                 </View>
@@ -650,6 +651,13 @@ const ShardDetail = () => {
 
   const handleCompleteTask = useCallback(
     async (miniGoalId: string, taskIndex: number, currentStatus: boolean) => {
+      // Fires here, on the tap, not after the round-trip — feedback has to land
+      // with the finger or it reads as a glitch. Ticking a task on Home already
+      // buzzed; ticking the identical row here didn't, so the same action felt
+      // different depending on which screen you were standing on.
+      if (currentStatus) haptic.undo();
+      else haptic.complete();
+
       // Tapping a done task used to be a silent no-op, so a mis-tap looked like
       // a broken checkbox. The server has always supported taking it back within
       // UNDO_WINDOW_MINUTES — including clawing the exact XP back — so route the
@@ -882,7 +890,7 @@ const ShardDetail = () => {
           style={{
             flexDirection: 'row',
             marginHorizontal: 20,
-            borderRadius: 14,
+            borderRadius: RADIUS.sm,
             backgroundColor: theme.tabBarBg,
             padding: 12,
             marginBottom: 4,
@@ -894,11 +902,10 @@ const ShardDetail = () => {
             <AnimatedPressable
               key={tab}
               onPress={() => setActiveTab(tab)}
-              style={{
-                flex: 1,
+              containerStyle={{ flex: 1 }} style={{
                 alignItems: 'center',
                 justifyContent: 'center',
-                borderRadius: 10,
+                borderRadius: RADIUS.sm,
                 paddingVertical: 10,
                 paddingHorizontal: 12,
                 backgroundColor: activeTab === tab ? ACCENT : 'transparent',
@@ -906,7 +913,7 @@ const ShardDetail = () => {
               <Text
                 style={{
                   fontSize: 13,
-                  fontWeight: '600',
+                  fontFamily: FONT.semibold,
                   color: activeTab === tab ? '#fff' : theme.textSecondary,
                 }}>
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}

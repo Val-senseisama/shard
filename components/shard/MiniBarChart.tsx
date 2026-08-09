@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
 import { View, Text } from 'react-native';
+import { FONT } from '~/components/hud';
 import { t } from './constants';
 
 interface GoalStat {
@@ -28,7 +29,7 @@ export const MiniBarChart = memo(({ goals, isDark }: MiniBarChartProps) => {
       }}>
       {goals.map((g, i) => (
         <View key={i} style={{ alignItems: 'center', flex: 1, gap: 4 }}>
-          <Text style={{ fontSize: 10, fontWeight: '700', color: g.color }}>{g.pct}%</Text>
+          <Text style={{ fontSize: 10, fontFamily: FONT.bold, color: g.color }}>{g.pct}%</Text>
           <View
             style={{
               width: 24,

@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { View, useColorScheme } from 'react-native';
+import { View } from 'react-native';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import Svg, { Path, Defs, LinearGradient, Stop, RadialGradient } from 'react-native-svg';
 import Animated, {
   cancelAnimation,

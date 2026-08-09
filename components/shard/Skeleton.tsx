@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { useColorScheme } from 'react-native';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import Animated from 'react-native-reanimated';
 
 interface SkeletonProps {

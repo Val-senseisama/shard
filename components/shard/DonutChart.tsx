@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
 import { View, Text } from 'react-native';
+import { FONT } from '~/components/hud';
 import Svg, { Circle } from 'react-native-svg';
 import { ACCENT, t } from './constants';
 
@@ -43,7 +44,7 @@ export const DonutChart = memo(({ percentage, size = 120, strokeWidth = 10, isDa
         />
       </Svg>
       <View style={{ position: 'absolute', alignItems: 'center' }}>
-        <Text style={{ fontSize: 28, fontWeight: '800', color: theme.text }}>
+        <Text style={{ fontSize: 28, fontFamily: FONT.extrabold, color: theme.text }}>
           {progress}%
         </Text>
         <Text style={{ fontSize: 10, color: theme.textSecondary, marginTop: -2 }}>complete</Text>

@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, useColorScheme } from 'react-native';
+import { View } from 'react-native';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import Animated from 'react-native-reanimated';
 import { useShimmer } from '~/helpers/motion';
 

@@ -5,10 +5,11 @@ import {
   TouchableOpacity,
   FlatList,
   RefreshControl,
-  useColorScheme,
   ActivityIndicator,
   Dimensions,
 } from 'react-native';
+import { FONT, RADIUS } from '~/components/hud';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
@@ -80,7 +81,7 @@ const NotificationSkeleton = ({ isDark }: { isDark: boolean }) => {
         marginBottom: 8,
         flexDirection: 'row',
         alignItems: 'center',
-        borderRadius: 12,
+        borderRadius: RADIUS.sm,
         backgroundColor: theme.card,
         padding: 16,
       }}>
@@ -104,7 +105,7 @@ const NotificationSkeleton = ({ isDark }: { isDark: boolean }) => {
               marginBottom: 8,
               height: 16,
               width: '75%',
-              borderRadius: 4,
+              borderRadius: RADIUS.xs,
               backgroundColor: skeletonColor,
             },
           ]}
@@ -115,7 +116,7 @@ const NotificationSkeleton = ({ isDark }: { isDark: boolean }) => {
             {
               height: 12,
               width: '25%',
-              borderRadius: 4,
+              borderRadius: RADIUS.xs,
               backgroundColor: skeletonColor,
             },
           ]}
@@ -289,7 +290,7 @@ const Notifications = () => {
           marginBottom: 8,
           flexDirection: 'row',
           alignItems: 'center',
-          borderRadius: 12,
+          borderRadius: RADIUS.sm,
           padding: 16,
         },
         item.read
@@ -323,7 +324,7 @@ const Notifications = () => {
           style={{
             fontSize: 16,
             color: theme.text,
-            fontWeight: item.read ? '400' : '600',
+            fontFamily: item.read ? FONT.regular : FONT.semibold,
           }}>
           {item.message}
         </Text>
@@ -369,7 +370,7 @@ const Notifications = () => {
             flexDirection: 'row',
             alignItems: 'center',
             gap: 8,
-            borderRadius: 20,
+            borderRadius: RADIUS.lg,
             paddingHorizontal: 16,
             paddingVertical: 8,
           },
@@ -389,7 +390,7 @@ const Notifications = () => {
         <Text
           style={{
             fontSize: 14,
-            fontWeight: '500',
+            fontFamily: FONT.medium,
             color: isSelected ? '#fff' : theme.text,
           }}>
           {label}
@@ -415,7 +416,7 @@ const Notifications = () => {
           <Ionicons name="arrow-back" size={24} color={theme.text} />
         </AnimatedPressable>
         <View style={{ flex: 1, alignItems: 'center' }}>
-          <Text style={{ fontSize: 18, fontWeight: 'bold', color: theme.text }}>
+          <Text style={{ fontSize: 18, fontFamily: FONT.bold, color: theme.text }}>
             {shardId ? 'Shard Notifications' : 'Notifications'}
           </Text>
           {unreadCount > 0 && (
@@ -457,7 +458,7 @@ const Notifications = () => {
                 marginBottom: 8,
                 height: 16,
                 width: 80,
-                borderRadius: 4,
+                borderRadius: RADIUS.xs,
                 backgroundColor: isDark ? '#2a2a2a' : '#e5e7eb',
               }}
             />
@@ -471,7 +472,7 @@ const Notifications = () => {
                 marginBottom: 8,
                 height: 16,
                 width: 96,
-                borderRadius: 4,
+                borderRadius: RADIUS.xs,
                 backgroundColor: isDark ? '#2a2a2a' : '#e5e7eb',
               }}
             />
@@ -493,7 +494,7 @@ const Notifications = () => {
                   <Text
                     style={{
                       fontSize: 14,
-                      fontWeight: 'bold',
+                      fontFamily: FONT.bold,
                       color: theme.textSecondary,
                     }}>
                     {(item as any).title}
@@ -519,7 +520,7 @@ const Notifications = () => {
                 style={{
                   marginTop: 16,
                   fontSize: 18,
-                  fontWeight: '500',
+                  fontFamily: FONT.medium,
                   color: theme.textSecondary,
                 }}>
                 No notifications yet

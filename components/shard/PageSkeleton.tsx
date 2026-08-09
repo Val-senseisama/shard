@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, useColorScheme } from 'react-native';
+import { View } from 'react-native';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { Skeleton } from './Skeleton';
 import { ACCENT, t, useSkeletonOpacity } from './constants';
 

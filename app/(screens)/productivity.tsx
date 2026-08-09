@@ -4,10 +4,11 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  useColorScheme,
   useWindowDimensions,
   RefreshControl,
 } from 'react-native';
+import { brand, FONT, RADIUS } from '~/components/hud';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@apollo/client';
@@ -62,7 +63,7 @@ const BarChart = ({
       <Text
         style={{
           fontSize: 11,
-          fontWeight: '700',
+          fontFamily: FONT.bold,
           color: theme.textSecondary,
           letterSpacing: 0.2,
           marginBottom: 12,
@@ -80,7 +81,7 @@ const BarChart = ({
                 <Text
                   style={{
                     fontSize: 8,
-                    fontWeight: '700',
+                    fontFamily: FONT.bold,
                     color: theme.textSecondary,
                     marginBottom: 2,
                   }}>
@@ -91,7 +92,7 @@ const BarChart = ({
                 style={{
                   width: barWidth,
                   height: barH,
-                  borderRadius: 4,
+                  borderRadius: RADIUS.xs,
                   backgroundColor: val > 0 ? color : isDark ? '#2a2a2a' : '#e5e7eb',
                   opacity: val > 0 ? 0.85 + 0.15 * pct : 1,
                 }}
@@ -124,7 +125,7 @@ const InsightCard = ({ text, isDark, index }: { text: string; isDark: boolean; i
         flexDirection: 'row',
         gap: 12,
         backgroundColor: theme.card,
-        borderRadius: 14,
+        borderRadius: RADIUS.sm,
         padding: 14,
         borderWidth: 1,
         borderColor: isDark ? theme.border : 'rgba(0,0,0,0.05)',
@@ -134,7 +135,7 @@ const InsightCard = ({ text, isDark, index }: { text: string; isDark: boolean; i
         style={{
           width: 32,
           height: 32,
-          borderRadius: 10,
+          borderRadius: RADIUS.sm,
           backgroundColor: isDark ? 'rgba(124,58,237,0.15)' : 'rgba(124,58,237,0.08)',
           alignItems: 'center',
           justifyContent: 'center',
@@ -156,14 +157,14 @@ const StruggleTag = ({ label, isDark }: { label: string; isDark: boolean }) => (
       alignItems: 'center',
       gap: 6,
       backgroundColor: isDark ? 'rgba(239,68,68,0.12)' : 'rgba(239,68,68,0.07)',
-      borderRadius: 10,
+      borderRadius: RADIUS.sm,
       paddingHorizontal: 12,
       paddingVertical: 8,
       borderWidth: 1,
       borderColor: isDark ? 'rgba(239,68,68,0.2)' : 'rgba(239,68,68,0.12)',
     }}>
     <Ionicons name="warning-outline" size={14} color="#ef4444" />
-    <Text style={{ fontSize: 13, color: '#ef4444', fontWeight: '600' }}>{label}</Text>
+    <Text style={{ fontSize: 13, color: '#ef4444', fontFamily: FONT.semibold }}>{label}</Text>
   </View>
 );
 
@@ -205,7 +206,7 @@ const ProductivityScreen = () => {
         <AnimatedPressable onPress={() => router.back()} hitSlop={20} accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={24} color={theme.text} />
         </AnimatedPressable>
-        <Text style={{ fontSize: 18, fontWeight: '700', color: theme.text }}>Productivity</Text>
+        <Text style={{ fontSize: 18, fontFamily: FONT.bold, color: theme.text }}>Productivity</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -218,28 +219,28 @@ const ProductivityScreen = () => {
         {/* Hero stats */}
         <Animated.View entering={FadeInDown.duration(400)}>
           <LinearGradient
-            colors={['#7c3aed', '#6d28d9']}
+            colors={['#7c3aed', brand.violetDeep]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={{ borderRadius: 22, padding: 22, marginBottom: 16 }}>
-            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '600', marginBottom: 4 }}>
+            style={{ borderRadius: RADIUS.lg, padding: 22, marginBottom: 16 }}>
+            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontFamily: FONT.semibold, marginBottom: 4 }}>
               This Week
             </Text>
             <View style={{ flexDirection: 'row', gap: 32, marginBottom: 16 }}>
               <View>
-                <Text style={{ color: '#fff', fontSize: 28, fontWeight: '800' }}>
+                <Text style={{ color: '#fff', fontSize: 28, fontFamily: FONT.extrabold }}>
                   {totalTasksWeek}
                 </Text>
                 <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12 }}>Tasks done</Text>
               </View>
               <View>
-                <Text style={{ color: '#fff', fontSize: 28, fontWeight: '800' }}>
+                <Text style={{ color: '#fff', fontSize: 28, fontFamily: FONT.extrabold }}>
                   {totalXPWeek}
                 </Text>
                 <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12 }}>XP earned</Text>
               </View>
               <View>
-                <Text style={{ color: '#fff', fontSize: 28, fontWeight: '800' }}>
+                <Text style={{ color: '#fff', fontSize: 28, fontFamily: FONT.extrabold }}>
                   {Math.round(avgRate)}%
                 </Text>
                 <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12 }}>Avg rate</Text>
@@ -273,7 +274,7 @@ const ProductivityScreen = () => {
           style={{
             flexDirection: 'row',
             backgroundColor: isDark ? '#1a1a1a' : '#f3f4f6',
-            borderRadius: 12,
+            borderRadius: RADIUS.sm,
             padding: 4,
             marginBottom: 20,
           }}>
@@ -284,14 +285,14 @@ const ProductivityScreen = () => {
               style={{
                 flex: 1,
                 paddingVertical: 8,
-                borderRadius: 10,
+                borderRadius: RADIUS.sm,
                 alignItems: 'center',
                 backgroundColor: view === v ? ACCENT : 'transparent',
               }}>
               <Text
                 style={{
                   fontSize: 14,
-                  fontWeight: '600',
+                  fontFamily: FONT.semibold,
                   color: view === v ? '#fff' : theme.textSecondary,
                 }}>
                 {v === 'weekly' ? 'This Week' : 'This Month'}
@@ -322,7 +323,7 @@ const ProductivityScreen = () => {
                 entering={FadeInDown.delay(100).duration(260)}
                 style={{
                   backgroundColor: theme.card,
-                  borderRadius: 18,
+                  borderRadius: RADIUS.md,
                   padding: 18,
                   marginBottom: 16,
                   borderWidth: 1,
@@ -352,7 +353,7 @@ const ProductivityScreen = () => {
                 <Text
                   style={{
                     fontSize: 11,
-                    fontWeight: '700',
+                    fontFamily: FONT.bold,
                     color: theme.textSecondary,
                     letterSpacing: 0.2,
                     marginBottom: 12,
@@ -371,7 +372,7 @@ const ProductivityScreen = () => {
                 <Text
                   style={{
                     fontSize: 11,
-                    fontWeight: '700',
+                    fontFamily: FONT.bold,
                     color: theme.textSecondary,
                     letterSpacing: 0.2,
                     marginBottom: 12,

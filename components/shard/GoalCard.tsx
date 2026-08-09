@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
 import { View, Text } from 'react-native';
+import { FONT, RADIUS } from '~/components/hud';
 import { Ionicons } from '@expo/vector-icons';
 import AnimatedPressable from '~/components/AnimatedPressable';
 import { ACCENT, ACCENT_COLORS, t, getCardShadow } from './constants';
@@ -20,13 +21,13 @@ export const GoalCard = memo(({ goal, idx, isDark, onComplete }: GoalCardProps) 
   const pct = totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
 
   return (
-    <View style={{ backgroundColor: theme.card, borderRadius: 16, padding: 16, ...(shadow as any) }}>
+    <View style={{ backgroundColor: theme.card, borderRadius: RADIUS.md, padding: 16, ...(shadow as any) }}>
       {/* Header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-        <Text style={{ flex: 1, fontSize: 15, fontWeight: '700', color: theme.text }}>
+        <Text style={{ flex: 1, fontSize: 15, fontFamily: FONT.bold, color: theme.text }}>
           {idx + 1}. {goal.title}
         </Text>
-        <Text style={{ fontSize: 14, fontWeight: '700', color }}>{pct}%</Text>
+        <Text style={{ fontSize: 14, fontFamily: FONT.bold, color }}>{pct}%</Text>
       </View>
 
       {/* Progress bar */}

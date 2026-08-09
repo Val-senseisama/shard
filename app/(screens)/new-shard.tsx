@@ -7,11 +7,11 @@ import {
   ScrollView,
   Platform,
   KeyboardAvoidingView,
-  useColorScheme,
   ActivityIndicator,
   TouchableOpacity,
   Animated as RNAnimated,
 } from 'react-native';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import Animated, { FadeIn, FadeInDown, FadeOutUp } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -24,7 +24,7 @@ import { CREATE_SHARD, CREATE_SHARD_MANUAL, DELETE_MINI_GOAL } from '~/Graphql/M
 import { GET_FRIENDS, GET_SIGNED_UPLOAD_URL, GET_AI_USAGE, MY_TEAMS } from '~/Graphql/Queries';
 import { useFriendsStore, Friend } from '~/store/friends.store';
 import { openPaywall } from '~/helpers/paywall';
-import { hud, FONT, HudLabel, Mono } from '~/components/hud';
+import { brand, hud, FONT, HudLabel, Mono, RADIUS } from '~/components/hud';
 import AddImageInput from '~/components/AddImageInput';
 import AnimatedPressable from '~/components/AnimatedPressable';
 
@@ -109,20 +109,19 @@ const ModeSelector = ({
 }) => {
   const c = hud(isDark);
   return (
-      <View style={{ marginBottom: 22, flexDirection: 'row', gap: 8, backgroundColor: c.bgElev, borderRadius: 999, borderWidth: 1, borderColor: c.panelBorder, padding: 5 }}>
+      <View style={{ marginBottom: 22, flexDirection: 'row', gap: 8, backgroundColor: c.bgElev, borderRadius: RADIUS.pill, borderWidth: 1, borderColor: c.panelBorder, padding: 5 }}>
         {(['ai', 'manual'] as const).map((m) => {
           const active = mode === m;
           return (
             <AnimatedPressable
               key={m}
               onPress={() => onSelect(m)}
-              style={{
-                flex: 1,
+              containerStyle={{ flex: 1 }} style={{
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'center',
                 paddingVertical: 14,
-                borderRadius: 999,
+                borderRadius: RADIUS.pill,
                 backgroundColor: active ? 'rgba(139,92,246,0.14)' : 'transparent',
                 borderWidth: 1,
                 borderColor: active ? c.violet : 'transparent',
@@ -180,7 +179,7 @@ const AILoadingView = ({ isDark, onCancel }: { isDark: boolean; onCancel: () => 
         }}>
         <ActivityIndicator color="#8b5cf6" size="large" />
       </View>
-      <Text style={{ color: '#8b5cf6', fontWeight: '700', fontSize: 16, marginBottom: 8 }}>
+      <Text style={{ color: brand.violet, fontFamily: FONT.bold, fontSize: 16, marginBottom: 8 }}>
         Generating your Quest
       </Text>
       <Text style={{ color: isDark ? '#adaaaa' : '#888', fontSize: 13, textAlign: 'center' }}>
@@ -193,10 +192,10 @@ const AILoadingView = ({ isDark, onCancel }: { isDark: boolean; onCancel: () => 
             marginTop: 20,
             paddingHorizontal: 24,
             paddingVertical: 10,
-            borderRadius: 20,
+            borderRadius: RADIUS.lg,
             backgroundColor: isDark ? '#2c2c2c' : '#f0f0f0',
           }}>
-          <Text style={{ color: isDark ? '#fff' : '#1a1a1a', fontWeight: '600', fontSize: 13 }}>
+          <Text style={{ color: isDark ? '#fff' : '#1a1a1a', fontFamily: FONT.semibold, fontSize: 13 }}>
             Cancel
           </Text>
         </AnimatedPressable>
@@ -229,7 +228,7 @@ const AIReviewStep = ({
       style={{
         color: isDark ? '#adaaaa' : '#666',
         fontSize: 11,
-        fontWeight: '700',
+        fontFamily: FONT.bold,
         letterSpacing: 0.2,
         marginBottom: 16,
       }}>
@@ -244,7 +243,7 @@ const AIReviewStep = ({
           alignItems: 'flex-start',
           gap: 10,
           backgroundColor: isDark ? 'rgba(234,179,8,0.1)' : 'rgba(234,179,8,0.08)',
-          borderRadius: 14,
+          borderRadius: RADIUS.sm,
           borderWidth: 1,
           borderColor: isDark ? 'rgba(234,179,8,0.25)' : 'rgba(234,179,8,0.2)',
           padding: 12,
@@ -281,19 +280,19 @@ const AIReviewStep = ({
           style={{
             width: 32,
             height: 32,
-            borderRadius: 10,
+            borderRadius: RADIUS.sm,
             backgroundColor: 'rgba(139,92,246,0.15)',
             alignItems: 'center',
             justifyContent: 'center',
             marginRight: 12,
           }}>
-          <Text style={{ color: '#8b5cf6', fontWeight: '800', fontSize: 13 }}>{i + 1}</Text>
+          <Text style={{ color: brand.violet, fontFamily: FONT.extrabold, fontSize: 13 }}>{i + 1}</Text>
         </View>
         <View style={{ flex: 1 }}>
           <Text
             style={{
               color: isDark ? '#fff' : '#1a1a1a',
-              fontWeight: '600',
+              fontFamily: FONT.semibold,
               fontSize: 14,
               marginBottom: 2,
             }}>
@@ -329,7 +328,7 @@ const AIReviewStep = ({
           gap: 6,
         }}>
         <Ionicons name="refresh" size={14} color="#8b5cf6" />
-        <Text style={{ color: '#8b5cf6', fontSize: 13, fontWeight: '600' }}>Regenerate</Text>
+        <Text style={{ color: brand.violet, fontSize: 13, fontFamily: FONT.semibold }}>Regenerate</Text>
       </AnimatedPressable>
       <Text style={{ color: isDark ? '#555' : '#bbb', fontSize: 11, marginTop: 5 }}>
         This will use 1 AI credit and take you back to edit your goal
@@ -342,12 +341,12 @@ const AIReviewStep = ({
       disabled={confirming}
       scaleDown={0.95}
       style={{
-        backgroundColor: '#8b5cf6',
-        borderRadius: 18,
+        backgroundColor: brand.violet,
+        borderRadius: RADIUS.md,
         paddingVertical: 18,
         alignItems: 'center',
         justifyContent: 'center',
-        shadowColor: '#8b5cf6',
+        shadowColor: brand.violet,
         shadowOpacity: 0.3,
         shadowRadius: 20,
         shadowOffset: { width: 0, height: 4 },
@@ -357,7 +356,7 @@ const AIReviewStep = ({
       {confirming ? (
         <ActivityIndicator color="#fff" />
       ) : (
-        <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>
+        <Text style={{ color: '#fff', fontFamily: FONT.extrabold, fontSize: 16 }}>
           Confirm & Save Quest →
         </Text>
       )}
@@ -415,7 +414,7 @@ const MiniGoalBuilder = ({
         style={{
           color: isDark ? '#adaaaa' : '#666',
           fontSize: 11,
-          fontWeight: '700',
+          fontFamily: FONT.bold,
           letterSpacing: 0.2,
           marginBottom: 4,
         }}>
@@ -432,7 +431,7 @@ const MiniGoalBuilder = ({
           entering={FadeInDown.delay(idx * 30).duration(260)}
           style={{
             backgroundColor: isDark ? '#1a1a1a' : '#f6f7fb',
-            borderRadius: 16,
+            borderRadius: RADIUS.md,
             borderWidth: 1,
             borderColor: isDark ? 'rgba(72,72,71,0.3)' : 'rgba(0,0,0,0.06)',
             marginBottom: 12,
@@ -444,13 +443,13 @@ const MiniGoalBuilder = ({
               style={{
                 width: 26,
                 height: 26,
-                borderRadius: 16,
+                borderRadius: RADIUS.md,
                 backgroundColor: 'rgba(139,92,246,0.15)',
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginRight: 10,
               }}>
-              <Text style={{ color: '#8b5cf6', fontWeight: '700', fontSize: 12 }}>{idx + 1}</Text>
+              <Text style={{ color: brand.violet, fontFamily: FONT.bold, fontSize: 12 }}>{idx + 1}</Text>
             </View>
             <TextInput
               value={mg.title}
@@ -461,7 +460,7 @@ const MiniGoalBuilder = ({
                 flex: 1,
                 color: isDark ? '#fff' : '#1a1a1a',
                 fontSize: 14,
-                fontWeight: '600',
+                fontFamily: FONT.semibold,
               }}
             />
             <TouchableOpacity
@@ -498,7 +497,7 @@ const MiniGoalBuilder = ({
                       width: 6,
                       height: 6,
                       borderRadius: 3,
-                      backgroundColor: '#8b5cf6',
+                      backgroundColor: brand.violet,
                       marginRight: 10,
                       marginLeft: 4,
                     }}
@@ -526,7 +525,7 @@ const MiniGoalBuilder = ({
                   paddingLeft: 4,
                 }}>
                 <Ionicons name="add" size={14} color="#8b5cf6" />
-                <Text style={{ color: '#8b5cf6', fontSize: 12, fontWeight: '600', marginLeft: 4 }}>
+                <Text style={{ color: brand.violet, fontSize: 12, fontFamily: FONT.semibold, marginLeft: 4 }}>
                   Add task
                 </Text>
               </TouchableOpacity>
@@ -544,12 +543,12 @@ const MiniGoalBuilder = ({
           borderWidth: 1.5,
           borderStyle: 'dashed',
           borderColor: isDark ? 'rgba(139,92,246,0.3)' : 'rgba(139,92,246,0.25)',
-          borderRadius: 14,
+          borderRadius: RADIUS.sm,
           paddingVertical: 14,
           gap: 8,
         }}>
         <Ionicons name="add-circle-outline" size={18} color="#8b5cf6" />
-        <Text style={{ color: '#8b5cf6', fontWeight: '600', fontSize: 13 }}>Add Mini-Goal</Text>
+        <Text style={{ color: brand.violet, fontFamily: FONT.semibold, fontSize: 13 }}>Add Mini-Goal</Text>
       </AnimatedPressable>
     </View>
   );
@@ -587,7 +586,7 @@ const TeamQuickAssign = ({
           gap: 8,
           paddingVertical: 10,
           paddingHorizontal: 14,
-          borderRadius: 14,
+          borderRadius: RADIUS.sm,
           borderWidth: 1.5,
           borderStyle: 'dashed',
           borderColor: isDark ? 'rgba(139,92,246,0.3)' : 'rgba(139,92,246,0.25)',
@@ -598,7 +597,7 @@ const TeamQuickAssign = ({
             : 'transparent',
         }}>
         <Ionicons name="people-outline" size={18} color="#8b5cf6" />
-        <Text style={{ flex: 1, color: '#8b5cf6', fontWeight: '600', fontSize: 13 }}>
+        <Text style={{ flex: 1, color: brand.violet, fontFamily: FONT.semibold, fontSize: 13 }}>
           Quick-assign a Team
         </Text>
         <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color="#8b5cf6" />
@@ -619,14 +618,14 @@ const TeamQuickAssign = ({
                 flexDirection: 'row',
                 alignItems: 'center',
                 backgroundColor: isDark ? '#1a1a1a' : '#f6f7fb',
-                borderRadius: 14,
+                borderRadius: RADIUS.sm,
                 padding: 12,
               }}>
               <View
                 style={{
                   width: 36,
                   height: 36,
-                  borderRadius: 12,
+                  borderRadius: RADIUS.sm,
                   backgroundColor: 'rgba(139,92,246,0.15)',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -636,7 +635,7 @@ const TeamQuickAssign = ({
               </View>
               <View style={{ flex: 1 }}>
                 <Text
-                  style={{ fontSize: 14, fontWeight: '600', color: isDark ? '#fff' : '#1a1a1a' }}>
+                  style={{ fontSize: 14, fontFamily: FONT.semibold, color: isDark ? '#fff' : '#1a1a1a' }}>
                   {team.name}
                 </Text>
                 <Text style={{ fontSize: 12, color: '#767575', marginTop: 1 }}>
@@ -719,7 +718,7 @@ const FriendSelection = ({
                       className="flex-1 items-center justify-center rounded-lg py-2"
                       style={{
                         backgroundColor:
-                          selection?.role === role ? '#8b5cf6' : isDark ? '#262626' : '#e5e7eb',
+                          selection?.role === role ? brand.violet : isDark ? '#262626' : '#e5e7eb',
                       }}>
                       <Text
                         className="text-xs font-bold"
@@ -1067,7 +1066,7 @@ const NewShard = () => {
     backgroundColor: c.panel,
     borderColor: c.panelBorder,
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: RADIUS.md,
     padding: 22,
   };
 
@@ -1110,7 +1109,7 @@ const NewShard = () => {
                   style={{
                     marginBottom: 24,
                     backgroundColor: isDark ? '#1a1a1a' : '#fff',
-                    borderRadius: 20,
+                    borderRadius: RADIUS.lg,
                     padding: 16,
                     borderWidth: 1,
                     borderColor: isDark ? '#2c2c2c' : '#eee',
@@ -1125,7 +1124,7 @@ const NewShard = () => {
                       <Text
                         style={{
                           color: isDark ? '#fff' : '#1a1a1a',
-                          fontWeight: '700',
+                          fontFamily: FONT.bold,
                           fontSize: 16,
                         }}>
                         Recurring Habit
@@ -1141,7 +1140,7 @@ const NewShard = () => {
                           height: 26,
                           borderRadius: 13,
                           padding: 3,
-                          backgroundColor: isHabit ? '#8b5cf6' : isDark ? '#333' : '#e5e7eb',
+                          backgroundColor: isHabit ? brand.violet : isDark ? '#333' : '#e5e7eb',
                         }}>
                         <View
                           style={{
@@ -1164,10 +1163,9 @@ const NewShard = () => {
                         <AnimatedPressable
                           key={c}
                           onPress={() => setCadence(c)}
-                          style={{
-                            flex: 1,
+                          containerStyle={{ flex: 1 }} style={{
                             paddingVertical: 12,
-                            borderRadius: 12,
+                            borderRadius: RADIUS.sm,
                             alignItems: 'center',
                             backgroundColor:
                               cadence === c
@@ -1176,12 +1174,12 @@ const NewShard = () => {
                                   ? '#2c2c2c'
                                   : '#f8f8f8',
                             borderWidth: 1,
-                            borderColor: cadence === c ? '#8b5cf6' : 'transparent',
+                            borderColor: cadence === c ? brand.violet : 'transparent',
                           }}>
                           <Text
                             style={{
-                              color: cadence === c ? '#8b5cf6' : '#767575',
-                              fontWeight: '600',
+                              color: cadence === c ? brand.violet : '#767575',
+                              fontFamily: FONT.semibold,
                               textTransform: 'capitalize',
                             }}>
                             {c}
@@ -1208,7 +1206,7 @@ const NewShard = () => {
                       <Ionicons
                         name="flash"
                         size={13}
-                        color={aiRemaining === 0 ? '#ef4444' : '#8b5cf6'}
+                        color={aiRemaining === 0 ? '#ef4444' : brand.violet}
                       />
                       <Text
                         style={{
@@ -1222,7 +1220,7 @@ const NewShard = () => {
                             : `${aiRemaining} AI credit${aiRemaining !== 1 ? 's' : ''} remaining`}
                       </Text>
                       {outOfCredits && (
-                        <Text style={{ fontSize: 12, fontWeight: '800', color: '#8b5cf6' }}>
+                        <Text style={{ fontSize: 12, fontFamily: FONT.extrabold, color: brand.violet }}>
                           Upgrade →
                         </Text>
                       )}
@@ -1291,9 +1289,9 @@ const NewShard = () => {
                       placeholder="Enter quest title"
                       style={{
                         fontSize: 18,
-                        fontWeight: '600',
+                        fontFamily: FONT.semibold,
                         borderBottomWidth: 2,
-                        borderBottomColor: manualTitle ? '#8b5cf6' : isDark ? '#484847' : '#d1d5db',
+                        borderBottomColor: manualTitle ? brand.violet : isDark ? '#484847' : '#d1d5db',
                         paddingVertical: 12,
                         color: isDark ? '#fff' : '#1a1a1a',
                       }}
@@ -1315,7 +1313,7 @@ const NewShard = () => {
                         fontSize: 15,
                         borderBottomWidth: 2,
                         borderBottomColor: manualDescription
-                          ? '#8b5cf6'
+                          ? brand.violet
                           : isDark
                             ? '#484847'
                             : '#d1d5db',
@@ -1419,7 +1417,7 @@ const NewShard = () => {
                     className="flex-row items-center justify-center gap-3 py-4"
                     style={{
                       backgroundColor: c.violet,
-                      borderRadius: 16,
+                      borderRadius: RADIUS.md,
                       shadowColor: '#7c3aed',
                       shadowOpacity: 0.35,
                       shadowRadius: 14,
@@ -1496,7 +1494,7 @@ const NewShard = () => {
                     className="flex-row items-center justify-center gap-3 py-4"
                     style={{
                       backgroundColor: c.violet,
-                      borderRadius: 16,
+                      borderRadius: RADIUS.md,
                       shadowColor: '#7c3aed',
                       shadowOpacity: 0.35,
                       shadowRadius: 14,

@@ -4,11 +4,12 @@ import {
   Text,
   TextInput,
   ScrollView,
-  useColorScheme,
   Image,
   ActivityIndicator,
   Platform,
 } from 'react-native';
+import { FONT, RADIUS } from '~/components/hud';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -183,7 +184,7 @@ export default function EditProfilePage() {
         <AnimatedPressable onPress={() => router.back()} hitSlop={20} scaleDown={0.9} accessibilityLabel="Go back">
           <Ionicons name="arrow-back" size={22} color={theme.text} />
         </AnimatedPressable>
-        <Text style={{ flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '700', color: theme.text }}>
+        <Text style={{ flex: 1, textAlign: 'center', fontSize: 17, fontFamily: FONT.bold, color: theme.text }}>
           Edit Profile
         </Text>
         <View style={{ width: 22 }} />
@@ -219,11 +220,11 @@ export default function EditProfilePage() {
 
         {/* Email (read-only) */}
         <View style={{ gap: 6 }}>
-          <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 0.2, color: theme.textSecondary }}>
+          <Text style={{ fontSize: 11, fontFamily: FONT.extrabold, letterSpacing: 0.2, color: theme.textSecondary }}>
             Email
           </Text>
           <View style={{
-            borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
+            borderRadius: RADIUS.sm, paddingHorizontal: 14, paddingVertical: 12,
             backgroundColor: isDark ? '#141414' : '#f3f4f6',
             borderWidth: 1, borderColor: theme.border,
           }}>
@@ -234,12 +235,12 @@ export default function EditProfilePage() {
 
         {/* Username */}
         <View style={{ gap: 6 }}>
-          <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 0.2, color: theme.textSecondary }}>
+          <Text style={{ fontSize: 11, fontFamily: FONT.extrabold, letterSpacing: 0.2, color: theme.textSecondary }}>
             Username
           </Text>
           <View style={{
             flexDirection: 'row', alignItems: 'center',
-            borderRadius: 12, borderWidth: 1,
+            borderRadius: RADIUS.sm, borderWidth: 1,
             borderColor: usernameStatus === 'taken' ? '#ef4444' : usernameStatus === 'available' ? '#22c55e' : theme.border,
             backgroundColor: theme.card, paddingHorizontal: 14,
           }}>
@@ -267,7 +268,7 @@ export default function EditProfilePage() {
 
         {/* Bio */}
         <View style={{ gap: 6 }}>
-          <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 0.2, color: theme.textSecondary }}>
+          <Text style={{ fontSize: 11, fontFamily: FONT.extrabold, letterSpacing: 0.2, color: theme.textSecondary }}>
             Bio
           </Text>
           <TextInput
@@ -278,7 +279,7 @@ export default function EditProfilePage() {
             multiline
             textAlignVertical="top"
             style={{
-              borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
+              borderRadius: RADIUS.sm, paddingHorizontal: 14, paddingVertical: 12,
               fontSize: 14, backgroundColor: theme.card, color: theme.text,
               borderWidth: 1, borderColor: theme.border, minHeight: 100,
             }}
@@ -290,7 +291,7 @@ export default function EditProfilePage() {
 
         {/* Birthdate */}
         <View style={{ gap: 6 }}>
-          <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 0.2, color: theme.textSecondary }}>
+          <Text style={{ fontSize: 11, fontFamily: FONT.extrabold, letterSpacing: 0.2, color: theme.textSecondary }}>
             Birthday
           </Text>
           <AnimatedPressable
@@ -298,7 +299,7 @@ export default function EditProfilePage() {
             scaleDown={0.98}
             style={{
               flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-              borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
+              borderRadius: RADIUS.sm, paddingHorizontal: 14, paddingVertical: 12,
               backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border,
             }}>
             <Text style={{ fontSize: 14, color: birthdate ? theme.text : theme.textSecondary }}>
@@ -332,11 +333,11 @@ export default function EditProfilePage() {
 
         {/* Timezone (auto-detected, read-only) */}
         <View style={{ gap: 6 }}>
-          <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 0.2, color: theme.textSecondary }}>
+          <Text style={{ fontSize: 11, fontFamily: FONT.extrabold, letterSpacing: 0.2, color: theme.textSecondary }}>
             Timezone
           </Text>
           <View style={{
-            borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
+            borderRadius: RADIUS.sm, paddingHorizontal: 14, paddingVertical: 12,
             backgroundColor: isDark ? '#141414' : '#f3f4f6',
             borderWidth: 1, borderColor: theme.border,
             flexDirection: 'row', alignItems: 'center', gap: 8,
@@ -357,14 +358,14 @@ export default function EditProfilePage() {
           disabled={loading || usernameStatus === 'taken'}
           scaleDown={0.97}
           style={{
-            backgroundColor: ACCENT, borderRadius: 16,
+            backgroundColor: ACCENT, borderRadius: RADIUS.md,
             paddingVertical: 16, alignItems: 'center', justifyContent: 'center',
             opacity: loading || usernameStatus === 'taken' ? 0.6 : 1,
           }}>
           {loading ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Save Changes</Text>
+            <Text style={{ color: '#fff', fontSize: 16, fontFamily: FONT.bold }}>Save Changes</Text>
           )}
         </AnimatedPressable>
       </View>

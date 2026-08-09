@@ -3,9 +3,10 @@ import {
   View,
   Text,
   ScrollView,
-  useColorScheme,
   ActivityIndicator,
 } from 'react-native';
+import { FONT, RADIUS } from '~/components/hud';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -89,7 +90,7 @@ const WorkloadSettings = () => {
         <AnimatedPressable onPress={() => router.back()} hitSlop={20} scaleDown={0.9} accessibilityLabel="Go back">
           <Ionicons name="arrow-back" size={22} color={theme.text} />
         </AnimatedPressable>
-        <Text style={{ fontSize: 17, fontWeight: '700', color: theme.text, marginLeft: 12 }}>
+        <Text style={{ fontSize: 17, fontFamily: FONT.bold, color: theme.text, marginLeft: 12 }}>
           Workload Settings
         </Text>
       </View>
@@ -109,7 +110,7 @@ const WorkloadSettings = () => {
             <Text
               style={{
                 fontSize: 11,
-                fontWeight: '800',
+                fontFamily: FONT.extrabold,
                 letterSpacing: 0.2,
                 color: theme.textSecondary,
               }}>
@@ -126,7 +127,7 @@ const WorkloadSettings = () => {
                     flexDirection: 'row',
                     alignItems: 'center',
                     gap: 14,
-                    borderRadius: 16,
+                    borderRadius: RADIUS.md,
                     padding: 16,
                     borderWidth: 1.5,
                     borderColor: selected ? ACCENT : theme.border,
@@ -146,7 +147,7 @@ const WorkloadSettings = () => {
                     <Ionicons name={option.icon as any} size={20} color={selected ? '#fff' : ACCENT} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 15, fontWeight: '600', color: selected ? ACCENT : theme.text }}>
+                    <Text style={{ fontSize: 15, fontFamily: FONT.semibold, color: selected ? ACCENT : theme.text }}>
                       {option.id}
                     </Text>
                     <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 2 }}>
@@ -165,7 +166,7 @@ const WorkloadSettings = () => {
               <Text
                 style={{
                   fontSize: 11,
-                  fontWeight: '800',
+                  fontFamily: FONT.extrabold,
                   letterSpacing: 0.2,
                   color: theme.textSecondary,
                 }}>
@@ -196,7 +197,7 @@ const WorkloadSettings = () => {
                     <Text
                       style={{
                         fontSize: 12,
-                        fontWeight: '700',
+                        fontFamily: FONT.bold,
                         color: selected ? '#fff' : theme.textSecondary,
                       }}>
                       {day.charAt(0)}
@@ -216,7 +217,7 @@ const WorkloadSettings = () => {
           disabled={saving || loadingUser}
           scaleDown={0.97}
           style={{
-            borderRadius: 16,
+            borderRadius: RADIUS.md,
             paddingVertical: 16,
             alignItems: 'center',
             justifyContent: 'center',
@@ -226,7 +227,7 @@ const WorkloadSettings = () => {
           {saving ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={{ fontSize: 16, fontWeight: '700', color: '#fff' }}>Save Settings</Text>
+            <Text style={{ fontSize: 16, fontFamily: FONT.bold, color: '#fff' }}>Save Settings</Text>
           )}
         </AnimatedPressable>
       </View>

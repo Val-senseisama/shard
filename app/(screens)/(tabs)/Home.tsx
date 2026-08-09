@@ -5,10 +5,11 @@ import {
   Image,
   Text,
   View,
-  useColorScheme,
   ScrollView,
   RefreshControl,
+  StyleSheet,
 } from 'react-native';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -32,7 +33,7 @@ import { useQuery, useApolloClient } from '@apollo/client';
 import { CURRENT_USER, MY_SHARDS, MY_CHATS } from '~/Graphql/Queries';
 import { avatarUri } from '~/helpers/avatarUri';
 import { ACCENT } from '~/components/shard/constants';
-import { hud, FONT, HudLabel, Mono, ShardBar } from '~/components/hud';
+import { hud, FONT, HudLabel, Mono, ShardBar, RADIUS } from '~/components/hud';
 import TodayCard from '~/components/home/TodayCard';
 import RankCard from '~/components/home/RankCard';
 import * as syncService from '~/services/syncService';
@@ -127,21 +128,47 @@ const Home = () => {
     ),
   }));
 
-  const paddingAnimatedStyle = useAnimatedStyle(() => ({
-    paddingTop: interpolate(scrollY.value, [0, AVATAR_ANIMATION_RANGE], [16, 0], Extrapolate.CLAMP),
-    paddingBottom: interpolate(
+  /**
+   * The header collapses as you scroll.
+   *
+   * This used to interpolate `paddingTop`/`paddingBottom`, which are layout
+   * properties — every scroll frame forced a Yoga re-layout of the header
+   * subtree rather than a compositor-only update. `height` still costs layout,
+   * but only of this one measured box, and it's the property that actually has
+   * to change for the list to move up; the visual travel rides on `translateY`,
+   * which is free.
+   *
+   * `headerHeight` is measured rather than assumed because the header is an
+   * intrinsic-height flex row — its height depends on the username, the XP
+   * strip and the user's text-size setting, so no constant would be right.
+   */
+  const [headerHeight, setHeaderHeight] = useState(0);
+
+  const paddingAnimatedStyle = useAnimatedStyle(() => {
+    if (!headerHeight) return {};
+    const collapse = interpolate(
       scrollY.value,
       [0, AVATAR_ANIMATION_RANGE],
-      [12, 0],
+      [0, 28], // the 16 top + 12 bottom padding this replaces
       Extrapolate.CLAMP
-    ),
-  }));
+    );
+    return {
+      height: headerHeight - collapse,
+      transform: [{ translateY: -collapse / 2 }],
+    };
+  }, [headerHeight]);
 
   const onScroll = useAnimatedScrollHandler({
     onScroll: (e) => {
       scrollY.value = e.contentOffset.y;
     },
   });
+
+  // Only where floating UI actually overlaps content — at rest there is no
+  // overlap, so there should be no effect.
+  const scrollEdgeStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.value, [0, 24], [0, 1], Extrapolate.CLAMP),
+  }));
 
   const c = hud(isDark);
   const outerBg = c.bg;
@@ -177,12 +204,21 @@ const Home = () => {
       <SafeAreaView style={{ flex: 1, backgroundColor: outerBg }}>
         {/* Header */}
         <Animated.View
+          onLayout={(e) => {
+            const h = e.nativeEvent.layout.height;
+            // Only take the first, uncollapsed measurement — re-measuring while
+            // the header is mid-collapse would feed its own output back in.
+            if (h > 0 && headerHeight === 0) setHeaderHeight(h + 28);
+          }}
           style={[
             {
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'space-between',
               paddingHorizontal: 20,
+              paddingTop: 16,
+              paddingBottom: 12,
+              overflow: 'hidden',
               backgroundColor: outerBg,
             },
             paddingAnimatedStyle,
@@ -202,7 +238,7 @@ const Home = () => {
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <HudLabel color={subColor} size={12}>Welcome back</HudLabel>
                     {(user?.subscriptionTier === 'pro' || user?.isInTrial) && (
-                      <View style={{ borderWidth: 1, borderColor: c.ember, paddingHorizontal: 7, paddingVertical: 1.5, borderRadius: 999 }}>
+                      <View style={{ borderWidth: 1, borderColor: c.ember, paddingHorizontal: 7, paddingVertical: 1.5, borderRadius: RADIUS.pill }}>
                         <Text style={{ fontSize: 9, fontFamily: FONT.bold, letterSpacing: 0.3, color: c.ember }}>
                           {user?.subscriptionTier === 'pro' ? 'PRO' : 'TRIAL'}
                         </Text>
@@ -247,6 +283,22 @@ const Home = () => {
 
         {/* Quests scroll directly on the page bg — cards float, no muddy tray */}
         <View style={{ flex: 1, backgroundColor: c.bg }}>
+          {/*
+            Scroll edge effect. The header isn't floating chrome — it's a flex
+            sibling, so content doesn't pass beneath it and translucency would
+            have nothing to reveal. What it does have is a hard cut where rows
+            disappear at its bottom edge. This is a short gradient that fades
+            them out into the header instead, and it only appears once there's
+            actually something scrolling under it.
+          */}
+          <Animated.View pointerEvents="none" style={[styles.scrollEdge, scrollEdgeStyle]}>
+            <LinearGradient
+              colors={[c.bg, `${c.bg}00`]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={{ flex: 1 }}
+            />
+          </Animated.View>
           {loading && shards.length === 0 ? (
             <View style={{ paddingHorizontal: 16 }}>
               <QuestLogHeader count={0} isDark={isDark} />
@@ -261,7 +313,9 @@ const Home = () => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 paddingHorizontal: 24,
-                paddingBottom: 80,
+                // Matches the quest list. The tab bar now floats over the scene,
+                // so every scroll view has to reserve its height (~94px here).
+                paddingBottom: 100,
               }}
               refreshControl={
                 <RefreshControl
@@ -299,11 +353,11 @@ const Home = () => {
               </Text>
               <AnimatedPressable onPress={() => router.push('/new-shard')} scaleDown={0.95}>
                 <LinearGradient
-                  colors={['#8b5cf6', '#6d28d9']}
+                  colors={[c.violet, c.violetDeep]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={{
-                    borderRadius: 16,
+                    borderRadius: RADIUS.md,
                     paddingHorizontal: 28,
                     paddingVertical: 15,
                     flexDirection: 'row',
@@ -357,33 +411,24 @@ const Home = () => {
           )}
         </View>
 
-        {/* FAB — crisp shard shortcut, only when there are quests */}
-        {shards.length > 0 && (
-          <AnimatedPressable
-            onPress={() => router.push('/new-shard')}
-            scaleDown={0.9}
-            style={{
-              position: 'absolute',
-              bottom: 24,
-              right: 24,
-              shadowColor: '#7c3aed',
-              shadowOpacity: 0.4,
-              shadowRadius: 12,
-              shadowOffset: { width: 0, height: 4 },
-              elevation: 8,
-            }}>
-            <LinearGradient
-              colors={['#8b5cf6', '#6d28d9']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={{ width: 56, height: 56, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}>
-              <AntDesign name="plus" size={24} color="#fff" />
-            </LinearGradient>
-          </AnimatedPressable>
-        )}
+        {/* No FAB here. It pushed `/new-shard`, in the same violet, ~40px from
+            the tab bar's centre Forge button, which pushes `/new-shard`. Two
+            controls for one action, competing for the same corner. The tab bar
+            is the canonical one: it's on every tab, the FAB was on this one. */}
       </SafeAreaView>
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  scrollEdge: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 20,
+    zIndex: 1,
+  },
+});
 
 export default Home;

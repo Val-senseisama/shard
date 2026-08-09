@@ -4,10 +4,11 @@ import {
   Text,
   Switch,
   ScrollView,
-  useColorScheme,
   ActivityIndicator,
   Platform,
 } from 'react-native';
+import { FONT, RADIUS } from '~/components/hud';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -142,7 +143,7 @@ const NotificationSettings = () => {
         <AnimatedPressable onPress={() => router.back()} hitSlop={20} scaleDown={0.88} accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={24} color={theme.text} />
         </AnimatedPressable>
-        <Text style={{ fontSize: 18, fontWeight: '700', color: theme.text }}>Notifications</Text>
+        <Text style={{ fontSize: 18, fontFamily: FONT.bold, color: theme.text }}>Notifications</Text>
         <View style={{ width: 24 }}>
           {saving && <ActivityIndicator size="small" color={ACCENT} />}
         </View>
@@ -153,14 +154,14 @@ const NotificationSettings = () => {
         {/* Master toggle */}
         <Animated.View
           entering={FadeInDown.duration(350)}
-          style={{ backgroundColor: prefs.pushEnabled ? (isDark ? 'rgba(124,58,237,0.12)' : 'rgba(124,58,237,0.06)') : theme.card, borderRadius: 18, padding: 18, marginBottom: 20, borderWidth: 1, borderColor: prefs.pushEnabled ? (isDark ? 'rgba(124,58,237,0.3)' : 'rgba(124,58,237,0.2)') : isDark ? theme.border : 'rgba(0,0,0,0.06)' }}>
+          style={{ backgroundColor: prefs.pushEnabled ? (isDark ? 'rgba(124,58,237,0.12)' : 'rgba(124,58,237,0.06)') : theme.card, borderRadius: RADIUS.md, padding: 18, marginBottom: 20, borderWidth: 1, borderColor: prefs.pushEnabled ? (isDark ? 'rgba(124,58,237,0.3)' : 'rgba(124,58,237,0.2)') : isDark ? theme.border : 'rgba(0,0,0,0.06)' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: prefs.pushEnabled ? isDark ? 'rgba(124,58,237,0.2)' : 'rgba(124,58,237,0.12)' : isDark ? '#2a2a2a' : '#f3f4f6', alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 40, height: 40, borderRadius: RADIUS.sm, backgroundColor: prefs.pushEnabled ? isDark ? 'rgba(124,58,237,0.2)' : 'rgba(124,58,237,0.12)' : isDark ? '#2a2a2a' : '#f3f4f6', alignItems: 'center', justifyContent: 'center' }}>
                 <Ionicons name="notifications-outline" size={20} color={prefs.pushEnabled ? ACCENT : theme.textSecondary} />
               </View>
               <View>
-                <Text style={{ fontSize: 16, fontWeight: '700', color: theme.text }}>Push Notifications</Text>
+                <Text style={{ fontSize: 16, fontFamily: FONT.bold, color: theme.text }}>Push Notifications</Text>
                 <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 2 }}>
                   {prefs.pushEnabled ? 'Notifications are on' : 'All notifications muted'}
                 </Text>
@@ -178,10 +179,10 @@ const NotificationSettings = () => {
         {/* Granular groups */}
         {TOGGLE_GROUPS.map((group, gi) => (
           <Animated.View key={group.title} entering={FadeInDown.delay((gi + 1) * 80).duration(260)} style={{ marginBottom: 20 }}>
-            <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary, letterSpacing: 0.2, marginBottom: 10, paddingLeft: 4 }}>
+            <Text style={{ fontSize: 11, fontFamily: FONT.bold, color: theme.textSecondary, letterSpacing: 0.2, marginBottom: 10, paddingLeft: 4 }}>
               {group.title}
             </Text>
-            <View style={{ backgroundColor: theme.card, borderRadius: 16, borderWidth: 1, borderColor: isDark ? theme.border : 'rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+            <View style={{ backgroundColor: theme.card, borderRadius: RADIUS.md, borderWidth: 1, borderColor: isDark ? theme.border : 'rgba(0,0,0,0.05)', overflow: 'hidden' }}>
               {group.items.map((item, i) => {
                 const isDisabled = item.key !== 'pushEnabled' && item.key !== 'emailEnabled' && !prefs.pushEnabled;
                 return (
@@ -197,7 +198,7 @@ const NotificationSettings = () => {
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, marginRight: 12 }}>
                       <Ionicons name={item.icon as any} size={18} color={theme.textSecondary} />
                       <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 15, fontWeight: '500', color: theme.text }}>{item.label}</Text>
+                        <Text style={{ fontSize: 15, fontFamily: FONT.medium, color: theme.text }}>{item.label}</Text>
                         <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 1 }}>{item.desc}</Text>
                       </View>
                     </View>
@@ -217,16 +218,16 @@ const NotificationSettings = () => {
 
         {/* Quiet Hours */}
         <Animated.View entering={FadeInDown.delay(150).duration(260)} style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary, letterSpacing: 0.2, marginBottom: 10, paddingLeft: 4 }}>
+          <Text style={{ fontSize: 11, fontFamily: FONT.bold, color: theme.textSecondary, letterSpacing: 0.2, marginBottom: 10, paddingLeft: 4 }}>
             Quiet Hours
           </Text>
-          <View style={{ backgroundColor: theme.card, borderRadius: 16, borderWidth: 1, borderColor: isDark ? theme.border : 'rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+          <View style={{ backgroundColor: theme.card, borderRadius: RADIUS.md, borderWidth: 1, borderColor: isDark ? theme.border : 'rgba(0,0,0,0.05)', overflow: 'hidden' }}>
             {/* Toggle */}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderBottomWidth: prefs.quietHoursEnabled ? 1 : 0, borderBottomColor: isDark ? theme.border : 'rgba(0,0,0,0.05)' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                 <Ionicons name="moon-outline" size={18} color={theme.textSecondary} />
                 <View>
-                  <Text style={{ fontSize: 15, fontWeight: '500', color: theme.text }}>Enable Quiet Hours</Text>
+                  <Text style={{ fontSize: 15, fontFamily: FONT.medium, color: theme.text }}>Enable Quiet Hours</Text>
                   <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 1 }}>Mute notifications during set hours</Text>
                 </View>
               </View>
@@ -241,16 +242,16 @@ const NotificationSettings = () => {
             {/* Time pickers */}
             {prefs.quietHoursEnabled && (
               <View style={{ flexDirection: 'row', padding: 14, gap: 12 }}>
-                <AnimatedPressable onPress={() => setShowStartPicker(true)} scaleDown={0.96} style={{ flex: 1, backgroundColor: isDark ? 'rgba(124,58,237,0.1)' : 'rgba(124,58,237,0.06)', borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: isDark ? 'rgba(124,58,237,0.2)' : 'rgba(124,58,237,0.15)' }}>
-                  <Text style={{ fontSize: 11, color: theme.textSecondary, fontWeight: '600', letterSpacing: 0.5 }}>START</Text>
-                  <Text style={{ fontSize: 22, fontWeight: '700', color: ACCENT, marginTop: 4 }}>{prefs.quietHoursStart}</Text>
+                <AnimatedPressable onPress={() => setShowStartPicker(true)} scaleDown={0.96} containerStyle={{ flex: 1 }} style={{ backgroundColor: isDark ? 'rgba(124,58,237,0.1)' : 'rgba(124,58,237,0.06)', borderRadius: RADIUS.sm, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: isDark ? 'rgba(124,58,237,0.2)' : 'rgba(124,58,237,0.15)' }}>
+                  <Text style={{ fontSize: 11, color: theme.textSecondary, fontFamily: FONT.semibold, letterSpacing: 0.5 }}>START</Text>
+                  <Text style={{ fontSize: 22, fontFamily: FONT.bold, color: ACCENT, marginTop: 4 }}>{prefs.quietHoursStart}</Text>
                 </AnimatedPressable>
                 <View style={{ alignItems: 'center', justifyContent: 'center' }}>
                   <Ionicons name="arrow-forward" size={16} color={theme.textSecondary} />
                 </View>
-                <AnimatedPressable onPress={() => setShowEndPicker(true)} scaleDown={0.96} style={{ flex: 1, backgroundColor: isDark ? 'rgba(124,58,237,0.1)' : 'rgba(124,58,237,0.06)', borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: isDark ? 'rgba(124,58,237,0.2)' : 'rgba(124,58,237,0.15)' }}>
-                  <Text style={{ fontSize: 11, color: theme.textSecondary, fontWeight: '600', letterSpacing: 0.5 }}>END</Text>
-                  <Text style={{ fontSize: 22, fontWeight: '700', color: ACCENT, marginTop: 4 }}>{prefs.quietHoursEnd}</Text>
+                <AnimatedPressable onPress={() => setShowEndPicker(true)} scaleDown={0.96} containerStyle={{ flex: 1 }} style={{ backgroundColor: isDark ? 'rgba(124,58,237,0.1)' : 'rgba(124,58,237,0.06)', borderRadius: RADIUS.sm, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: isDark ? 'rgba(124,58,237,0.2)' : 'rgba(124,58,237,0.15)' }}>
+                  <Text style={{ fontSize: 11, color: theme.textSecondary, fontFamily: FONT.semibold, letterSpacing: 0.5 }}>END</Text>
+                  <Text style={{ fontSize: 22, fontFamily: FONT.bold, color: ACCENT, marginTop: 4 }}>{prefs.quietHoursEnd}</Text>
                 </AnimatedPressable>
               </View>
             )}

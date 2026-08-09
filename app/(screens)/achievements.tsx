@@ -1,5 +1,7 @@
 import React, { useMemo } from 'react';
-import { View, Text, ScrollView, useColorScheme, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Dimensions } from 'react-native';
+import { brand, FONT, RADIUS } from '~/components/hud';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@apollo/client';
@@ -97,7 +99,7 @@ const AchievementsScreen = () => {
         contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Progress Card */}
         <LinearGradient
-          colors={['#8b5cf6', '#6d28d9']}
+          colors={[brand.violet, brand.violetDeep]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.progressCard}>
@@ -151,12 +153,12 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: FONT.bold,
   },
   progressCard: {
     margin: 16,
     padding: 24,
-    borderRadius: 24,
+    borderRadius: RADIUS.xl,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -164,12 +166,12 @@ const styles = StyleSheet.create({
   progressLabel: {
     color: 'rgba(255,255,255,0.8)',
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: FONT.semibold,
   },
   progressValue: {
     color: '#fff',
     fontSize: 28,
-    fontWeight: '800',
+    fontFamily: FONT.extrabold,
     marginTop: 4,
   },
   trophyIcon: {
@@ -181,7 +183,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: FONT.bold,
     letterSpacing: 1,
     marginBottom: 12,
   },
@@ -193,7 +195,7 @@ const styles = StyleSheet.create({
   card: {
     width: ITEM_SIZE,
     padding: 12,
-    borderRadius: 16,
+    borderRadius: RADIUS.md,
     alignItems: 'center',
     borderWidth: 1,
   },
@@ -227,19 +229,19 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: FONT.bold,
     textAlign: 'center',
     marginBottom: 4,
   },
   rarityBadge: {
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: RADIUS.xs,
   },
   rarityText: {
     color: '#fff',
     fontSize: 8,
-    fontWeight: '800',
+    fontFamily: FONT.extrabold,
   },
   center: {
     flex: 1,

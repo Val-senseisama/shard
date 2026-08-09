@@ -6,13 +6,14 @@ import {
   Pressable,
   Image,
   ScrollView,
-  useColorScheme,
   FlatList,
   Dimensions,
   ActivityIndicator,
   Alert,
   Modal,
 } from 'react-native';
+import { brand, FONT, RADIUS } from '~/components/hud';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { AntDesign, Ionicons } from '@expo/vector-icons';
@@ -121,7 +122,7 @@ const AnimatedTaskRow = ({
             height: 24,
             borderRadius: 12,
             marginRight: 12,
-            backgroundColor: task.completed ? '#8b5cf6' : 'transparent',
+            backgroundColor: task.completed ? brand.violet : 'transparent',
             borderWidth: task.completed ? 0 : 2,
             borderColor: isDark ? '#4b5563' : '#d1d5db',
             alignItems: 'center',
@@ -159,7 +160,7 @@ const AnimatedTaskRow = ({
                   height: 20,
                   borderRadius: 10,
                   borderWidth: 1.5,
-                  borderColor: '#8b5cf6',
+                  borderColor: brand.violet,
                 }}
               />
             ) : (
@@ -172,7 +173,7 @@ const AnimatedTaskRow = ({
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}>
-                <Text style={{ color: '#8b5cf6', fontSize: 9, fontWeight: '700' }}>
+                <Text style={{ color: brand.violet, fontSize: 9, fontFamily: FONT.bold }}>
                   {assigneeName[0].toUpperCase()}
                 </Text>
               </View>
@@ -611,7 +612,7 @@ const ShardInfo = () => {
     return acc;
   }, {});
 
-  const colors = ['#d946ef', '#7c3aed', '#6366f1', '#ec4899', '#8b5cf6'];
+  const colors = ['#d946ef', '#7c3aed', '#6366f1', '#ec4899', brand.violet];
 
   // Loading state
   if (shardLoading && !shard) {
@@ -701,7 +702,7 @@ const ShardInfo = () => {
         <Text
           style={{
             fontSize: 11,
-            fontWeight: '700',
+            fontFamily: FONT.bold,
             letterSpacing: 0.2,
             color: isDark ? '#adaaaa' : '#666',
           }}>
@@ -741,7 +742,7 @@ const ShardInfo = () => {
                 flexDirection: 'row',
                 alignItems: 'center',
                 backgroundColor: isDark ? '#1a1a1a' : '#f6f7fb',
-                borderRadius: 16,
+                borderRadius: RADIUS.md,
                 padding: 14,
                 borderWidth: 1,
                 borderColor: isDark ? 'rgba(72,72,71,0.25)' : 'rgba(0,0,0,0.06)',
@@ -757,7 +758,7 @@ const ShardInfo = () => {
                   justifyContent: 'center',
                   marginRight: 12,
                 }}>
-                <Text style={{ color: '#8b5cf6', fontWeight: '800', fontSize: 12 }}>
+                <Text style={{ color: brand.violet, fontFamily: FONT.extrabold, fontSize: 12 }}>
                   {goalIndex + 1}
                 </Text>
               </View>
@@ -765,7 +766,7 @@ const ShardInfo = () => {
               <Text
                 style={{
                   flex: 1,
-                  fontWeight: '700',
+                  fontFamily: FONT.bold,
                   fontSize: 14,
                   color: isDark ? '#fff' : '#1a1a1a',
                 }}>
@@ -782,7 +783,7 @@ const ShardInfo = () => {
                     gap: 5,
                     marginRight: 8,
                     backgroundColor: 'rgba(139,92,246,0.1)',
-                    borderRadius: 12,
+                    borderRadius: RADIUS.sm,
                     paddingHorizontal: 8,
                     paddingVertical: 4,
                   }}>
@@ -797,16 +798,16 @@ const ShardInfo = () => {
                         width: 16,
                         height: 16,
                         borderRadius: 8,
-                        backgroundColor: '#8b5cf6',
+                        backgroundColor: brand.violet,
                         alignItems: 'center',
                         justifyContent: 'center',
                       }}>
-                      <Text style={{ color: '#fff', fontSize: 8, fontWeight: '700' }}>
+                      <Text style={{ color: '#fff', fontSize: 8, fontFamily: FONT.bold }}>
                         {(goalAssignee.username || '?')[0].toUpperCase()}
                       </Text>
                     </View>
                   )}
-                  <Text style={{ color: '#8b5cf6', fontSize: 11, fontWeight: '600' }}>
+                  <Text style={{ color: brand.violet, fontSize: 11, fontFamily: FONT.semibold }}>
                     {goalAssignee.username}
                   </Text>
                 </Animated.View>
@@ -876,7 +877,7 @@ const ShardInfo = () => {
           style={{
             alignItems: 'center',
             paddingVertical: 32,
-            borderRadius: 16,
+            borderRadius: RADIUS.md,
             borderWidth: 1,
             borderStyle: 'dashed',
             borderColor: isDark ? '#2a2a2a' : '#e5e7eb',
@@ -968,7 +969,7 @@ const ShardInfo = () => {
               backgroundColor: isDark ? 'rgba(234,179,8,0.15)' : 'rgba(234,179,8,0.1)',
               paddingVertical: 10,
               paddingHorizontal: 16,
-              borderRadius: 12,
+              borderRadius: RADIUS.sm,
               borderWidth: 1,
               borderColor: isDark ? 'rgba(234,179,8,0.3)' : 'rgba(234,179,8,0.2)',
               flexDirection: 'row',
@@ -977,7 +978,7 @@ const ShardInfo = () => {
             }}>
             <Ionicons name="eye" size={16} color={isDark ? '#fde047' : '#eab308'} />
             <Text
-              style={{ color: isDark ? '#fde047' : '#ca8a04', fontWeight: '700', fontSize: 13 }}>
+              style={{ color: isDark ? '#fde047' : '#ca8a04', fontFamily: FONT.bold, fontSize: 13 }}>
               Viewing as Accountability Partner
             </Text>
           </View>
@@ -1078,7 +1079,7 @@ const ShardInfo = () => {
                           backgroundColor: isDark
                             ? 'rgba(139,92,246,0.15)'
                             : 'rgba(139,92,246,0.1)',
-                          borderRadius: 20,
+                          borderRadius: RADIUS.lg,
                           paddingHorizontal: 10,
                           paddingVertical: 5,
                         }}>
@@ -1093,11 +1094,11 @@ const ShardInfo = () => {
                               width: 18,
                               height: 18,
                               borderRadius: 9,
-                              backgroundColor: '#8b5cf6',
+                              backgroundColor: brand.violet,
                               alignItems: 'center',
                               justifyContent: 'center',
                             }}>
-                            <Text style={{ color: '#fff', fontSize: 8, fontWeight: '700' }}>
+                            <Text style={{ color: '#fff', fontSize: 8, fontFamily: FONT.bold }}>
                               {(p.username || '?')[0].toUpperCase()}
                             </Text>
                           </View>
@@ -1106,7 +1107,7 @@ const ShardInfo = () => {
                           style={{
                             color: isDark ? '#c4b5fd' : '#7c3aed',
                             fontSize: 11,
-                            fontWeight: '600',
+                            fontFamily: FONT.semibold,
                           }}>
                           {p.username || 'Teammate'}
                         </Text>
@@ -1161,14 +1162,14 @@ const ShardInfo = () => {
                         style={{
                           backgroundColor: 'rgba(139,92,246,0.15)',
                           padding: 10,
-                          borderRadius: 12,
+                          borderRadius: RADIUS.sm,
                         }}>
                         <Ionicons name="sparkles" size={20} color="#8b5cf6" />
                       </View>
                       <Text
                         style={{
                           fontSize: 18,
-                          fontWeight: '800',
+                          fontFamily: FONT.extrabold,
                           color: isDark ? '#fff' : '#1a1a1a',
                         }}>
                         Quest Coach
@@ -1188,12 +1189,12 @@ const ShardInfo = () => {
                     <TouchableOpacity
                       onPress={() => setCoachNudge(null)}
                       style={{
-                        backgroundColor: '#8b5cf6',
+                        backgroundColor: brand.violet,
                         paddingVertical: 14,
-                        borderRadius: 14,
+                        borderRadius: RADIUS.sm,
                         alignItems: 'center',
                       }}>
-                      <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Close</Text>
+                      <Text style={{ color: '#fff', fontFamily: FONT.bold, fontSize: 15 }}>Close</Text>
                     </TouchableOpacity>
                   </Animated.View>
                 </TouchableOpacity>
@@ -1211,7 +1212,7 @@ const ShardInfo = () => {
                   justifyContent: 'center',
                   backgroundColor: isDark ? 'rgba(14,165,233,0.15)' : 'rgba(14,165,233,0.1)',
                   paddingVertical: 12,
-                  borderRadius: 12,
+                  borderRadius: RADIUS.sm,
                   marginBottom: 16,
                   borderWidth: 1,
                   borderColor: isDark ? 'rgba(14,165,233,0.3)' : 'rgba(14,165,233,0.2)',
@@ -1220,7 +1221,7 @@ const ShardInfo = () => {
                 <Text
                   style={{
                     color: isDark ? '#38bdf8' : '#0284c7',
-                    fontWeight: 'bold',
+                    fontFamily: FONT.bold,
                     marginLeft: 8,
                   }}>
                   {coachLoading ? 'Asking Coach...' : 'Get AI Coach Tip'}
@@ -1239,7 +1240,7 @@ const ShardInfo = () => {
                 }}>
                 <View className="mb-3 flex-row items-center justify-between">
                   <View>
-                    <Text style={{ color: '#8b5cf6', fontWeight: '800', fontSize: 16 }}>
+                    <Text style={{ color: brand.violet, fontFamily: FONT.extrabold, fontSize: 16 }}>
                       Recurring Habit
                     </Text>
                     <Text
@@ -1248,14 +1249,14 @@ const ShardInfo = () => {
                     </Text>
                   </View>
                   <View style={{ alignItems: 'center' }}>
-                    <Text style={{ fontSize: 24, fontWeight: '800', color: '#8b5cf6' }}>
+                    <Text style={{ fontSize: 24, fontFamily: FONT.extrabold, color: brand.violet }}>
                       🔥 {shard.habitStreak || 0}
                     </Text>
                     <Text
                       style={{
                         fontSize: 10,
                         color: isDark ? '#a0a0a0' : '#666',
-                        fontWeight: '700',
+                        fontFamily: FONT.bold,
                       }}>
                       Streak
                     </Text>
@@ -1264,12 +1265,12 @@ const ShardInfo = () => {
                 <AnimatedPressable
                   onPress={handleCompleteHabitCycle}
                   style={{
-                    backgroundColor: '#8b5cf6',
-                    borderRadius: 12,
+                    backgroundColor: brand.violet,
+                    borderRadius: RADIUS.sm,
                     paddingVertical: 12,
                     alignItems: 'center',
                   }}>
-                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>
+                  <Text style={{ color: '#fff', fontFamily: FONT.bold, fontSize: 14 }}>
                     Complete Cycle & Reset
                   </Text>
                 </AnimatedPressable>

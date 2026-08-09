@@ -6,8 +6,8 @@ import {
   FlatList,
   Image,
   ActivityIndicator,
-  useColorScheme,
 } from 'react-native';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';

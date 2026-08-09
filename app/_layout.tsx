@@ -105,6 +105,7 @@ const apolloClient = new ApolloClient({
 import { isLoggedIn } from '@/helpers/isLoggedIn';
 import Toast from 'react-native-toast-message';
 import { AppState, Text, View } from 'react-native';
+import { FONT, RADIUS } from '~/components/hud';
 import CrystalShape from '@/components/ToastCrystal';
 import UndoToast from '@/components/UndoToast';
 import UserProvider from '@/components/UserProvider';
@@ -133,9 +134,11 @@ if (!__DEV__) {
 export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
   const [isUserLoggedIn, setIsUserLoggedIn] = useState<boolean>(false);
-  const colorScheme = useColorScheme();
+  // The one resolved value. Everything themed downstream — NativeWind's `dark:`
+  // variants, the navigation theme, the StatusBar and every `hud()` palette
+  // lookup — now derives from this, so they can no longer disagree.
+  const isDarkMode = useColorScheme() === 'dark';
   const { setColorScheme } = useNativeWindColorScheme();
-  const isDarkMode = useAppStore((state) => state.isDarkMode);
   const isOnline = useAppStore((state) => state.isOnline);
   const setOnline = useAppStore((state) => state.setOnline);
   const setShards = useShardStore((state) => state.setShards);
@@ -143,8 +146,21 @@ export default function RootLayout() {
   const wasOfflineRef = useRef(false);
   const insets = useSafeAreaInsets();
 
+  /**
+   * Inter ships optical cuts: the 18pt files are drawn for text, the 24pt files
+   * for display — looser spacing and sturdier strokes at small sizes, tighter and
+   * finer as they grow. Loading both is right.
+   *
+   * The catch is that the cut is currently chosen by *weight*, because those are
+   * the only files in `assets/fonts`: every heavy weight resolves to a 24pt
+   * display cut, including button labels at 13–15px, where it sets too tight.
+   * `tracking()` in `components/hud/tokens.ts` compensates, but the real fix is
+   * adding `Inter_18pt-Bold.ttf` / `-ExtraBold` / `-Black` and picking the cut by
+   * size. ~300KB of assets — worth it, but a call to make deliberately.
+   */
   const [fontsLoaded, error] = useFonts({
-    'Inter-Thin': require('@/assets/fonts/Inter_18pt-Light.ttf'),
+    // Was pointed at Inter_18pt-Light.ttf, so "Thin" rendered as Light.
+    'Inter-Thin': require('@/assets/fonts/Inter_18pt-Thin.ttf'),
     'Inter-Light': require('@/assets/fonts/Inter_18pt-Light.ttf'),
     'Inter-Regular': require('@/assets/fonts/Inter_18pt-Regular.ttf'),
     'Inter-Medium': require('@/assets/fonts/Inter_18pt-Medium.ttf'),
@@ -156,7 +172,9 @@ export default function RootLayout() {
     'SpaceMono': require('@/assets/fonts/SpaceMono-Regular.ttf'),
   });
 
-  // Apply dark mode from app store
+  // Hand the resolved scheme to NativeWind. `tailwind.config.js` sets
+  // `darkMode: 'class'`, so the ~139 `dark:` variants across the app are inert
+  // until this runs — this is the only thing that turns them on.
   useEffect(() => {
     setColorScheme(isDarkMode ? 'dark' : 'light');
   }, [isDarkMode, setColorScheme]);
@@ -324,7 +342,7 @@ export default function RootLayout() {
         style={{
           backgroundColor: '#333333',
           elevation: 1,
-          borderRadius: 8,
+          borderRadius: RADIUS.xs,
         }}>
         <CrystalShape color="#4135F3" />
         <Text className="text-white">{text1}</Text>
@@ -336,7 +354,7 @@ export default function RootLayout() {
         style={{
           backgroundColor: '#333333',
           elevation: 1,
-          borderRadius: 8,
+          borderRadius: RADIUS.xs,
         }}>
         <CrystalShape color="#ef4444" />
         <Text className="text-white">{text1}</Text>
@@ -348,7 +366,7 @@ export default function RootLayout() {
         style={{
           backgroundColor: '#333333',
           elevation: 1,
-          borderRadius: 8,
+          borderRadius: RADIUS.xs,
         }}>
         <CrystalShape color="#3b82f6" />
         <Text className="text-white">{text1}</Text>
@@ -359,7 +377,9 @@ export default function RootLayout() {
 
   return (
     <ApolloProvider client={apolloClient}>
-      <GestureHandlerRootView>
+      {/* `flex: 1` is required, not cosmetic — without it the root has no
+          dimensions and gesture regions inside it are unreliable. */}
+      <GestureHandlerRootView style={{ flex: 1 }}>
         <ThemeProvider value={isDarkMode ? DarkTheme : DefaultTheme}>
           <StatusBar style={isDarkMode ? 'light' : 'dark'} />
           {!isOnline && (
@@ -371,7 +391,7 @@ export default function RootLayout() {
                 paddingHorizontal: 16,
                 alignItems: 'center',
               }}>
-              <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>
+              <Text style={{ color: '#fff', fontSize: 12, fontFamily: FONT.semibold }}>
                 You're offline — changes will sync when you reconnect
               </Text>
             </View>

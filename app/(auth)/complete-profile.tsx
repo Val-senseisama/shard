@@ -5,9 +5,10 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  useColorScheme,
   ActivityIndicator,
 } from 'react-native';
+import { brand, FONT, RADIUS } from '~/components/hud';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -106,14 +107,14 @@ const CompleteProfile = () => {
 
         {/* Title */}
         <View style={{ alignItems: 'center', marginBottom: 32 }}>
-          <Text style={{ fontSize: 32, fontWeight: '900', letterSpacing: 4, color: isDark ? '#fff' : '#1a1a1a', marginBottom: 8 }}>
+          <Text style={{ fontSize: 32, fontFamily: FONT.black, letterSpacing: 4, color: isDark ? '#fff' : '#1a1a1a', marginBottom: 8 }}>
             SH<Text style={{ color: ACCENT }}>▲</Text>RD
           </Text>
           <Text style={{ fontSize: 16, color: theme.textSecondary }}>Complete your profile</Text>
         </View>
 
         {/* Card */}
-        <View style={{ backgroundColor: cardBg, borderRadius: 24, padding: 24, shadowColor: '#000', shadowOpacity: isDark ? 0 : 0.08, shadowRadius: 20, shadowOffset: { width: 0, height: 4 }, elevation: 4 }}>
+        <View style={{ backgroundColor: cardBg, borderRadius: RADIUS.xl, padding: 24, shadowColor: '#000', shadowOpacity: isDark ? 0 : 0.08, shadowRadius: 20, shadowOffset: { width: 0, height: 4 }, elevation: 4 }}>
 
           {/* Profile image */}
           <View style={{ alignItems: 'center', marginBottom: 24 }}>
@@ -123,11 +124,11 @@ const CompleteProfile = () => {
 
           {/* Username */}
           <View style={{ marginBottom: 20 }}>
-            <Text style={{ fontSize: 12, fontWeight: '700', color: theme.textSecondary, letterSpacing: 0.5, marginBottom: 6 }}>USERNAME</Text>
+            <Text style={{ fontSize: 12, fontFamily: FONT.bold, color: theme.textSecondary, letterSpacing: 0.5, marginBottom: 6 }}>USERNAME</Text>
             <View style={{
               flexDirection: 'row', alignItems: 'center',
               backgroundColor: isDark ? '#1a1a1a' : '#f9fafb',
-              borderRadius: 12, borderWidth: 1.5, borderColor: usernameBorder,
+              borderRadius: RADIUS.sm, borderWidth: 1.5, borderColor: usernameBorder,
               paddingHorizontal: 14, paddingVertical: 12,
             }}>
               <TextInput
@@ -155,13 +156,13 @@ const CompleteProfile = () => {
 
           {/* Gender */}
           <View style={{ marginBottom: 28 }}>
-            <Text style={{ fontSize: 12, fontWeight: '700', color: theme.textSecondary, letterSpacing: 0.5, marginBottom: 6 }}>GENDER</Text>
+            <Text style={{ fontSize: 12, fontFamily: FONT.bold, color: theme.textSecondary, letterSpacing: 0.5, marginBottom: 6 }}>GENDER</Text>
             <TouchableOpacity
               onPress={() => setShowGender(s => !s)}
               style={{
                 flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
                 backgroundColor: isDark ? '#1a1a1a' : '#f9fafb',
-                borderRadius: 12, borderWidth: 1.5, borderColor: isDark ? '#374151' : '#e5e7eb',
+                borderRadius: RADIUS.sm, borderWidth: 1.5, borderColor: isDark ? '#374151' : '#e5e7eb',
                 paddingHorizontal: 14, paddingVertical: 14,
               }}>
               <Text style={{ fontSize: 15, color: theme.text }}>
@@ -171,7 +172,7 @@ const CompleteProfile = () => {
             </TouchableOpacity>
 
             {showGender && (
-              <View style={{ marginTop: 4, backgroundColor: isDark ? '#1a1a1a' : '#f9fafb', borderRadius: 12, borderWidth: 1, borderColor: isDark ? '#374151' : '#e5e7eb', overflow: 'hidden' }}>
+              <View style={{ marginTop: 4, backgroundColor: isDark ? '#1a1a1a' : '#f9fafb', borderRadius: RADIUS.sm, borderWidth: 1, borderColor: isDark ? '#374151' : '#e5e7eb', overflow: 'hidden' }}>
                 {GENDER_OPTIONS.map((opt, i) => (
                   <TouchableOpacity
                     key={opt.value}
@@ -192,11 +193,11 @@ const CompleteProfile = () => {
 
           {/* Save button */}
           <AnimatedPressable onPress={handleSave} scaleDown={0.96} disabled={loading || usernameStatus === 'taken'}>
-            <LinearGradient colors={['#7c3aed', '#6d28d9']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center' }}>
+            <LinearGradient colors={['#7c3aed', brand.violetDeep]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ borderRadius: RADIUS.sm, height: 52, alignItems: 'center', justifyContent: 'center' }}>
               {loading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Complete Profile</Text>
+                <Text style={{ color: '#fff', fontSize: 16, fontFamily: FONT.bold }}>Complete Profile</Text>
               )}
             </LinearGradient>
           </AnimatedPressable>

@@ -4,10 +4,11 @@ import {
   Text,
   Image,
   ScrollView,
-  useColorScheme,
   ActivityIndicator,
   TextInput,
 } from 'react-native';
+import { FONT, RADIUS } from '~/components/hud';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -192,7 +193,7 @@ export default function TeamDetail() {
                 style={{
                   flex: 1,
                   fontSize: 18,
-                  fontWeight: '700',
+                  fontFamily: FONT.bold,
                   color: theme.text,
                   borderBottomWidth: 2,
                   borderBottomColor: ACCENT,
@@ -219,7 +220,7 @@ export default function TeamDetail() {
               }}
               scaleDown={0.98}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={{ fontSize: 18, fontWeight: '800', color: theme.text }}>
+              <Text style={{ fontSize: 18, fontFamily: FONT.extrabold, color: theme.text }}>
                 {team.name}
               </Text>
               {isOwner && <Ionicons name="pencil-outline" size={14} color={theme.textSecondary} />}
@@ -269,7 +270,7 @@ export default function TeamDetail() {
         <Text
           style={{
             fontSize: 11,
-            fontWeight: '700',
+            fontFamily: FONT.bold,
             color: theme.textSecondary,
             letterSpacing: 0.2,
             marginBottom: 12,
@@ -288,7 +289,7 @@ export default function TeamDetail() {
                 flexDirection: 'row',
                 alignItems: 'center',
                 backgroundColor: theme.card,
-                borderRadius: 16,
+                borderRadius: RADIUS.md,
                 padding: 14,
                 marginBottom: 10,
               }}>
@@ -297,7 +298,7 @@ export default function TeamDetail() {
                 style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: ACCENT }}
               />
               <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: theme.text }}>
+                <Text style={{ fontSize: 14, fontFamily: FONT.bold, color: theme.text }}>
                   {member.username}
                   {isMe ? ' (You)' : ''}
                 </Text>
@@ -305,7 +306,7 @@ export default function TeamDetail() {
                   <View
                     style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
                     <Ionicons name="shield-checkmark" size={12} color={ACCENT} />
-                    <Text style={{ fontSize: 11, color: ACCENT, fontWeight: '600' }}>Owner</Text>
+                    <Text style={{ fontSize: 11, color: ACCENT, fontFamily: FONT.semibold }}>Owner</Text>
                   </View>
                 )}
               </View>
@@ -343,7 +344,7 @@ export default function TeamDetail() {
                 borderWidth: 1.5,
                 borderStyle: 'dashed',
                 borderColor: isDark ? 'rgba(139,92,246,0.3)' : 'rgba(139,92,246,0.25)',
-                borderRadius: 14,
+                borderRadius: RADIUS.sm,
                 paddingVertical: 14,
                 marginBottom: addingMode ? 14 : 24,
               }}>
@@ -352,7 +353,7 @@ export default function TeamDetail() {
                 size={18}
                 color={ACCENT}
               />
-              <Text style={{ color: ACCENT, fontWeight: '600', fontSize: 13 }}>
+              <Text style={{ color: ACCENT, fontFamily: FONT.semibold, fontSize: 13 }}>
                 {addingMode ? 'Hide' : 'Add Member'}
               </Text>
             </AnimatedPressable>
@@ -364,7 +365,7 @@ export default function TeamDetail() {
                     flexDirection: 'row',
                     alignItems: 'center',
                     backgroundColor: theme.card,
-                    borderRadius: 12,
+                    borderRadius: RADIUS.sm,
                     paddingHorizontal: 12,
                     paddingVertical: 10,
                     marginBottom: 12,
@@ -409,7 +410,7 @@ export default function TeamDetail() {
                         flexDirection: 'row',
                         alignItems: 'center',
                         backgroundColor: theme.card,
-                        borderRadius: 14,
+                        borderRadius: RADIUS.sm,
                         padding: 12,
                         marginBottom: 8,
                       }}>
@@ -418,7 +419,7 @@ export default function TeamDetail() {
                         style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: ACCENT }}
                       />
                       <View style={{ flex: 1, marginLeft: 12 }}>
-                        <Text style={{ fontSize: 14, fontWeight: '600', color: theme.text }}>
+                        <Text style={{ fontSize: 14, fontFamily: FONT.semibold, color: theme.text }}>
                           {f.username}
                         </Text>
                         {f.email && (
@@ -429,12 +430,12 @@ export default function TeamDetail() {
                       </View>
                       <View
                         style={{
-                          borderRadius: 16,
+                          borderRadius: RADIUS.md,
                           backgroundColor: 'rgba(139,92,246,0.12)',
                           paddingHorizontal: 12,
                           paddingVertical: 6,
                         }}>
-                        <Text style={{ color: ACCENT, fontSize: 12, fontWeight: '700' }}>Add</Text>
+                        <Text style={{ color: ACCENT, fontSize: 12, fontFamily: FONT.bold }}>Add</Text>
                       </View>
                     </AnimatedPressable>
                   ))
@@ -450,7 +451,7 @@ export default function TeamDetail() {
             <Text
               style={{
                 fontSize: 11,
-                fontWeight: '700',
+                fontFamily: FONT.bold,
                 color: theme.textSecondary,
                 letterSpacing: 0.2,
                 marginBottom: 12,
@@ -464,7 +465,7 @@ export default function TeamDetail() {
                 flexDirection: 'row',
                 alignItems: 'center',
                 backgroundColor: isDark ? 'rgba(16,185,129,0.08)' : 'rgba(16,185,129,0.06)',
-                borderRadius: 16,
+                borderRadius: RADIUS.md,
                 padding: 16,
                 borderWidth: 1,
                 borderColor: isDark ? 'rgba(16,185,129,0.2)' : 'rgba(16,185,129,0.15)',
@@ -482,7 +483,7 @@ export default function TeamDetail() {
                 <Ionicons name="chatbubbles" size={22} color="#10b981" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text }}>
+                <Text style={{ fontSize: 15, fontFamily: FONT.bold, color: theme.text }}>
                   Team Chat
                 </Text>
                 <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 2 }}>

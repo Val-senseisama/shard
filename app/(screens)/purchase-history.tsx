@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, RefreshControl, useColorScheme, StyleSheet } from 'react-native';
+import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native';
+import { FONT, RADIUS } from '~/components/hud';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -126,7 +128,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontFamily: FONT.bold,
   },
   listContent: {
     padding: 16,
@@ -136,7 +138,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    borderRadius: 16,
+    borderRadius: RADIUS.md,
     marginBottom: 12,
     borderWidth: 1,
   },
@@ -159,11 +161,11 @@ const styles = StyleSheet.create({
   },
   action: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: FONT.semibold,
   },
   amount: {
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: FONT.bold,
   },
   date: {
     fontSize: 12,
@@ -180,7 +182,7 @@ const styles = StyleSheet.create({
   emptyText: {
     marginTop: 16,
     fontSize: 16,
-    fontWeight: '500',
+    fontFamily: FONT.medium,
   },
 });
 

@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { View, Text, Image, ScrollView, useColorScheme, Switch, Share } from 'react-native';
+import { View, Text, Image, ScrollView, Switch, Share } from 'react-native';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,7 +8,8 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import Svg, { Polygon, Line, Circle, Text as SvgText } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useUserStore } from '~/store/user.store';
-import { useAppStore } from '~/store/app.store';
+import { useAppStore, type ThemePref } from '~/store/app.store';
+import { brand, hud, FONT, RADIUS } from '~/components/hud';
 import { useApolloClient } from '@apollo/client';
 import { avatarUri } from '~/helpers/avatarUri';
 import AnimatedPressable from '~/components/AnimatedPressable';
@@ -122,13 +124,13 @@ const LevelThermometer = ({
       <Text
         style={{
           fontSize: 10,
-          fontWeight: '700',
+          fontFamily: FONT.bold,
           color: isDark ? '#adaaaa' : '#767575',
           letterSpacing: 0.2,
         }}>
         Level
       </Text>
-      <Text style={{ fontSize: 18, fontWeight: '800', color: '#8b5cf6' }}>{level}</Text>
+      <Text style={{ fontSize: 18, fontFamily: FONT.extrabold, color: brand.violet }}>{level}</Text>
       <View
         style={{
           width: 10,
@@ -140,13 +142,13 @@ const LevelThermometer = ({
           borderColor: isDark ? 'rgba(139,92,246,0.3)' : 'rgba(139,92,246,0.15)',
         }}>
         <LinearGradient
-          colors={['#8b5cf6', '#6d28d9']}
+          colors={[brand.violet, brand.violetDeep]}
           style={{
             position: 'absolute',
             bottom: 0,
             width: '100%',
             height: `${progress * 100}%`,
-            borderRadius: 5,
+            borderRadius: RADIUS.xs,
           }}
         />
       </View>
@@ -163,7 +165,70 @@ interface SettingsItem {
   toggle?: boolean;
   value?: boolean;
   onToggle?: (value: boolean) => void | Promise<void>;
+  /** Mutually-exclusive choices, rendered as a segmented control. */
+  segments?: { label: string; value: string }[];
+  segmentValue?: string;
+  onSelectSegment?: (value: string) => void;
 }
+
+/**
+ * Segmented control for a small set of exclusive options.
+ *
+ * Exists because Appearance was a two-state Switch, which cannot express
+ * "follow the system" — so choosing either position silently overrode the OS
+ * setting with no way back to it. A switch is the wrong control for a
+ * three-state choice; that mismatch was the visible half of the theming bug.
+ */
+const Segmented = ({
+  segments,
+  value,
+  onSelect,
+  isDark,
+}: {
+  segments: { label: string; value: string }[];
+  value: string;
+  onSelect: (v: string) => void;
+  isDark: boolean;
+}) => {
+  const c = hud(isDark);
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        backgroundColor: c.track,
+        borderRadius: RADIUS.sm,
+        padding: 2,
+      }}>
+      {segments.map((s) => {
+        const active = s.value === value;
+        return (
+          <AnimatedPressable
+            key={s.value}
+            onPress={() => onSelect(s.value)}
+            scaleDown={0.97}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+            accessibilityLabel={s.label}
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: RADIUS.sm - 2,
+              backgroundColor: active ? c.violet : 'transparent',
+            }}>
+            <Text
+              style={{
+                fontFamily: active ? FONT.semibold : FONT.medium,
+                fontSize: 12,
+                color: active ? '#fff' : c.textDim,
+              }}>
+              {s.label}
+            </Text>
+          </AnimatedPressable>
+        );
+      })}
+    </View>
+  );
+};
 
 const SettingsRow = ({
   item,
@@ -187,23 +252,30 @@ const SettingsRow = ({
           style={{
             width: 32,
             height: 32,
-            borderRadius: 8,
+            borderRadius: RADIUS.xs,
             alignItems: 'center',
             justifyContent: 'center',
             backgroundColor: isDark ? 'rgba(139,92,246,0.1)' : 'rgba(139,92,246,0.06)',
           }}>
           <Ionicons name={item.icon as any} size={18} color="#8b5cf6" />
         </View>
-        <Text style={{ fontSize: 14, fontWeight: '500', color: isDark ? '#fff' : '#1a1a1a' }}>
+        <Text style={{ fontSize: 14, fontFamily: FONT.medium, color: isDark ? '#fff' : '#1a1a1a' }}>
           {item.label}
         </Text>
       </View>
-      {item.toggle ? (
+      {item.segments ? (
+        <Segmented
+          segments={item.segments}
+          value={item.segmentValue ?? ''}
+          onSelect={item.onSelectSegment ?? (() => {})}
+          isDark={isDark}
+        />
+      ) : item.toggle ? (
         <Switch
           value={item.value}
           onValueChange={item.onToggle}
           trackColor={{ false: isDark ? '#484847' : '#d1d5db', true: 'rgba(139,92,246,0.4)' }}
-          thumbColor={item.value ? '#8b5cf6' : isDark ? '#767575' : '#f4f3f4'}
+          thumbColor={item.value ? brand.violet : isDark ? '#767575' : '#f4f3f4'}
         />
       ) : (
         <Ionicons name="chevron-forward" size={18} color={isDark ? '#484847' : '#d1d5db'} />
@@ -211,7 +283,7 @@ const SettingsRow = ({
     </View>
   );
 
-  if (item.toggle) return inner;
+  if (item.toggle || item.segments) return inner;
 
   return (
     <AnimatedPressable onPress={item.action} scaleDown={0.98}>
@@ -228,7 +300,8 @@ const Account = () => {
   const user = useUserStore((state) => state.user);
   const { logout } = useUserStore();
   const client = useApolloClient();
-  const { isDarkMode, toggleDarkMode } = useAppStore();
+  const themePref = useAppStore((s) => s.themePref);
+  const setThemePref = useAppStore((s) => s.setThemePref);
 
   const level = user?.level || 1;
   const xp = user?.xp || 0;
@@ -303,11 +376,15 @@ const Account = () => {
           },
           {
             icon: 'moon-outline',
-            label: 'Dark Mode',
+            label: 'Appearance',
             action: () => {},
-            toggle: true,
-            value: isDarkMode,
-            onToggle: toggleDarkMode,
+            segments: [
+              { label: 'System', value: 'system' },
+              { label: 'Light', value: 'light' },
+              { label: 'Dark', value: 'dark' },
+            ],
+            segmentValue: themePref,
+            onSelectSegment: (v) => setThemePref(v as ThemePref),
           },
         ],
       },
@@ -332,7 +409,7 @@ const Account = () => {
         ],
       },
     ],
-    [isDarkMode, toggleDarkMode, user?.subscriptionTier]
+    [themePref, setThemePref, user?.subscriptionTier]
   );
 
   const handleLogout = async () => {
@@ -355,7 +432,7 @@ const Account = () => {
     <SafeAreaView className="flex-1 bg-background-paper dark:bg-background-dark-default">
       {/* Header */}
       <View className="flex-row items-center justify-between px-5 py-3">
-        <Text style={{ fontSize: 22, fontWeight: '700', color: '#8b5cf6', letterSpacing: -0.5 }}>
+        <Text style={{ fontSize: 22, fontFamily: FONT.bold, color: brand.violet, letterSpacing: -0.5 }}>
           Profile
         </Text>
         <AnimatedPressable
@@ -385,7 +462,7 @@ const Account = () => {
                   height: 80,
                   borderRadius: 40,
                   borderWidth: 3,
-                  borderColor: '#8b5cf6',
+                  borderColor: brand.violet,
                 }}
               />
               {/* Level badge */}
@@ -397,20 +474,20 @@ const Account = () => {
                   width: 26,
                   height: 26,
                   borderRadius: 13,
-                  backgroundColor: '#8b5cf6',
+                  backgroundColor: brand.violet,
                   alignItems: 'center',
                   justifyContent: 'center',
                   borderWidth: 2,
                   borderColor: isDark ? '#0e0e0e' : '#fff',
                 }}>
-                <Text style={{ fontSize: 10, fontWeight: '800', color: '#fff' }}>{level}</Text>
+                <Text style={{ fontSize: 10, fontFamily: FONT.extrabold, color: '#fff' }}>{level}</Text>
               </View>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text
                 style={{
                   fontSize: 16,
-                  fontWeight: '700',
+                  fontFamily: FONT.bold,
                   color: isDark ? '#fff' : '#1a1a1a',
                   textAlign: 'center',
                 }}
@@ -423,9 +500,9 @@ const Account = () => {
                     backgroundColor: '#FFD700',
                     paddingHorizontal: 5,
                     paddingVertical: 1,
-                    borderRadius: 4,
+                    borderRadius: RADIUS.xs,
                   }}>
-                  <Text style={{ fontSize: 8, fontWeight: '900', color: '#000' }}>PRO</Text>
+                  <Text style={{ fontSize: 8, fontFamily: FONT.black, color: '#000' }}>PRO</Text>
                 </View>
               )}
             </View>
@@ -453,12 +530,12 @@ const Account = () => {
                 <Text
                   style={{
                     fontSize: 10,
-                    fontWeight: '700',
+                    fontFamily: FONT.bold,
                     color: isDark ? '#adaaaa' : '#767575',
                   }}>
                   Power Level
                 </Text>
-                <Text style={{ fontSize: 10, fontWeight: '700', color: '#8b5cf6' }}>
+                <Text style={{ fontSize: 10, fontFamily: FONT.bold, color: brand.violet }}>
                   Level {level}
                 </Text>
               </View>
@@ -470,13 +547,13 @@ const Account = () => {
                   overflow: 'hidden',
                 }}>
                 <LinearGradient
-                  colors={['#ba9eff', '#8b5cf6']}
+                  colors={['#ba9eff', brand.violet]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={{
                     height: '100%',
                     width: `${Math.min((xp / xpForNext) * 100, 100)}%`,
-                    borderRadius: 3,
+                    borderRadius: RADIUS.xs,
                   }}
                 />
               </View>
@@ -530,11 +607,11 @@ const Account = () => {
               }}>
               <Ionicons name="flash" size={18} color="#8b5cf6" />
             </View>
-            <Text style={{ fontSize: 20, fontWeight: '800', color: '#8b5cf6' }}>{xp}</Text>
+            <Text style={{ fontSize: 20, fontFamily: FONT.extrabold, color: brand.violet }}>{xp}</Text>
             <Text
               style={{
                 fontSize: 10,
-                fontWeight: '600',
+                fontFamily: FONT.semibold,
                 color: isDark ? '#767575' : '#9ca3af',
                 marginTop: 2,
               }}>
@@ -558,13 +635,13 @@ const Account = () => {
               }}>
               <Ionicons name="flame" size={18} color="#f97316" />
             </View>
-            <Text style={{ fontSize: 20, fontWeight: '800', color: '#f97316' }}>
+            <Text style={{ fontSize: 20, fontFamily: FONT.extrabold, color: '#f97316' }}>
               {user?.currentStreak || 0}
             </Text>
             <Text
               style={{
                 fontSize: 10,
-                fontWeight: '600',
+                fontFamily: FONT.semibold,
                 color: isDark ? '#767575' : '#9ca3af',
                 marginTop: 2,
               }}>
@@ -575,7 +652,7 @@ const Account = () => {
           {/* Achievements Card */}
           <AnimatedPressable
             onPress={() => router.push('/(screens)/achievements')}
-            style={{ flex: 1 }}
+            containerStyle={{ flex: 1 }} style={{ }}
             scaleDown={0.96}>
             <View
               className="h-full items-center rounded-2xl border p-4"
@@ -592,13 +669,13 @@ const Account = () => {
                 }}>
                 <Ionicons name="trophy" size={18} color="#eab308" />
               </View>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: '#eab308' }}>
+              <Text style={{ fontSize: 20, fontFamily: FONT.extrabold, color: '#eab308' }}>
                 {user?.achievements?.length || 0}
               </Text>
               <Text
                 style={{
                   fontSize: 10,
-                  fontWeight: '600',
+                  fontFamily: FONT.semibold,
                   color: isDark ? '#767575' : '#9ca3af',
                   marginTop: 2,
                 }}>
@@ -613,11 +690,11 @@ const Account = () => {
           <Animated.View entering={FadeInDown.delay(150).duration(260)} className="mx-5 mt-5">
             <AnimatedPressable onPress={() => openPaywall('account')} scaleDown={0.97}>
               <LinearGradient
-                colors={['#7c3aed', '#6d28d9']}
+                colors={['#7c3aed', brand.violetDeep]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={{
-                  borderRadius: 18,
+                  borderRadius: RADIUS.md,
                   padding: 18,
                   flexDirection: 'row',
                   alignItems: 'center',
@@ -627,7 +704,7 @@ const Account = () => {
                   style={{
                     width: 44,
                     height: 44,
-                    borderRadius: 12,
+                    borderRadius: RADIUS.sm,
                     backgroundColor: 'rgba(255,255,255,0.2)',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -635,7 +712,7 @@ const Account = () => {
                   <Ionicons name="flash" size={24} color="#fff" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 17, fontWeight: '800', color: '#fff' }}>
+                  <Text style={{ fontSize: 17, fontFamily: FONT.extrabold, color: '#fff' }}>
                     {user?.isInTrial
                       ? `${user.trialDaysRemaining ?? 0} days of Pro left`
                       : 'Unlock Shard Pro'}
@@ -664,7 +741,7 @@ const Account = () => {
               scaleDown={0.97}>
               <View
                 style={{
-                  borderRadius: 18,
+                  borderRadius: RADIUS.md,
                   padding: 18,
                   flexDirection: 'row',
                   alignItems: 'center',
@@ -677,7 +754,7 @@ const Account = () => {
                   style={{
                     width: 44,
                     height: 44,
-                    borderRadius: 12,
+                    borderRadius: RADIUS.sm,
                     backgroundColor: 'rgba(124,58,237,0.12)',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -685,9 +762,9 @@ const Account = () => {
                   <Ionicons name="gift" size={22} color="#7c3aed" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 16, fontWeight: '800', color: isDark ? '#fff' : '#1A1A1A' }}>Invite friends</Text>
+                  <Text style={{ fontSize: 16, fontFamily: FONT.extrabold, color: isDark ? '#fff' : '#1A1A1A' }}>Invite friends</Text>
                   <Text style={{ fontSize: 13, color: isDark ? '#B9B9B9' : '#666666', marginTop: 2 }}>
-                    Your code <Text style={{ color: '#7c3aed', fontWeight: '800' }}>{user.referralCode}</Text> · you both get bonus credits
+                    Your code <Text style={{ color: '#7c3aed', fontFamily: FONT.extrabold }}>{user.referralCode}</Text> · you both get bonus credits
                     {(user.referralCount ?? 0) > 0 ? ` · ${user.referralCount} joined` : ''}
                   </Text>
                 </View>
@@ -706,7 +783,7 @@ const Account = () => {
             <Text
               style={{
                 fontSize: 10,
-                fontWeight: '700',
+                fontFamily: FONT.bold,
                 color: isDark ? '#adaaaa' : '#767575',
                 letterSpacing: 0.2,
                 marginBottom: 8,
@@ -715,7 +792,7 @@ const Account = () => {
             </Text>
             <View
               style={{
-                borderRadius: 16,
+                borderRadius: RADIUS.md,
                 overflow: 'hidden',
                 backgroundColor: cardBg,
                 borderWidth: 1,
@@ -738,14 +815,14 @@ const Account = () => {
           <AnimatedPressable onPress={handleLogout} scaleDown={0.97}>
             <View
               style={{
-                borderRadius: 16,
+                borderRadius: RADIUS.md,
                 paddingVertical: 14,
                 alignItems: 'center',
                 backgroundColor: isDark ? 'rgba(239,68,68,0.12)' : 'rgba(239,68,68,0.06)',
                 borderWidth: 1,
                 borderColor: isDark ? 'rgba(239,68,68,0.2)' : 'rgba(239,68,68,0.1)',
               }}>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: '#ef4444' }}>Log Out</Text>
+              <Text style={{ fontSize: 14, fontFamily: FONT.semibold, color: '#ef4444' }}>Log Out</Text>
             </View>
           </AnimatedPressable>
         </Animated.View>

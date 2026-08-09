@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, useColorScheme } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import Animated, {
   withRepeat,
   withSequence,

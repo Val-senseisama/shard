@@ -6,15 +6,15 @@ import {
   Pressable,
   FlatList,
   ActivityIndicator,
-  useColorScheme,
 } from 'react-native';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@apollo/client';
 import { router } from 'expo-router';
 import { GET_LEADERBOARD } from '~/Graphql/Queries';
 import { avatarUri } from '~/helpers/avatarUri';
-import { hud, FONT, Num } from '~/components/hud';
+import { hud, FONT, Num, RADIUS } from '~/components/hud';
 
 type Entry = {
   id: string;
@@ -53,7 +53,7 @@ export default function LeaderboardScreen() {
         paddingVertical: 12,
         marginHorizontal: 16,
         marginBottom: 8,
-        borderRadius: 16,
+        borderRadius: RADIUS.md,
         backgroundColor: item.isMe ? 'rgba(139,92,246,0.12)' : c.panel,
         borderWidth: 1,
         borderColor: item.isMe ? c.violet : c.panelBorder,
@@ -106,7 +106,7 @@ export default function LeaderboardScreen() {
         style={{
           flexDirection: 'row',
           backgroundColor: c.bgElev,
-          borderRadius: 999,
+          borderRadius: RADIUS.pill,
           padding: 4,
           marginHorizontal: 16,
           marginBottom: 12,
@@ -120,7 +120,7 @@ export default function LeaderboardScreen() {
             style={{
               flex: 1,
               paddingVertical: 9,
-              borderRadius: 999,
+              borderRadius: RADIUS.pill,
               alignItems: 'center',
               backgroundColor: scope === s ? c.violet : 'transparent',
             }}>

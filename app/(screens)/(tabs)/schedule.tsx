@@ -5,10 +5,11 @@ import {
   ScrollView,
   Pressable,
   RefreshControl,
-  useColorScheme,
   FlatList,
   useWindowDimensions,
 } from 'react-native';
+import { FONT, RADIUS } from '~/components/hud';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation } from '@apollo/client';
 import { Ionicons } from '@expo/vector-icons';
@@ -63,7 +64,7 @@ const DayItem = React.memo(
           width: DAY_ITEM_WIDTH,
           marginHorizontal: DAY_ITEM_MARGIN,
           paddingVertical: 10,
-          borderRadius: 16,
+          borderRadius: RADIUS.md,
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: bg,
@@ -73,7 +74,7 @@ const DayItem = React.memo(
         <Text
           style={{
             fontSize: 10,
-            fontWeight: '700',
+            fontFamily: FONT.bold,
             letterSpacing: 0.2,
             color: isSelected ? 'rgba(255,255,255,0.7)' : theme.textSecondary,
             marginBottom: 4,
@@ -83,7 +84,7 @@ const DayItem = React.memo(
         <Text
           style={{
             fontSize: isToday ? 20 : 16,
-            fontWeight: isSelected || isToday ? '700' : '500',
+            fontFamily: isSelected || isToday ? FONT.bold : FONT.medium,
             color: isSelected ? '#fff' : isToday ? ACCENT : theme.textSecondary,
           }}>
           {day.getDate()}
@@ -164,7 +165,7 @@ const GoalCard = React.memo(
       <View
         style={{
           backgroundColor: theme.card,
-          borderRadius: 16,
+          borderRadius: RADIUS.md,
           overflow: 'hidden',
           borderWidth: 1,
           borderColor: isDark ? theme.border : 'rgba(0,0,0,0.06)',
@@ -174,7 +175,7 @@ const GoalCard = React.memo(
           <View style={{ flex: 1, padding: 16 }}>
             {/* Shard name + completion badge */}
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
-              <Text style={{ flex: 1, fontSize: 12, fontWeight: '600', color }}>
+              <Text style={{ flex: 1, fontSize: 12, fontFamily: FONT.semibold, color }}>
                 {group.shardTitle}
               </Text>
               {allDone ? (
@@ -184,22 +185,22 @@ const GoalCard = React.memo(
                     alignItems: 'center',
                     gap: 4,
                     backgroundColor: 'rgba(34,197,94,0.12)',
-                    borderRadius: 8,
+                    borderRadius: RADIUS.xs,
                     paddingHorizontal: 8,
                     paddingVertical: 3,
                   }}>
                   <Ionicons name="checkmark-circle" size={12} color="#22c55e" />
-                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#22c55e' }}>Done</Text>
+                  <Text style={{ fontSize: 11, fontFamily: FONT.bold, color: '#22c55e' }}>Done</Text>
                 </View>
               ) : (
-                <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textSecondary }}>
+                <Text style={{ fontSize: 12, fontFamily: FONT.semibold, color: theme.textSecondary }}>
                   {done}/{total}
                 </Text>
               )}
             </View>
 
             {/* Mini-goal title */}
-            <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text, marginBottom: 10 }}>
+            <Text style={{ fontSize: 15, fontFamily: FONT.bold, color: theme.text, marginBottom: 10 }}>
               {group.miniGoalTitle}
             </Text>
 
@@ -249,7 +250,7 @@ const GoalCardSkeleton = ({ isDark, animStyle }: { isDark: boolean; animStyle: a
     <View
       style={{
         backgroundColor: theme.card,
-        borderRadius: 16,
+        borderRadius: RADIUS.md,
         overflow: 'hidden',
         borderWidth: 1,
         borderColor: isDark ? theme.border : 'rgba(0,0,0,0.06)',
@@ -262,7 +263,7 @@ const GoalCardSkeleton = ({ isDark, animStyle }: { isDark: boolean; animStyle: a
             <Skeleton width={32} height={11} animStyle={animStyle} />
           </View>
           <Skeleton width="70%" height={16} animStyle={animStyle} />
-          <Skeleton width="100%" height={4} style={{ borderRadius: 2 }} animStyle={animStyle} />
+          <Skeleton width="100%" height={4} style={{ borderRadius: RADIUS.xs }} animStyle={animStyle} />
           <Skeleton width="80%" height={13} animStyle={animStyle} />
           <Skeleton width="65%" height={13} animStyle={animStyle} />
         </View>
@@ -432,7 +433,7 @@ const Schedule = () => {
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       {/* Header */}
       <View style={{ paddingHorizontal: 20, paddingVertical: 16 }}>
-        <Text style={{ fontSize: 24, fontWeight: '800', letterSpacing: -0.5, color: ACCENT }}>
+        <Text style={{ fontSize: 24, fontFamily: FONT.extrabold, letterSpacing: -0.5, color: ACCENT }}>
           Schedule
         </Text>
       </View>
@@ -443,7 +444,7 @@ const Schedule = () => {
           marginBottom: 8,
           paddingHorizontal: 20,
           fontSize: 11,
-          fontWeight: '800',
+          fontFamily: FONT.extrabold,
           letterSpacing: 0.2,
           color: theme.textSecondary,
         }}>
@@ -489,7 +490,7 @@ const Schedule = () => {
             <Text
               style={{
                 fontSize: 11,
-                fontWeight: '800',
+                fontFamily: FONT.extrabold,
                 letterSpacing: 0.2,
                 color: theme.textSecondary,
               }}>
@@ -524,7 +525,7 @@ const Schedule = () => {
                   style={{
                     width: 80,
                     height: 80,
-                    borderRadius: 20,
+                    borderRadius: RADIUS.lg,
                     backgroundColor: isDark ? 'rgba(124,58,237,0.1)' : 'rgba(124,58,237,0.06)',
                     alignItems: 'center',
                     justifyContent: 'center',

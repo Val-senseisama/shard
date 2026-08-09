@@ -1,12 +1,13 @@
 import React, { useMemo } from 'react';
-import { View, Text, Image, useColorScheme } from 'react-native';
+import { View, Text, Image } from 'react-native';
+import { useColorScheme } from '~/hooks/useColorScheme';
 import { useQuery } from '@apollo/client';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { GET_LEADERBOARD } from '~/Graphql/Queries';
 import { avatarUri } from '~/helpers/avatarUri';
 import AnimatedPressable from '~/components/AnimatedPressable';
-import { hud, FONT, HudLabel, Num, HudSkeleton } from '~/components/hud';
+import { hud, FONT, HudLabel, Num, HudSkeleton, RADIUS } from '~/components/hud';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
@@ -64,7 +65,7 @@ const RankCard = ({ isDark: isDarkProp }: { isDark?: boolean }) => {
       <View
         style={{
           backgroundColor: c.panel,
-          borderRadius: 16,
+          borderRadius: RADIUS.md,
           borderWidth: 1,
           borderColor: c.panelBorder,
           padding: 16,
@@ -101,7 +102,7 @@ const RankCard = ({ isDark: isDarkProp }: { isDark?: boolean }) => {
           flexDirection: 'row',
           alignItems: 'center',
           backgroundColor: c.panel,
-          borderRadius: 16,
+          borderRadius: RADIUS.md,
           borderWidth: 1,
           borderColor: c.panelBorder,
           padding: 16,
@@ -125,7 +126,7 @@ const RankCard = ({ isDark: isDarkProp }: { isDark?: boolean }) => {
       onPress={() => router.push('/(screens)/leaderboard')}
       style={{
         backgroundColor: c.panel,
-        borderRadius: 16,
+        borderRadius: RADIUS.md,
         borderWidth: 1,
         borderColor: c.panelBorder,
         padding: 16,
