@@ -3,7 +3,11 @@
   <uses-permission android:name="android.permission.INTERNET"/>
   <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
   <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+  <!-- SYSTEM_ALERT_WINDOW deliberately absent. It is declared in the debug
+       manifest, where expo-dev-client's dev menu genuinely needs it. Nothing in
+       the app uses it and no dependency injects it, so shipping it in release
+       only surfaced a "display over other apps" permission to users and invited
+       Play review scrutiny for a capability we do not have. -->
   <uses-permission android:name="android.permission.VIBRATE"/>
   <queries>
     <intent>
