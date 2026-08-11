@@ -3,8 +3,10 @@ import { CLEAR_PENDING_ACHIEVEMENTS } from '@/Graphql/Mutations';
 import { useQuery, useMutation, useLazyQuery } from '@apollo/client';
 import { useUserStore } from '@/store/user.store';
 import { useEffect, useRef } from 'react';
+import { AppState } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { purchasesService } from '@/services/purchasesService';
+import { inEntitlementGrace, endEntitlementGrace } from '@/helpers/entitlementGrace';
 import Purchases from 'react-native-purchases';
 
 const UserProvider = () => {
@@ -15,20 +17,60 @@ const UserProvider = () => {
   const { refetch: refetchCurrentUser } = useQuery(CURRENT_USER, {
     fetchPolicy: 'network-only',
     onCompleted: (data) => {
-      if (data?.currentUser?.user) {
-        setUser(data.currentUser.user);
+      const fresh = data?.currentUser?.user;
+      if (!fresh) return;
+
+      // Inside the post-purchase window the server may simply not have been told
+      // yet (see helpers/entitlementGrace). Writing its `free` verbatim here is
+      // what wiped out the tier the paywall had just set, leaving a paying user
+      // staring at the upgrade card. Hold `pro` and retry until it agrees.
+      if (inEntitlementGrace() && fresh.subscriptionTier !== 'pro') {
+        setUser({ ...fresh, subscriptionTier: 'pro' });
+        if (graceRetry.current) clearTimeout(graceRetry.current);
+        graceRetry.current = setTimeout(() => {
+          refetchCurrentUser().catch(() => {});
+        }, 3000);
+        return;
       }
+
+      if (fresh.subscriptionTier === 'pro') endEntitlementGrace();
+      setUser(fresh);
     },
     onError: (error) => {
       console.log(error);
     },
   });
 
+  const graceRetry = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (graceRetry.current) clearTimeout(graceRetry.current);
+  }, []);
+
   // The listener below is registered once per user id, but needs to compare
   // against the CURRENT tier. Reading storeUser directly would close over the
   // value from whenever the effect last ran.
   const tierRef = useRef(storeUser?.subscriptionTier);
   tierRef.current = storeUser?.subscriptionTier;
+
+  // CURRENT_USER only runs on mount, so anything that changes server-side while
+  // the app is open never reaches the client. A subscription expiring is the
+  // case that hurts: the tier flips to `free` in the database, the app carries
+  // on showing the PRO badge, and — because the upgrade CTA is hidden for Pro
+  // users — there is no route back to the paywall. The user is locked out of
+  // resubscribing until they kill and relaunch the app.
+  //
+  // Refetching whenever the app comes back to the foreground closes that
+  // window, and is cheap: one query on a transition users make constantly.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        refetchCurrentUser().catch(() => {
+          // Offline. Keep whatever we have; the next foreground retries.
+        });
+      }
+    });
+    return () => sub.remove();
+  }, [refetchCurrentUser]);
 
   // RevenueCat Listener & Initialization
   useEffect(() => {

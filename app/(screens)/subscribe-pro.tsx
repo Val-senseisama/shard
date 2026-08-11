@@ -9,6 +9,7 @@ import { brand, FONT, RADIUS } from '~/components/hud';
 import { useColorScheme } from '~/hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
+import { beginEntitlementGrace } from '@/helpers/entitlementGrace';
 import { useQuery } from '@apollo/client';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -186,6 +187,11 @@ export default function SubscribeToProPage() {
       const success = await purchasesService.purchasePackage(pkg);
       if (success) {
         track('purchase_completed', { source: source || undefined, props: { packageId: selectedPkgId } });
+        // The store has confirmed, but the entitlement reaches our server via an
+        // async RevenueCat webhook. Until it lands, currentUser truthfully still
+        // says `free` — so mark the window in which that answer must not be
+        // allowed to overwrite the tier we just set.
+        beginEntitlementGrace();
         updateUser({ subscriptionTier: 'pro' });
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Toast.show({ type: 'success', text1: 'Welcome to Shard Pro!', text2: 'All features unlocked.' });
@@ -210,6 +216,7 @@ export default function SubscribeToProPage() {
     try {
       const isPro = await purchasesService.restorePurchases();
       if (isPro) {
+        beginEntitlementGrace();
         updateUser({ subscriptionTier: 'pro' });
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Toast.show({ type: 'success', text1: 'Pro restored!', text2: 'Your subscription is active.' });
