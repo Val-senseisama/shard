@@ -2,7 +2,7 @@ import { CURRENT_USER, GET_ACHIEVEMENTS } from '@/Graphql/Queries';
 import { CLEAR_PENDING_ACHIEVEMENTS } from '@/Graphql/Mutations';
 import { useQuery, useMutation, useLazyQuery } from '@apollo/client';
 import { useUserStore } from '@/store/user.store';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import Toast from 'react-native-toast-message';
 import { purchasesService } from '@/services/purchasesService';
 import Purchases from 'react-native-purchases';
@@ -12,7 +12,7 @@ const UserProvider = () => {
   const [clearPending] = useMutation(CLEAR_PENDING_ACHIEVEMENTS);
   const [fetchAchievements] = useLazyQuery(GET_ACHIEVEMENTS, { fetchPolicy: 'cache-first' });
 
-  useQuery(CURRENT_USER, {
+  const { refetch: refetchCurrentUser } = useQuery(CURRENT_USER, {
     fetchPolicy: 'network-only',
     onCompleted: (data) => {
       if (data?.currentUser?.user) {
@@ -23,6 +23,12 @@ const UserProvider = () => {
       console.log(error);
     },
   });
+
+  // The listener below is registered once per user id, but needs to compare
+  // against the CURRENT tier. Reading storeUser directly would close over the
+  // value from whenever the effect last ran.
+  const tierRef = useRef(storeUser?.subscriptionTier);
+  tierRef.current = storeUser?.subscriptionTier;
 
   // RevenueCat Listener & Initialization
   useEffect(() => {
@@ -54,12 +60,28 @@ const UserProvider = () => {
     initPurchases();
 
     // Listen for customer info updates (e.g. from a background purchase or restore)
+    //
+    // Granting Pro from the client is safe — the worst case is a user briefly
+    // sees features the server will confirm they paid for a moment later.
+    //
+    // REVOKING from the client is not. RevenueCat's CustomerInfo is served from
+    // a local cache that is legitimately empty on a cold start, offline, or
+    // before the SDK has finished identifying the user. Treating that as "not
+    // subscribed" used to overwrite the tier the server had just told us was
+    // `pro`, which silently downgraded paying users and put the upgrade wall
+    // back in front of them. The database is the source of truth (see
+    // Helpers/Entitlements.ts), so on a negative signal we ask it rather than
+    // guessing.
     const listener = (customerInfo: any) => {
       const isPro = !!customerInfo.entitlements.active['Thinkertech Pro'];
-      if (isPro && storeUser?.subscriptionTier !== 'pro') {
+      if (isPro && tierRef.current !== 'pro') {
         updateUser({ subscriptionTier: 'pro' });
-      } else if (!isPro && storeUser?.subscriptionTier === 'pro') {
-        updateUser({ subscriptionTier: 'free' });
+      } else if (!isPro && tierRef.current === 'pro') {
+        refetchCurrentUser().catch(() => {
+          // Offline or the request failed — keep the tier we have. A real
+          // expiry arrives via the RevenueCat webhook and lands on the next
+          // successful fetch.
+        });
       }
     };
 

@@ -40,7 +40,17 @@ class PurchasesService {
       }
       return null;
     } catch (e) {
-      console.error('Error fetching offerings:', e);
+      // warn, not error: this failure is already handled — the caller falls back
+      // to the offerings served by our own API (see subscribe-pro.tsx), so the
+      // paywall still renders prices.
+      //
+      // It is logged at warn specifically because `console.error` triggers a
+      // full-screen LogBox in dev, and the most common cause of this throw is a
+      // ConfigurationError ("no Play Store products registered for your
+      // offerings") — a dashboard state that persists across every launch. That
+      // turned a known, handled config gap into a modal that blocked the app on
+      // each cold start.
+      console.warn('[RevenueCat] Could not fetch offerings, falling back to server offerings:', e);
       return null;
     }
   }

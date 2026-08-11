@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Mirrors components/hud/palette.js (dark). A widget sits on the user's home
+  screen next to the app icon, so it has to read as the same product — a
+  generic Material card would look like a different app's widget.
+
+  Duplicated rather than imported because RemoteViews resolves resources from
+  XML at render time and cannot reach the JS palette. If palette.js changes,
+  change these too.
+-->
+<resources>
+  <color name="widget_bg">#0F0E0E</color>
+  <color name="widget_panel">#1E1E1E</color>
+  <color name="widget_border">#2A2A2A</color>
+  <color name="widget_text">#FFFFFF</color>
+  <color name="widget_text_dim">#9B9AA0</color>
+  <color name="widget_text_faint">#6B6A70</color>
+  <color name="widget_violet">#8B5CF6</color>
+  <color name="widget_violet_deep">#6D28D9</color>
+  <color name="widget_ember">#F5A524</color>
+  <color name="widget_track">#2A2A2A</color>
+</resources>

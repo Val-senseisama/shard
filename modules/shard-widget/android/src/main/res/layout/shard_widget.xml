@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Widget layout: streak on the left, one task on the right, a button underneath.
+
+  RemoteViews only supports a fixed set of view types — no ConstraintLayout, no
+  custom views — so this is deliberately plain LinearLayout nesting. Anything
+  cleverer will inflate fine in Android Studio's preview and then crash the
+  launcher at runtime.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_background"
+    android:padding="16dp">
+
+  <LinearLayout
+      android:layout_width="match_parent"
+      android:layout_height="0dp"
+      android:layout_weight="1"
+      android:orientation="horizontal"
+      android:gravity="center_vertical">
+
+    <!-- Streak block. The numeral is the loud element: it is the thing the user
+         stands to lose, and loss is what gets someone to act on a home screen. -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginEnd="14dp">
+
+      <TextView
+          android:id="@+id/streak_value"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="0"
+          android:textColor="@color/widget_ember"
+          android:textSize="34sp"
+          android:textStyle="bold"
+          android:includeFontPadding="false" />
+
+      <TextView
+          android:id="@+id/streak_label"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="day streak"
+          android:textColor="@color/widget_text_faint"
+          android:textSize="10sp"
+          android:maxLines="1" />
+    </LinearLayout>
+
+    <!-- Divider.
+         FrameLayout, not View. RemoteViews inflates only an allowlist of view
+         types and plain android.view.View is not on it — using one throws
+         InflateException inside the launcher, which surfaces to the user as
+         "Can't load widget" with no hint as to why. Same applies to Space,
+         ConstraintLayout and any custom view. -->
+    <FrameLayout
+        android:layout_width="1dp"
+        android:layout_height="match_parent"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="4dp"
+        android:layout_marginEnd="14dp"
+        android:background="@color/widget_track" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+      <TextView
+          android:id="@+id/task_title"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:text="Open Shard to get started"
+          android:textColor="@color/widget_text"
+          android:textSize="15sp"
+          android:textStyle="bold"
+          android:maxLines="2"
+          android:ellipsize="end"
+          android:lineSpacingExtra="1dp" />
+
+      <TextView
+          android:id="@+id/task_meta"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:layout_marginTop="3dp"
+          android:textColor="@color/widget_text_dim"
+          android:textSize="11sp"
+          android:maxLines="1"
+          android:ellipsize="end"
+          android:visibility="gone" />
+    </LinearLayout>
+  </LinearLayout>
+
+  <!-- The single action. One tap from the home screen closes the loop between
+       doing the work and getting credit for it, which is the friction this whole
+       widget exists to remove. -->
+  <TextView
+      android:id="@+id/complete_button"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="12dp"
+      android:background="@drawable/widget_button"
+      android:gravity="center"
+      android:paddingTop="10dp"
+      android:paddingBottom="10dp"
+      android:text="Mark done"
+      android:textColor="@color/widget_text"
+      android:textSize="13sp"
+      android:textStyle="bold"
+      android:visibility="gone" />
+
+</LinearLayout>

@@ -24,12 +24,20 @@ import { track } from '@/helpers/analytics';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
+// Keep in sync with the benefits listed on the Play Console subscription — a
+// benefit that appears in one and not the other reads as a bait-and-switch.
+//
+// "Ad-Free Experience" used to be here and was removed: the app has no ad SDK,
+// so free users see no ads and Pro removes nothing. Selling the absence of
+// something nobody experiences wasted the slot and is a benefit claim Play
+// enforces against. The AI credit cap is the wall free users actually hit
+// (FREE_MONTHLY_CREDITS = 15/month), so that's the honest headline.
 const PRO_FEATURES = [
   { icon: 'infinite-outline', label: 'Unlimited Shards & Mini-Goals' },
+  { icon: 'sparkles-outline', label: 'Unlimited AI Credits' },
   { icon: 'flash-outline', label: 'AI-Powered Scheduling' },
   { icon: 'bar-chart-outline', label: 'Advanced Analytics' },
   { icon: 'star-outline', label: 'Priority Support' },
-  { icon: 'shield-checkmark-outline', label: 'Ad-Free Experience' },
 ];
 
 const PACKAGE_ID_MAP: Record<string, string> = {

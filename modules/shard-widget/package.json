@@ -1,0 +1,7 @@
+{
+  "name": "shard-widget",
+  "version": "1.0.0",
+  "description": "Home-screen widget: streak + next task, with tap-to-complete.",
+  "main": "index.ts",
+  "private": true
+}

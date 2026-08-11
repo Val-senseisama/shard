@@ -103,6 +103,7 @@ const apolloClient = new ApolloClient({
   cache: new InMemoryCache(),
 });
 import { isLoggedIn } from '@/helpers/isLoggedIn';
+import { onAppForeground } from '@/helpers/widget';
 import Toast from 'react-native-toast-message';
 import { AppState, Text, View } from 'react-native';
 import { FONT, RADIUS } from '~/components/hud';
@@ -255,6 +256,11 @@ export default function RootLayout() {
       apolloClient
         .mutate({ mutation: SYNC_SESSION, variables: { timezone: deviceTimeZone() } })
         .catch(() => {}); // best-effort; never block or surface
+
+      // Same foreground moment drives the home-screen widget: flush any
+      // completions tapped on the widget while the app was closed, then refresh
+      // what it displays. No-ops when the widget isn't supported or installed.
+      onAppForeground(apolloClient).catch(() => {});
     };
 
     sync();

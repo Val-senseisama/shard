@@ -169,6 +169,8 @@ interface SettingsItem {
   segments?: { label: string; value: string }[];
   segmentValue?: string;
   onSelectSegment?: (value: string) => void;
+  /** Small muted text shown just before the chevron, e.g. a renewal date. */
+  hint?: string;
 }
 
 /**
@@ -278,7 +280,20 @@ const SettingsRow = ({
           thumbColor={item.value ? brand.violet : isDark ? '#767575' : '#f4f3f4'}
         />
       ) : (
-        <Ionicons name="chevron-forward" size={18} color={isDark ? '#484847' : '#d1d5db'} />
+        <View className="flex-row items-center" style={{ gap: 6 }}>
+          {item.hint ? (
+            <Text
+              style={{
+                fontSize: 12,
+                fontFamily: FONT.medium,
+                color: isDark ? '#767575' : '#9ca3af',
+              }}
+              numberOfLines={1}>
+              {item.hint}
+            </Text>
+          ) : null}
+          <Ionicons name="chevron-forward" size={18} color={isDark ? '#484847' : '#d1d5db'} />
+        </View>
       )}
     </View>
   );
@@ -306,6 +321,24 @@ const Account = () => {
   const level = user?.level || 1;
   const xp = user?.xp || 0;
   const xpForNext = level * 1000;
+
+  // Renewal date for the Manage Subscription row. Absent for users who
+  // subscribed before the server started recording it, and for anyone whose
+  // first webhook hasn't landed yet — so the row degrades to no hint rather
+  // than showing "Invalid Date".
+  const renewalHint = useMemo(() => {
+    const raw = (user as any)?.subscriptionExpiresAt;
+    if (!raw) return undefined;
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return undefined;
+    const when = date.toLocaleDateString(undefined, {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+    // Past date = cancelled but still inside the paid period.
+    return date.getTime() < Date.now() ? `Ended ${when}` : `Renews ${when}`;
+  }, [(user as any)?.subscriptionExpiresAt]);
   const stats = [
     user?.strength || 0,
     user?.intelligence || 0,
@@ -340,6 +373,10 @@ const Account = () => {
                 {
                   icon: 'settings-outline',
                   label: 'Manage Subscription',
+                  // The renewal date is the thing people actually open this row
+                  // to find. Showing it inline means the common question is
+                  // answered without a round trip into the Customer Center.
+                  hint: renewalHint,
                   action: () => RevenueCatUI.presentCustomerCenter(),
                 },
               ]
@@ -571,25 +608,9 @@ const Account = () => {
           </View>
         </Animated.View>
 
-        {/* ── Streak ── */}
-        {/* Its own surface because the streak has states now (at risk, frozen,
-            broken-and-repairable), not just a count. The small tile below still
-            shows the number at a glance. */}
-        <Animated.View entering={FadeInDown.delay(80).duration(260)} className="mx-5 mt-4">
-          <StreakCard
-            onRepaired={(days) =>
-              Toast.show({
-                type: 'success',
-                text1: 'Streak restored',
-                text2: `Your ${days}-day streak is back.`,
-              })
-            }
-          />
-        </Animated.View>
-
         {/* ── Progression Stats ── */}
         <Animated.View
-          entering={FadeInDown.delay(100).duration(260)}
+          entering={FadeInDown.delay(80).duration(260)}
           className="mx-5 mt-4 flex-row gap-3">
           {/* XP Card */}
           <View
@@ -619,7 +640,7 @@ const Account = () => {
             </Text>
           </View>
 
-          {/* Streak Card */}
+          {/* Level Card */}
           <View
             className="flex-1 items-center rounded-2xl border p-4"
             style={{ backgroundColor: cardBg, borderColor: cardBorder }}>
@@ -630,13 +651,13 @@ const Account = () => {
                 borderRadius: 18,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: 'rgba(249,115,22,0.12)',
+                backgroundColor: 'rgba(139,92,246,0.12)',
                 marginBottom: 6,
               }}>
-              <Ionicons name="flame" size={18} color="#f97316" />
+              <Ionicons name="star" size={18} color="#8b5cf6" />
             </View>
-            <Text style={{ fontSize: 20, fontFamily: FONT.extrabold, color: '#f97316' }}>
-              {user?.currentStreak || 0}
+            <Text style={{ fontSize: 20, fontFamily: FONT.extrabold, color: brand.violet }}>
+              {level}
             </Text>
             <Text
               style={{
@@ -645,7 +666,7 @@ const Account = () => {
                 color: isDark ? '#767575' : '#9ca3af',
                 marginTop: 2,
               }}>
-              Day Streak
+              Level
             </Text>
           </View>
 
@@ -655,7 +676,7 @@ const Account = () => {
             containerStyle={{ flex: 1 }} style={{ }}
             scaleDown={0.96}>
             <View
-              className="h-full items-center rounded-2xl border p-4"
+              className="items-center rounded-2xl border p-4"
               style={{ backgroundColor: cardBg, borderColor: cardBorder }}>
               <View
                 style={{
@@ -683,6 +704,22 @@ const Account = () => {
               </Text>
             </View>
           </AnimatedPressable>
+        </Animated.View>
+
+        {/* ── Streak ── */}
+        {/* Its own surface because the streak has states now (at risk, frozen,
+            broken-and-repairable), not just a count. The small tile below still
+            shows the number at a glance. */}
+        <Animated.View entering={FadeInDown.delay(100).duration(260)} className="mx-5 mt-4">
+          <StreakCard
+            onRepaired={(days) =>
+              Toast.show({
+                type: 'success',
+                text1: 'Streak restored',
+                text2: `Your ${days}-day streak is back.`,
+              })
+            }
+          />
         </Animated.View>
 
         {/* ── Pro Upsell (free users only) ── */}

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  updatePeriodMillis is 0 on purpose.
+
+  The system's own widget refresh is capped at once every 30 minutes and is not
+  guaranteed, so relying on it would show stale tasks and a stale streak. Every
+  update here is pushed instead: the app writes a snapshot on foreground and
+  after any change, and a widget tap re-renders itself immediately. That is both
+  fresher and cheaper on battery than polling.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@layout/shard_widget"
+    android:previewLayout="@layout/shard_widget"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:description="@string/widget_description" />

@@ -24,6 +24,7 @@ export const CURRENT_USER = gql`
         profilePic
         role
         subscriptionTier
+        subscriptionExpiresAt
         trialEndsAt
         isInTrial
         trialDaysRemaining
