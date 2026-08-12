@@ -325,7 +325,13 @@ export default function SubscribeToProPage() {
                     alignItems: 'center',
                     justifyContent: 'space-between',
                   }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  {/* `flex: 1` + `minWidth: 0` so this side yields instead of
+                      shoving the price out of the card. RN defaults flex items
+                      to `flexShrink: 0` (the web defaults to 1), so without
+                      this the row's intrinsic width simply wins — which is why
+                      only the yearly plan overflowed: it's the one carrying the
+                      "BEST VALUE · SAVE N%" badge. */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
                     {/* Radio */}
                     <View style={{
                       width: 22, height: 22, borderRadius: 11,
@@ -336,8 +342,8 @@ export default function SubscribeToProPage() {
                     }}>
                       {selected && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff' }} />}
                     </View>
-                    <View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         <Text style={{ fontSize: 16, fontFamily: FONT.bold, color: theme.text }}>{meta.label}</Text>
                         {meta.badge && (
                           <View style={{ backgroundColor: ACCENT, borderRadius: RADIUS.xs, paddingHorizontal: 6, paddingVertical: 2 }}>
@@ -350,7 +356,15 @@ export default function SubscribeToProPage() {
                       <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 2 }}>{meta.period}</Text>
                     </View>
                   </View>
-                  <Text style={{ fontSize: 18, fontFamily: FONT.extrabold, color: selected ? ACCENT : theme.text }}>
+                  <Text
+                    numberOfLines={1}
+                    style={{
+                      fontSize: 18,
+                      fontFamily: FONT.extrabold,
+                      color: selected ? ACCENT : theme.text,
+                      flexShrink: 0,
+                      marginLeft: 12,
+                    }}>
                     {pkg.priceString}
                   </Text>
                 </AnimatedPressable>

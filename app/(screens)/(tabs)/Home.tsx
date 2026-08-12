@@ -119,10 +119,14 @@ const Home = () => {
     setRefreshing(false);
   }, [refetch, refetchUser, refetchChats, client]);
 
+  // The fade leads the collapse. If they finished together the box would still
+  // be closing after the content had gone, which is the empty dark bar this
+  // used to leave behind; if the collapse led, opaque content would be clipped
+  // mid-squeeze. Content is gone by ~66px, the box finishes closing at 120.
   const avatarAnimatedStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
       scrollY.value,
-      [AVATAR_ANIMATION_RANGE * 0.3, AVATAR_ANIMATION_RANGE],
+      [0, AVATAR_ANIMATION_RANGE * 0.55],
       [1, 0],
       Extrapolate.CLAMP
     ),
@@ -146,15 +150,17 @@ const Home = () => {
 
   const paddingAnimatedStyle = useAnimatedStyle(() => {
     if (!headerHeight) return {};
-    const collapse = interpolate(
-      scrollY.value,
-      [0, AVATAR_ANIMATION_RANGE],
-      [0, 28], // the 16 top + 12 bottom padding this replaces
-      Extrapolate.CLAMP
-    );
+    // Collapse the whole header, not just its padding. Shrinking by only the
+    // 28px of padding while fading the contents to zero left a full-height
+    // block of `outerBg` sitting at the top of the screen — the header
+    // appearing to "go dark" rather than get out of the way.
     return {
-      height: headerHeight - collapse,
-      transform: [{ translateY: -collapse / 2 }],
+      height: interpolate(
+        scrollY.value,
+        [0, AVATAR_ANIMATION_RANGE],
+        [headerHeight, 0],
+        Extrapolate.CLAMP
+      ),
     };
   }, [headerHeight]);
 
@@ -208,7 +214,13 @@ const Home = () => {
             const h = e.nativeEvent.layout.height;
             // Only take the first, uncollapsed measurement — re-measuring while
             // the header is mid-collapse would feed its own output back in.
-            if (h > 0 && headerHeight === 0) setHeaderHeight(h + 28);
+            //
+            // `h` already includes paddingTop + paddingBottom, so it is the
+            // natural height as-is; the previous `h + 28` double-counted that
+            // padding and left the header 28px too tall at rest. Wait for
+            // `user` so we measure the real row rather than HeaderSkeleton,
+            // which is a different height.
+            if (h > 0 && headerHeight === 0 && user) setHeaderHeight(h);
           }}
           style={[
             {

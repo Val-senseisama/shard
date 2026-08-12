@@ -1,5 +1,10 @@
 <resources>
-  <color name="splashscreen_background">#ffffff</color>
+  <!-- Must match app.json `splash.backgroundColor` and the background of
+       components/AppSplashScreen.tsx. `android/` is committed and prebuild is
+       never run (it would clobber the release signing config), so this value
+       does not track app.json automatically — change both together. A mismatch
+       shows as a white flash between the system splash and the app. -->
+  <color name="splashscreen_background">#0a0a0f</color>
   <color name="iconBackground">#ffffff</color>
   <color name="colorPrimary">#023c69</color>
   <color name="colorPrimaryDark">#ffffff</color>

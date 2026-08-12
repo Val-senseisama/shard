@@ -123,6 +123,18 @@ import { deviceTimeZone } from '~/helpers/dateKeys';
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
+// How long to wait on `useFonts` before booting with system fonts anyway.
+// Generous enough that a cold read of nine ~340KB faces off slow storage still
+// wins the race; short enough that a user never mistakes it for a hang.
+const FONT_TIMEOUT_MS = 5000;
+
+// Minimum time the branded splash stays up once we've taken over from the OS.
+// Long enough for AppSplashScreen's entrance (FadeIn 600ms + a 150ms stagger)
+// to actually resolve; short enough that it reads as a launch, not a wait.
+// This is added on top of an already ~2s cold start, so it is a floor, not a
+// target — most of it overlaps the DB open and auth check in `prepare()`.
+const BRANDED_SPLASH_MS = 1100;
+
 // Global Error Handling for Mobile
 if (!__DEV__) {
   const originalErrorHandler = ErrorUtils.getGlobalHandler();
@@ -172,6 +184,40 @@ export default function RootLayout() {
     // HUD utility face — mono caps for labels, stats, XP, quest codes.
     'SpaceMono': require('@/assets/fonts/SpaceMono-Regular.ttf'),
   });
+
+  /**
+   * Typography must never be able to gate the app.
+   *
+   * v1.0.2 (versionCode 20) shipped with a stale `app.manifest`: a cached Gradle
+   * `createReleaseUpdatesResources` artifact listed 8 of the 9 fonts required
+   * below, omitting `Inter_18pt-Thin`. The .ttf was in `res/raw`, but with no
+   * entry in the embedded manifest `expo-asset` could not resolve it locally and
+   * fell back to fetching from the update server — which that build could not
+   * reach, because no channel was baked into its AndroidManifest. The promise
+   * neither resolved nor rejected. `fontsLoaded` stayed false forever, the
+   * effect below never ran, `SplashScreen.hideAsync()` was never called, and the
+   * app sat on the native splash until it was killed.
+   *
+   * Two independent escapes, because the failure had two shapes:
+   *   - `error` — a font that rejects must not block; it used to keep the gate
+   *     shut just as firmly as one that never settled.
+   *   - the timeout — a font that hangs has no other way out.
+   *
+   * Either way we boot with system fonts. Slightly wrong letterforms are a
+   * cosmetic bug; a splash screen that never lifts is a dead app.
+   */
+  const [fontsSettled, setFontsSettled] = useState(false);
+  useEffect(() => {
+    if (fontsLoaded || error) {
+      setFontsSettled(true);
+      return;
+    }
+    const timer = setTimeout(() => {
+      logger.log('font-load-timeout', `fonts unresolved after ${FONT_TIMEOUT_MS}ms`, 'high');
+      setFontsSettled(true);
+    }, FONT_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [fontsLoaded, error]);
 
   // Hand the resolved scheme to NativeWind. `tailwind.config.js` sets
   // `darkMode: 'class'`, so the ~139 `dark:` variants across the app are inert
@@ -325,19 +371,47 @@ export default function RootLayout() {
     return () => unsub?.();
   }, [setOnline]);
 
+  /**
+   * The splash is a two-stage handoff, because Android 12+ gives us no choice:
+   * the OS draws `Theme.App.SplashScreen` before our process exists and it
+   * cannot be opted out of. So stage one is made to *look* like stage two —
+   * same `#0a0a0f`, same crystal glyph — and we cross into our own animated
+   * splash as early as we can paint it.
+   *
+   * `hideAsync()` therefore fires as soon as fonts settle, NOT when we navigate.
+   * Previously the two happened on the same tick, so `AppSplashScreen` — the
+   * gradient, the orbs, the wordmark, the pulsing dots — was mounted for
+   * approximately zero frames and no user ever saw it.
+   */
+  // Stage one → stage two. Waiting on `fontsSettled` keeps the wordmark from
+  // popping from a system face to Inter mid-animation.
+  //
+  // The hold starts HERE, at the handoff — not on mount. Started on mount it
+  // runs down while the OS splash is still up (JS init alone is ~2s on a mid
+  // device), so it has already expired by the time we take over and the
+  // branded splash is skipped entirely.
+  const [brandedSplashDone, setBrandedSplashDone] = useState(false);
   useEffect(() => {
-    if (isReady && fontsLoaded && !error) {
+    if (!fontsSettled) return;
+    SplashScreen.hideAsync().catch(() => {});
+    const timer = setTimeout(() => setBrandedSplashDone(true), BRANDED_SPLASH_MS);
+    return () => clearTimeout(timer);
+  }, [fontsSettled]);
+
+  // Stage two → the app. Held until the branded splash has had its moment, so
+  // a fast boot doesn't flash past the thing we just built.
+  useEffect(() => {
+    if (isReady && fontsSettled && brandedSplashDone) {
       if (isUserLoggedIn) {
         router.replace('/(screens)/(tabs)/Home');
       } else {
         Session.clearAllCookies();
         router.replace('/(auth)/welcome');
       }
-      SplashScreen.hideAsync();
     }
-  }, [isReady, fontsLoaded, error, isUserLoggedIn]);
+  }, [isReady, fontsSettled, brandedSplashDone, isUserLoggedIn]);
 
-  if (!isReady || !fontsLoaded || error) {
+  if (!isReady || !fontsSettled || !brandedSplashDone) {
     return <AppSplashScreen />;
   }
 

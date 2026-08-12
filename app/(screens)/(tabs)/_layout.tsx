@@ -1,12 +1,12 @@
 import React from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useColorScheme } from '~/hooks/useColorScheme';
 import { Tabs, router } from 'expo-router';
 import { Ionicons, AntDesign } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
+import Animated, { LinearTransition } from 'react-native-reanimated';
 import AnimatedPressable from '~/components/AnimatedPressable';
 import { hud, FONT, RADIUS, SHARD_GRADIENT } from '~/components/hud';
 import { haptic, useReduceTransparency } from '~/helpers/motion';
@@ -96,11 +96,19 @@ const TabItem = ({
         ]}>
         {renderIcon(route.name, color, focused)}
         {focused && (
-          <Animated.Text
-            entering={FadeIn.duration(140)}
+          // Deliberately a plain Text, not Animated.Text with `entering`.
+          // A Reanimated entering animation on a child that changes its
+          // parent's size races the parent's own `LinearTransition`: for the
+          // first frame or two the label is placed against the pill's old,
+          // narrower frame and lands on top of the icon. That's the
+          // intermittent overlap. The pill still springs open — that motion is
+          // the parent's and is untouched — the label just appears with it
+          // instead of animating its own way in.
+          <Text
+            numberOfLines={1}
             style={{ marginLeft: 7, fontFamily: FONT.semibold, fontSize: 11, color: c.violet }}>
             {LABELS[route.name]}
-          </Animated.Text>
+          </Text>
         )}
       </Animated.View>
     </AnimatedPressable>

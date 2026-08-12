@@ -33,7 +33,7 @@
     "icon": "./assets/app-icons/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/app-icons/icon.png",
+      "image": "./assets/app-icons/Fractal shard(3).png",
       "resizeMode": "contain",
       "backgroundColor": "#0a0a0f"
     },
@@ -63,9 +63,14 @@
     "updates": {
       "url": "https://u.expo.dev/531fcf58-99c3-489a-8d13-6f738e65b42d",
       "enabled": true,
-      "fallbackToCacheTimeout": 0
+      "fallbackToCacheTimeout": 0,
+      "requestHeaders": {
+        "expo-channel-name": "production"
+      }
     },
-    "runtimeVersion": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "extra": {
       "router": {},
       "eas": {

@@ -18,10 +18,23 @@ import AnimatedPressable from '~/components/AnimatedPressable';
 import { ACCENT, t } from '~/components/shard/constants';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+/**
+ * `0 = Sunday`, matching JavaScript's `Date.prototype.getDay()`.
+ *
+ * This used to map Sunday to 7. The server schedules with
+ * `workingDays.includes(d.getDay())`, and `getDay()` only ever returns 0–6, so
+ * a 7 could never match: ticking Sunday saved cleanly and then did nothing.
+ * (The Mongoose schema does validate 0–6, but `findByIdAndUpdate` skips
+ * validators unless asked, so the bad value went in silently.)
+ *
+ * `DAYS` stays Mon-first because that's the order the week should read in — it
+ * is presentation order, deliberately not the wire encoding.
+ */
 const DAY_TO_INDEX: Record<string, number> = {
-  Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7,
+  Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
 };
-const INDEX_TO_DAY = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const INDEX_TO_DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const WORKLOADS = [
   { id: 'Light',      icon: 'leaf-outline',    description: 'Relaxed pace, fewer tasks per day.' },
@@ -43,8 +56,15 @@ const WorkloadSettings = () => {
     onCompleted: (data) => {
       if (data?.currentUser?.user?.preferences) {
         setWorkload(data.currentUser.user.preferences.workloadLevel || 'Medium');
-        const stored = data.currentUser.user.preferences.workingDays || [];
-        setWorkingDays(stored.map((d: number) => INDEX_TO_DAY[d]).filter(Boolean));
+        const stored: number[] = data.currentUser.user.preferences.workingDays || [];
+        // Accounts saved before the Sunday fix hold a 7. Fold it back to 0 on
+        // read so their Sunday selection survives, and so the next save
+        // rewrites it in the correct encoding.
+        setWorkingDays(
+          stored
+            .map((d) => INDEX_TO_DAY[d === 7 ? 0 : d])
+            .filter((d): d is string => Boolean(d))
+        );
       }
     },
   });
@@ -57,7 +77,11 @@ const WorkloadSettings = () => {
         variables: {
           input: {
             workloadLevel: workload,
-            workingDays: workingDays.map((d) => DAY_TO_INDEX[d]).filter(Boolean),
+            // NOT `.filter(Boolean)` — Sunday is 0, which is falsy, so that
+            // would drop the very day this encoding was fixed to support.
+            workingDays: workingDays
+              .map((d) => DAY_TO_INDEX[d])
+              .filter((d) => d !== undefined),
           },
         },
       });
