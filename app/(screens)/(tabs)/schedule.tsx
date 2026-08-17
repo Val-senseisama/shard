@@ -24,6 +24,8 @@ import Toast from 'react-native-toast-message';
 import AnimatedPressable from '~/components/AnimatedPressable';
 import { ACCENT, ACCENT_COLORS, t, useSkeletonOpacity } from '~/components/shard/constants';
 import { Skeleton } from '~/components/shard/Skeleton';
+import RescheduleSheet, { type RescheduleTarget } from '~/components/RescheduleSheet';
+import { taskIndexOf } from '~/helpers/todayPlan';
 
 const DAY_ITEM_WIDTH = 56;
 const DAY_ITEM_MARGIN = 4;
@@ -102,17 +104,24 @@ const TaskItem = React.memo(
     color,
     isDark,
     onToggle,
+    onReschedule,
   }: {
     task: any;
     color: string;
     isDark: boolean;
     onToggle: (task: any) => void;
+    onReschedule: (task: any) => void;
   }) => {
     const theme = t(isDark);
     return (
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
       <AnimatedPressable
         onPress={() => onToggle(task)}
         scaleDown={0.98}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: !!task.completed }}
+        accessibilityLabel={task.title}
+        containerStyle={{ flex: 1 }}
         style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 }}>
         <View
           style={{
@@ -137,6 +146,22 @@ const TaskItem = React.memo(
           {task.title}
         </Text>
       </AnimatedPressable>
+
+      {/* Only on open tasks: a finished one has no day left to move to. An icon
+          rather than a long-press because a hidden gesture is not a feature —
+          rescheduling had no entry point at all before this, and burying it in
+          one people have to guess at would barely change that. */}
+      {!task.completed && (
+        <AnimatedPressable
+          onPress={() => onReschedule(task)}
+          scaleDown={0.9}
+          hitSlop={10}
+          accessibilityLabel={`Move or drop ${task.title}`}
+          containerStyle={{ paddingLeft: 10 }}>
+          <Ionicons name="calendar-outline" size={15} color={theme.textSecondary} />
+        </AnimatedPressable>
+      )}
+      </View>
     );
   }
 );
@@ -149,11 +174,15 @@ const GoalCard = React.memo(
     color,
     isDark,
     onTaskToggle,
+    onTaskReschedule,
+    onGoalReschedule,
   }: {
     group: any;
     color: string;
     isDark: boolean;
     onTaskToggle: (task: any) => void;
+    onTaskReschedule: (task: any) => void;
+    onGoalReschedule: (group: any) => void;
   }) => {
     const theme = t(isDark);
     const total = group.tasks.length;
@@ -199,10 +228,23 @@ const GoalCard = React.memo(
               )}
             </View>
 
-            {/* Mini-goal title */}
-            <Text style={{ fontSize: 15, fontFamily: FONT.bold, color: theme.text, marginBottom: 10 }}>
-              {group.miniGoalTitle}
-            </Text>
+            {/* Mini-goal title. The move control sits on this row rather than
+                the task rows because it acts on the whole mini-goal — shifting
+                every open task in it by the same amount. */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 10 }}>
+              <Text style={{ flex: 1, fontSize: 15, fontFamily: FONT.bold, color: theme.text }}>
+                {group.miniGoalTitle}
+              </Text>
+              {!allDone && (
+                <AnimatedPressable
+                  onPress={() => onGoalReschedule(group)}
+                  scaleDown={0.9}
+                  hitSlop={10}
+                  accessibilityLabel={`Move all of ${group.miniGoalTitle}`}>
+                  <Ionicons name="calendar-clear-outline" size={16} color={theme.textSecondary} />
+                </AnimatedPressable>
+              )}
+            </View>
 
             {/* Progress bar */}
             <View
@@ -232,6 +274,7 @@ const GoalCard = React.memo(
                   color={allDone ? '#22c55e' : color}
                   isDark={isDark}
                   onToggle={onTaskToggle}
+                  onReschedule={onTaskReschedule}
                 />
               ))}
             </View>
@@ -292,6 +335,29 @@ const Schedule = () => {
   );
 
   const [refreshing, setRefreshing] = useState(false);
+
+  // Which task the move-or-drop sheet is acting on, if any.
+  const [rescheduling, setRescheduling] = useState<RescheduleTarget | null>(null);
+  const openReschedule = useCallback((task: any) => {
+    setRescheduling({
+      miniGoalId: task.miniGoalId,
+      taskIndex: taskIndexOf(task),
+      title: task.title,
+    });
+  }, []);
+
+  // No taskIndex — that is what tells the sheet to move the whole mini-goal.
+  //
+  // No taskCount either, deliberately: this card is scoped to ONE day, so it can
+  // only see the mini-goal's tasks that fall on that day. Quoting that number
+  // would promise "2 tasks move" and then move seven. The server counts what it
+  // actually moved and says so in the result.
+  const openGoalReschedule = useCallback((group: any) => {
+    setRescheduling({
+      miniGoalId: group.miniGoalId,
+      title: group.miniGoalTitle,
+    });
+  }, []);
   const cachedTasks = useScheduleStore((state) => state.tasks);
   const setSchedule = useScheduleStore((state) => state.setSchedule);
   const markLocalComplete = useScheduleStore((state) => state.markTaskComplete);
@@ -405,7 +471,14 @@ const Schedule = () => {
       tasksForSelectedDate.reduce((acc: any, task: any) => {
         const key = task.miniGoalId;
         if (!acc[key]) {
-          acc[key] = { miniGoalTitle: task.miniGoalTitle, shardTitle: task.shardTitle, tasks: [] };
+          // miniGoalId is carried, not just used as the key — the move control
+          // on the card header needs it to address the mini-goal.
+          acc[key] = {
+            miniGoalId: key,
+            miniGoalTitle: task.miniGoalTitle,
+            shardTitle: task.shardTitle,
+            tasks: [],
+          };
         }
         acc[key].tasks.push(task);
         return acc;
@@ -549,6 +622,8 @@ const Schedule = () => {
                     color={ACCENT_COLORS[i % ACCENT_COLORS.length]}
                     isDark={isDark}
                     onTaskToggle={handleTaskToggle}
+                    onTaskReschedule={openReschedule}
+                    onGoalReschedule={openGoalReschedule}
                   />
                 ))}
               </View>
@@ -557,6 +632,14 @@ const Schedule = () => {
         </ScrollView>
 
       </View>
+
+      <RescheduleSheet
+        visible={rescheduling !== null}
+        onClose={() => setRescheduling(null)}
+        task={rescheduling}
+        isDark={isDark}
+        onResolved={() => refetch().catch(() => {})}
+      />
     </SafeAreaView>
   );
 };

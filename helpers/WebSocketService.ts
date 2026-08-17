@@ -9,6 +9,16 @@ class WebSocketService {
   private activeChats = new Set<string>();
   private netInfoUnsub: (() => void) | null = null;
 
+  /**
+   * The chat currently open AND focused on screen, if any.
+   *
+   * Distinct from `activeChats`: we stay joined to every chat room so the chat
+   * list can update live, but only one chat at a time has the user's eyes on it.
+   * The server uses this to skip the push for a message the user is watching
+   * arrive.
+   */
+  private viewingChatId: string | null = null;
+
   async connect() {
     if (this.socket?.connected) {
       return this.socket;
@@ -54,6 +64,12 @@ class WebSocketService {
             this.socket?.emit('chat:join', chatId);
           });
         }
+        // Re-assert attention too — the server drops the claim on disconnect,
+        // and without this a reconnect mid-conversation resumes pushing for the
+        // chat still open in front of the user.
+        if (this.viewingChatId) {
+          this.socket?.emit('chat:viewing', this.viewingChatId);
+        }
       });
 
       this.socket.on('disconnect', (reason) => {
@@ -76,7 +92,11 @@ class WebSocketService {
     this.stopHeartbeat();
     this.heartbeatInterval = setInterval(() => {
       if (this.socket?.connected) {
-        this.socket.emit('heartbeat');
+        // The viewing claim rides the heartbeat so it stays fresh while the
+        // screen is open and expires on its own if the app is backgrounded or
+        // killed — a claim the server can't verify is a claim that swallows
+        // notifications.
+        this.socket.emit('heartbeat', { viewingChatId: this.viewingChatId });
       }
     }, intervalMs);
   }
@@ -98,6 +118,7 @@ class WebSocketService {
       this.isConnected = false;
     }
     this.activeChats.clear();
+    this.viewingChatId = null;
   }
 
   getSocket() {
@@ -122,6 +143,30 @@ class WebSocketService {
       this.socket.emit('chat:leave', chatId);
     }
     this.activeChats.delete(chatId);
+    if (this.viewingChatId === chatId) this.viewingChatId = null;
+  }
+
+  /**
+   * Tell the server which chat the user is looking at, or `null` when they look
+   * away (screen blurred, app backgrounded, chat closed).
+   *
+   * Suppresses redundant pushes for messages arriving on the visible screen.
+   * Safe to call repeatedly with the same value.
+   */
+  setViewingChat(chatId: string | null) {
+    if (this.viewingChatId === chatId) return;
+
+    const previous = this.viewingChatId;
+    this.viewingChatId = chatId;
+
+    if (!this.socket?.connected) return;
+    if (chatId) {
+      this.socket.emit('chat:viewing', chatId);
+    } else if (previous) {
+      // Targeted, so a blur firing after the next screen has already claimed
+      // attention can't clear the newer claim.
+      this.socket.emit('chat:unviewing', previous);
+    }
   }
 
   sendTypingStart(chatId: string) {

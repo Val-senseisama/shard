@@ -10,11 +10,12 @@ import {
   Image,
   ActivityIndicator,
   Modal,
+  AppState,
 } from 'react-native';
 import { brand, FONT, RADIUS } from '~/components/hud';
 import { useColorScheme } from '~/hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useUserStore } from '~/store/user.store';
@@ -493,6 +494,33 @@ const ShardChat = () => {
     WebSocketService.joinChat(actualChatId);
     return () => WebSocketService.leaveChat(actualChatId);
   }, [actualChatId, id]);
+
+  // ─── Attention — suppresses pushes for messages arriving on this screen ───
+  //
+  // Claimed on focus and dropped on blur, so navigating away (or opening a
+  // modal route on top) resumes normal notifications. The shard ID stands in
+  // until `getChat` resolves; the server accepts either.
+  //
+  // Room membership can't serve this purpose — the app stays joined to every
+  // chat room for live list updates.
+  useFocusEffect(
+    useCallback(() => {
+      WebSocketService.setViewingChat(actualChatId || id);
+
+      // Backgrounding doesn't blur the screen, but the user can no longer see
+      // it, so pushes must resume.
+      const sub = AppState.addEventListener('change', (state) => {
+        WebSocketService.setViewingChat(
+          state === 'active' ? actualChatId || id : null
+        );
+      });
+
+      return () => {
+        sub.remove();
+        WebSocketService.setViewingChat(null);
+      };
+    }, [actualChatId, id])
+  );
 
   // ─── WebSocket event handlers ─────────────────────────────────────────────
 

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The RADIUS scale from components/hud/tokens.ts, so the widget's corners come
+  off the same ladder as the app's rather than being picked per-view. The old
+  layout used 24dp for the card and 14dp for the button — 14 is not on the scale
+  at all, which is precisely the ad-hoc band the design system replaced.
+
+  cards/panels → md · buttons/inputs → sm..md · chips/badges/bars → pill
+-->
+<resources>
+  <dimen name="hud_radius_xs">8dp</dimen>
+  <dimen name="hud_radius_sm">12dp</dimen>
+  <dimen name="hud_radius_md">16dp</dimen>
+  <dimen name="hud_radius_lg">20dp</dimen>
+  <dimen name="hud_radius_pill">999dp</dimen>
+
+  <!--
+    The widget's own outer corner.
+
+    Overridden in values-v31 with the launcher's radius. From Android 12 the
+    launcher clips every widget to `system_app_widget_background_radius`, so a
+    hard-coded radius either pokes outside the clip (square shoulders in the
+    corners) or sits visibly inside it (a double edge). Matching the system value
+    is the only way the border lands exactly on the clip.
+  -->
+  <dimen name="widget_corner">16dp</dimen>
+</resources>

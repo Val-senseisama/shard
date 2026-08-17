@@ -69,5 +69,43 @@ class ShardWidgetModule : Module() {
       )
       ids.isNotEmpty()
     }
+
+    /**
+     * Whether the launcher will show a one-tap "add to home screen" dialog.
+     *
+     * Two things can say no. Below API 26 the API does not exist, and even above
+     * it a launcher is free to decline — the AOSP launcher and every major OEM
+     * one support it, but enough do not that asking first is the difference
+     * between a button that works and a button that does nothing. Anything
+     * offering the pin must check this, or it will render a dead control on
+     * exactly the devices whose users cannot fix it.
+     */
+    Function("canPinWidget") {
+      val context = appContext.reactContext ?: return@Function false
+      if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O) return@Function false
+      android.appwidget.AppWidgetManager.getInstance(context).isRequestPinAppWidgetSupported
+    }
+
+    /**
+     * Ask the launcher to pin the widget.
+     *
+     * The return value is whether the *request* was accepted, not whether the
+     * user went through with it — answering that needs a PendingIntent callback
+     * and a receiver, and there is nothing to do with the answer that
+     * isWidgetInstalled does not already tell us on next foreground. The prompt
+     * that calls this hides itself once the widget exists, so the truth arrives
+     * on its own.
+     */
+    Function("requestPinWidget") {
+      val context = appContext.reactContext ?: return@Function false
+      if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O) return@Function false
+      val manager = android.appwidget.AppWidgetManager.getInstance(context)
+      if (!manager.isRequestPinAppWidgetSupported) return@Function false
+      manager.requestPinAppWidget(
+        android.content.ComponentName(context, ShardWidgetProvider::class.java),
+        null,
+        null
+      )
+    }
   }
 }

@@ -12,6 +12,7 @@ android {
   defaultConfig {
     minSdk safeExtGet('minSdkVersion', 24)
     targetSdk safeExtGet('targetSdkVersion', 35)
+    testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
   }
 
   compileOptions {
@@ -22,6 +23,17 @@ android {
   kotlinOptions {
     jvmTarget = '17'
   }
+
+  packaging {
+    jniLibs {
+      // Keeps the instrumentation APK installable. It inherits every dependency
+      // of the main source set, so it was packaging react-android's and
+      // expo-modules-core's .so files for four ABIs — 180MB for a test that only
+      // inflates views and never crosses into native code. This module ships no
+      // native libraries of its own, so nothing here affects the app's APK.
+      excludes += ['**/*.so']
+    }
+  }
 }
 
 // Read the root project's SDK versions when present, so this module can never
@@ -31,11 +43,20 @@ def safeExtGet(prop, fallback) {
 }
 
 repositories {
+  google()
   mavenCentral()
 }
 
 dependencies {
   implementation project(':expo-modules-core')
+
+  // Instrumentation only — none of this reaches the app APK. It exists to run
+  // ShardWidgetRenderTest, which inflates the RemoteViews tree the way a
+  // launcher would; see the note on ShardWidgetProvider.buildViews.
+  androidTestImplementation 'androidx.test:core:1.6.1'
+  androidTestImplementation 'androidx.test:runner:1.6.2'
+  androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+  androidTestImplementation 'junit:junit:4.13.2'
   // The kotlin-android plugin contributes the stdlib at the version the root
   // project already resolved, so declaring it here only risks a version clash.
   //

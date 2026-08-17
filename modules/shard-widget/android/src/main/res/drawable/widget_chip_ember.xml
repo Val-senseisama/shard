@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Badge fill: accent at low alpha over panel, pill radius. Matches the app's chips. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+  <solid android:color="@color/widget_ember_tint" />
+  <corners android:radius="@dimen/hud_radius_pill" />
+</shape>

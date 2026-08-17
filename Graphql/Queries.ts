@@ -160,6 +160,7 @@ export const GET_SHARD = gql`
         questType
         cadence
         habitStreak
+        brief { done why blockers aids wantsSuggestions }
         progress {
           completion
           xpEarned
@@ -236,6 +237,8 @@ export const GET_MY_SCHEDULE = gql`
         completed
         completedAt
         xpReward
+        overdue
+        taskIndex
         miniGoalId
         miniGoalTitle
         shardId
@@ -248,6 +251,8 @@ export const GET_MY_SCHEDULE = gql`
         completed
         completedAt
         xpReward
+        overdue
+        taskIndex
         miniGoalId
         miniGoalTitle
         shardId

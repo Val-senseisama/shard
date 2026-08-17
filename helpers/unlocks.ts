@@ -29,12 +29,22 @@ export interface UnlockState {
   sideQuests: boolean;
   /** Achievements are only interesting once some exist. */
   achievements: boolean;
+  /**
+   * Offering the home-screen widget needs a streak worth protecting.
+   *
+   * The widget's whole pitch is "don't lose the number", so on day one it is
+   * asking someone to rearrange their home screen for a zero. This gates the
+   * *earned* half of the decision only — whether the device can pin a widget,
+   * and whether one is already there, is asked separately at the call site.
+   */
+  widgetPrompt: boolean;
 }
 
 export interface UnlockInputs {
   friendCount: number;
   hasCompletedFirstQuest: boolean;
   achievementCount: number;
+  currentStreak: number;
 }
 
 /** Pure so the thresholds are reviewable and testable in one glance. */
@@ -45,6 +55,7 @@ export function computeUnlocks(input: UnlockInputs): UnlockState {
     challenges: input.hasCompletedFirstQuest,
     sideQuests: true,
     achievements: input.achievementCount > 0 || input.hasCompletedFirstQuest,
+    widgetPrompt: input.currentStreak >= 2,
   };
 }
 
@@ -57,5 +68,6 @@ export function useUnlocks(): UnlockState {
     friendCount: friends?.length ?? 0,
     hasCompletedFirstQuest: !!user?.hasCompletedFirstQuest,
     achievementCount: user?.achievements?.length ?? 0,
+    currentStreak: user?.currentStreak ?? 0,
   });
 }

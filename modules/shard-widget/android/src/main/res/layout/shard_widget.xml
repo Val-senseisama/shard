@@ -1,11 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Widget layout: streak on the left, one task on the right, a button underneath.
+  Widget layout: streak on the left, one task on the right, today's XP bar and a
+  button underneath.
 
   RemoteViews only supports a fixed set of view types — no ConstraintLayout, no
   custom views — so this is deliberately plain LinearLayout nesting. Anything
   cleverer will inflate fine in Android Studio's preview and then crash the
-  launcher at runtime.
+  launcher at runtime. `ImageView`, `ProgressBar`, `TextView`, `FrameLayout` and
+  `LinearLayout` are all on the allowlist; `View` and `Space` are not.
+
+  On fonts: `@font/…` is resolved by the framework inflater, which only learned
+  `Resources.getFont` at API 26. This module's minSdk is 24, so on API 24–25 the
+  attribute is ignored and the widget falls back to the system face. That is a
+  graceful degradation on a sliver of devices, not a crash — and it is the only
+  way to get the app's typefaces into a process that has no React Native runtime
+  and so cannot see anything expo-font loaded.
+
+  Two faces, not the app's full set: `res/font` is copied into the APK, and each
+  Inter cut is ~340KB. SpaceMono is non-negotiable (THE MONO RULE — it is the
+  only thing the numerals may be set in). For the words, Inter-SemiBold is the
+  weight TodayCard's own task rows and every HudLabel already use, so one cut
+  covers the title, the labels and the chips exactly. Only the button gives
+  something up: HudButton is Inter-Bold, and at 13sp on a violet fill the missing
+  weight step is worth more than a third of a megabyte is.
+
+  On letterSpacing: the values come off `tracking(size)` in hud/tokens.ts,
+  converted from px to em (the unit this attribute takes) by dividing by the font
+  size. Mono text uses `max(0, …)` per the note there — negative tracking on
+  SpaceMono breaks the tabular alignment the numerals are chosen for.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
@@ -13,8 +35,14 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@drawable/widget_background"
-    android:padding="16dp">
+    android:paddingLeft="14dp"
+    android:paddingRight="14dp"
+    android:paddingTop="12dp"
+    android:paddingBottom="12dp">
 
+  <!-- Weighted so that when a launcher hands the widget less height than it
+       asked for, the squeeze lands here (the task title drops from two lines to
+       one) instead of clipping the button off the bottom edge. -->
   <LinearLayout
       android:layout_width="match_parent"
       android:layout_height="0dp"
@@ -23,31 +51,95 @@
       android:gravity="center_vertical">
 
     <!-- Streak block. The numeral is the loud element: it is the thing the user
-         stands to lose, and loss is what gets someone to act on a home screen. -->
+         stands to lose, and loss is what gets someone to act on a home screen.
+         SpaceMono per THE MONO RULE — numerals only, so the count doesn't shift
+         sideways when it ticks from 9 to 10. -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:layout_marginEnd="14dp">
+        android:layout_marginEnd="13dp">
 
-      <TextView
-          android:id="@+id/streak_value"
+      <LinearLayout
           android:layout_width="wrap_content"
           android:layout_height="wrap_content"
-          android:text="0"
-          android:textColor="@color/widget_ember"
-          android:textSize="34sp"
-          android:textStyle="bold"
-          android:includeFontPadding="false" />
+          android:orientation="horizontal"
+          android:gravity="center_vertical">
+
+        <!-- The shard motif. On a home screen the widget has to be identifiable
+             at a glance from across the grid, and the app's own mark does that
+             far better than a colour does. -->
+        <ImageView
+            android:id="@+id/shard_mark"
+            android:layout_width="13dp"
+            android:layout_height="13dp"
+            android:layout_marginEnd="7dp"
+            android:src="@drawable/widget_shard"
+            android:contentDescription="@string/widget_label" />
+
+        <TextView
+            android:id="@+id/streak_value"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0"
+            android:textColor="@color/widget_ember"
+            android:fontFamily="@font/space_mono"
+            android:textSize="28sp"
+            android:includeFontPadding="false" />
+      </LinearLayout>
 
       <TextView
           android:id="@+id/streak_label"
           android:layout_width="wrap_content"
           android:layout_height="wrap_content"
+          android:layout_marginTop="4dp"
           android:text="day streak"
           android:textColor="@color/widget_text_faint"
+          android:fontFamily="@font/inter_semibold"
           android:textSize="10sp"
+          android:letterSpacing="0.02"
           android:maxLines="1" />
+
+      <!-- Whether the streak survives today is the single most actionable fact
+           on the card, so it gets a badge rather than a suffix on the label
+           above. Two pre-built chips swapped by visibility, not one chip
+           recoloured at runtime: it keeps every colour resolved from resources,
+           which is what a values-night palette would need later. -->
+      <TextView
+          android:id="@+id/streak_chip_risk"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginTop="5dp"
+          android:background="@drawable/widget_chip_ember"
+          android:paddingLeft="7dp"
+          android:paddingRight="7dp"
+          android:paddingTop="2dp"
+          android:paddingBottom="2dp"
+          android:text="At risk"
+          android:textColor="@color/widget_ember"
+          android:fontFamily="@font/inter_semibold"
+          android:textSize="9sp"
+          android:letterSpacing="0.022"
+          android:maxLines="1"
+          android:visibility="gone" />
+
+      <TextView
+          android:id="@+id/streak_chip_safe"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginTop="5dp"
+          android:background="@drawable/widget_chip_violet"
+          android:paddingLeft="7dp"
+          android:paddingRight="7dp"
+          android:paddingTop="2dp"
+          android:paddingBottom="2dp"
+          android:text="Safe"
+          android:textColor="@color/widget_violet_light"
+          android:fontFamily="@font/inter_semibold"
+          android:textSize="9sp"
+          android:letterSpacing="0.022"
+          android:maxLines="1"
+          android:visibility="gone" />
     </LinearLayout>
 
     <!-- Divider.
@@ -61,14 +153,15 @@
         android:layout_height="match_parent"
         android:layout_marginTop="4dp"
         android:layout_marginBottom="4dp"
-        android:layout_marginEnd="14dp"
-        android:background="@color/widget_track" />
+        android:layout_marginEnd="13dp"
+        android:background="@color/widget_border" />
 
     <LinearLayout
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
         android:layout_weight="1"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:gravity="center_vertical">
 
       <TextView
           android:id="@+id/task_title"
@@ -76,41 +169,86 @@
           android:layout_height="wrap_content"
           android:text="Open Shard to get started"
           android:textColor="@color/widget_text"
+          android:fontFamily="@font/inter_semibold"
           android:textSize="15sp"
-          android:textStyle="bold"
           android:maxLines="2"
-          android:ellipsize="end"
-          android:lineSpacingExtra="1dp" />
+          android:ellipsize="end" />
 
       <TextView
           android:id="@+id/task_meta"
           android:layout_width="match_parent"
           android:layout_height="wrap_content"
-          android:layout_marginTop="3dp"
+          android:layout_marginTop="2dp"
           android:textColor="@color/widget_text_dim"
+          android:fontFamily="@font/inter_semibold"
           android:textSize="11sp"
+          android:letterSpacing="0.018"
           android:maxLines="1"
           android:ellipsize="end"
           android:visibility="gone" />
+
+      <!-- Today's completion as an XP bar, with the count beside it — the same
+           "how much of today is left" pairing the app's TodayCard leads with.
+           The design system names XP bars as one of the three carriers of the
+           identity (colour, shard motif, XP bars); the widget had none of them.
+           Sharing a row with the count keeps it to one line of height. -->
+      <LinearLayout
+          android:id="@+id/progress_row"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:layout_marginTop="7dp"
+          android:orientation="horizontal"
+          android:gravity="center_vertical"
+          android:visibility="gone">
+
+        <ProgressBar
+            android:id="@+id/task_progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="0dp"
+            android:layout_height="5dp"
+            android:layout_weight="1"
+            android:max="100"
+            android:progress="0"
+            android:progressDrawable="@drawable/widget_progress" />
+
+        <TextView
+            android:id="@+id/task_count"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="9dp"
+            android:textColor="@color/widget_text_dim"
+            android:fontFamily="@font/space_mono"
+            android:textSize="10sp"
+            android:letterSpacing="0.02"
+            android:maxLines="1" />
+      </LinearLayout>
     </LinearLayout>
   </LinearLayout>
 
   <!-- The single action. One tap from the home screen closes the loop between
        doing the work and getting credit for it, which is the friction this whole
-       widget exists to remove. -->
+       widget exists to remove.
+
+       Always visible. It used to be GONE in the signed-out and all-done states,
+       which left a third of the card as dead space in exactly the two states
+       that already had the least to show — the emptiness read as a broken widget
+       rather than a finished day. In those states it becomes the way into the
+       app instead. -->
   <TextView
       android:id="@+id/complete_button"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
-      android:layout_marginTop="12dp"
+      android:layout_marginTop="10dp"
       android:background="@drawable/widget_button"
       android:gravity="center"
-      android:paddingTop="10dp"
-      android:paddingBottom="10dp"
+      android:paddingTop="8dp"
+      android:paddingBottom="8dp"
       android:text="Mark done"
       android:textColor="@color/widget_text"
+      android:fontFamily="@font/inter_semibold"
       android:textSize="13sp"
-      android:textStyle="bold"
-      android:visibility="gone" />
+      android:letterSpacing="0.008"
+      android:maxLines="1"
+      android:ellipsize="end" />
 
 </LinearLayout>

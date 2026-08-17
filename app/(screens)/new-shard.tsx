@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,10 +9,9 @@ import {
   KeyboardAvoidingView,
   ActivityIndicator,
   TouchableOpacity,
-  Animated as RNAnimated,
 } from 'react-native';
 import { useColorScheme } from '~/hooks/useColorScheme';
-import Animated, { FadeIn, FadeInDown, FadeOutUp } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -20,15 +19,25 @@ import { AntDesign, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useMutation, useLazyQuery, useQuery } from '@apollo/client';
 import { useUserStore } from '~/store/user.store';
 import { useAppStore } from '~/store/app.store';
-import { CREATE_SHARD, CREATE_SHARD_MANUAL, DELETE_MINI_GOAL } from '~/Graphql/Mutations';
+import { CREATE_SHARD_MANUAL, IMPORT_CURRICULUM, CREATE_SHARD_FROM_CURRICULUM } from '~/Graphql/Mutations';
 import { GET_FRIENDS, GET_SIGNED_UPLOAD_URL, GET_AI_USAGE, MY_TEAMS } from '~/Graphql/Queries';
-import { useFriendsStore, Friend } from '~/store/friends.store';
+import { useFriendsStore } from '~/store/friends.store';
 import { openPaywall } from '~/helpers/paywall';
-import { brand, hud, FONT, HudLabel, Mono, RADIUS } from '~/components/hud';
+import { brand, hud, FONT, HudLabel, RADIUS } from '~/components/hud';
 import AddImageInput from '~/components/AddImageInput';
 import AnimatedPressable from '~/components/AnimatedPressable';
+import { avatarUri } from '~/helpers/avatarUri';
 
-type CreationMode = 'ai' | 'manual';
+import { useCreationSteps, type CreationMode } from '~/hooks/useCreationSteps';
+import { useQuestDraft, type BriefAnswers } from '~/hooks/useQuestDraft';
+import SharpenStep from '~/components/new-shard/SharpenStep';
+import ShapeWorkspace from '~/components/new-shard/ShapeWorkspace';
+import GeneratingView from '~/components/new-shard/GeneratingView';
+import RefineBar from '~/components/new-shard/RefineBar';
+
+import CourseSourceStep, { type CourseSourceData } from '~/components/course/CourseSourceStep';
+import CurriculumReviewStep, { type CurriculumData } from '~/components/course/CurriculumReviewStep';
+import CoursePaceStep, { type RhythmData } from '~/components/course/CoursePaceStep';
 
 interface SelectedFriend {
   userId: string;
@@ -41,55 +50,58 @@ interface MiniGoalDraft {
   tasks: string[];
 }
 
-interface MiniGoalPreview {
-  id: string;
-  title: string;
-  taskCount: number;
-  dueDate?: string | null;
-}
-
-const AI_STATUS_MESSAGES = [
-  'Analysing your goal...',
-  'Breaking into mini-quests...',
-  'Scheduling tasks...',
-  'Assigning XP rewards...',
-  'Finalising your quest...',
-];
-
 // ─── Helpers ─────────────────────────────────────────────────────────
 
 const formatDate = (date: Date) =>
   date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-const formatDueDate = (iso?: string | null) => {
-  if (!iso) return null;
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-};
-
 // ─── Step Indicator ──────────────────────────────────────────────────
 
-const StepIndicator = ({ step, isDark }: { step: 1 | 2; isDark: boolean }) => {
+/**
+ * Renders one dot per step of the current mode. Count-driven rather than
+ * hardcoded to two, so a mode with three steps draws three.
+ */
+const StepIndicator = ({
+  current,
+  total,
+  isDark,
+}: {
+  /** 1-based. */
+  current: number;
+  total: number;
+  isDark: boolean;
+}) => {
   const c = hud(isDark);
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
-      {[1, 2].map((s, i) => (
+      {Array.from({ length: total }, (_, i) => i + 1).map((s, i) => (
         <React.Fragment key={s}>
           <View
             style={{
               width: 28,
               height: 28,
               borderRadius: 14,
-              backgroundColor: step >= s ? c.violet : 'transparent',
+              backgroundColor: current >= s ? c.violet : 'transparent',
               borderWidth: 1,
-              borderColor: step >= s ? c.violet : c.panelBorderStrong,
+              borderColor: current >= s ? c.violet : c.panelBorderStrong,
               alignItems: 'center',
               justifyContent: 'center',
             }}>
-            <Text style={{ color: step >= s ? '#fff' : c.textFaint, fontSize: 13, fontFamily: FONT.bold }}>
+            <Text style={{ color: current >= s ? '#fff' : c.textFaint, fontSize: 13, fontFamily: FONT.bold }}>
               {s}
             </Text>
           </View>
-          {i === 0 && <View style={{ width: 40, height: 1.5, backgroundColor: step === 2 ? c.violet : c.panelBorderStrong, marginHorizontal: 8 }} />}
+          {i < total - 1 && (
+            <View
+              style={{
+                width: 40,
+                height: 1.5,
+                // Lit once the user is past the step this connector leaves.
+                backgroundColor: current > s ? c.violet : c.panelBorderStrong,
+                marginHorizontal: 8,
+              }}
+            />
+          )}
         </React.Fragment>
       ))}
     </View>
@@ -110,8 +122,9 @@ const ModeSelector = ({
   const c = hud(isDark);
   return (
       <View style={{ marginBottom: 22, flexDirection: 'row', gap: 8, backgroundColor: c.bgElev, borderRadius: RADIUS.pill, borderWidth: 1, borderColor: c.panelBorder, padding: 5 }}>
-        {(['ai', 'manual'] as const).map((m) => {
+        {(['ai', 'course', 'manual'] as const).map((m) => {
           const active = mode === m;
+          const label = m === 'ai' ? 'Use AI' : m === 'course' ? 'Course' : 'Manual';
           return (
             <AnimatedPressable
               key={m}
@@ -127,14 +140,16 @@ const ModeSelector = ({
                 borderColor: active ? c.violet : 'transparent',
               }}>
               {m === 'ai' ? (
-                <Ionicons name="sparkles" size={16} color={active ? c.violet : c.textDim} style={{ marginRight: 9 }} />
+                <Ionicons name="sparkles" size={15} color={active ? c.violet : c.textDim} style={{ marginRight: 6 }} />
+              ) : m === 'course' ? (
+                <Ionicons name="book-outline" size={15} color={active ? c.violet : c.textDim} style={{ marginRight: 6 }} />
               ) : (
-                <MaterialIcons name="edit" size={16} color={active ? c.violet : c.textDim} style={{ marginRight: 9 }} />
+                <MaterialIcons name="edit" size={15} color={active ? c.violet : c.textDim} style={{ marginRight: 6 }} />
               )}
               <Text
                 numberOfLines={1}
-                style={{ fontSize: 14, fontFamily: FONT.semibold, letterSpacing: 0.2, color: active ? c.violet : c.textDim }}>
-                {m === 'ai' ? 'Use AI' : 'Manual'}
+                style={{ fontSize: 13, fontFamily: FONT.semibold, letterSpacing: 0.2, color: active ? c.violet : c.textDim }}>
+                {label}
               </Text>
             </AnimatedPressable>
           );
@@ -142,227 +157,6 @@ const ModeSelector = ({
       </View>
   );
 };
-
-// ─── AI Loading Overlay ──────────────────────────────────────────────
-
-const AILoadingView = ({ isDark, onCancel }: { isDark: boolean; onCancel: () => void }) => {
-  const [msgIndex, setMsgIndex] = useState(0);
-  const [timedOut, setTimedOut] = useState(false);
-
-  useEffect(() => {
-    const cycle = setInterval(() => setMsgIndex((i) => (i + 1) % AI_STATUS_MESSAGES.length), 2500);
-    const timeout = setTimeout(() => setTimedOut(true), 30000);
-    return () => {
-      clearInterval(cycle);
-      clearTimeout(timeout);
-    };
-  }, []);
-
-  return (
-    <Animated.View
-      entering={FadeIn.duration(300)}
-      style={{
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 60,
-        paddingHorizontal: 24,
-      }}>
-      <View
-        style={{
-          width: 72,
-          height: 72,
-          borderRadius: 36,
-          backgroundColor: 'rgba(139,92,246,0.12)',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: 24,
-        }}>
-        <ActivityIndicator color="#8b5cf6" size="large" />
-      </View>
-      <Text style={{ color: brand.violet, fontFamily: FONT.bold, fontSize: 16, marginBottom: 8 }}>
-        Generating your Quest
-      </Text>
-      <Text style={{ color: isDark ? '#adaaaa' : '#888', fontSize: 13, textAlign: 'center' }}>
-        {timedOut ? 'Taking longer than expected…' : AI_STATUS_MESSAGES[msgIndex]}
-      </Text>
-      {timedOut && (
-        <AnimatedPressable
-          onPress={onCancel}
-          style={{
-            marginTop: 20,
-            paddingHorizontal: 24,
-            paddingVertical: 10,
-            borderRadius: RADIUS.lg,
-            backgroundColor: isDark ? '#2c2c2c' : '#f0f0f0',
-          }}>
-          <Text style={{ color: isDark ? '#fff' : '#1a1a1a', fontFamily: FONT.semibold, fontSize: 13 }}>
-            Cancel
-          </Text>
-        </AnimatedPressable>
-      )}
-    </Animated.View>
-  );
-};
-
-// ─── AI Review Step ──────────────────────────────────────────────────
-
-const AIReviewStep = ({
-  miniGoals,
-  onRemove,
-  onConfirm,
-  onRegenerate,
-  isDark,
-  confirming,
-  warning,
-}: {
-  miniGoals: MiniGoalPreview[];
-  onRemove: (id: string) => void;
-  onConfirm: () => void;
-  onRegenerate: () => void;
-  isDark: boolean;
-  confirming: boolean;
-  warning?: string | null;
-}) => (
-  <Animated.View entering={FadeInDown.duration(400)}>
-    <Text
-      style={{
-        color: isDark ? '#adaaaa' : '#666',
-        fontSize: 11,
-        fontFamily: FONT.bold,
-        letterSpacing: 0.2,
-        marginBottom: 16,
-      }}>
-      Your AI Quest Breakdown
-    </Text>
-
-    {warning && (
-      <Animated.View
-        entering={FadeInDown.duration(300)}
-        style={{
-          flexDirection: 'row',
-          alignItems: 'flex-start',
-          gap: 10,
-          backgroundColor: isDark ? 'rgba(234,179,8,0.1)' : 'rgba(234,179,8,0.08)',
-          borderRadius: RADIUS.sm,
-          borderWidth: 1,
-          borderColor: isDark ? 'rgba(234,179,8,0.25)' : 'rgba(234,179,8,0.2)',
-          padding: 12,
-          marginBottom: 16,
-        }}>
-        <Ionicons name="warning-outline" size={16} color="#eab308" style={{ marginTop: 1 }} />
-        <Text
-          style={{ flex: 1, color: isDark ? '#fde68a' : '#92400e', fontSize: 12, lineHeight: 18 }}>
-          {warning}
-        </Text>
-      </Animated.View>
-    )}
-
-    <Text
-      style={{ color: isDark ? '#666' : '#999', fontSize: 12, marginBottom: 20, lineHeight: 18 }}>
-      Review the steps your AI generated. Remove any you don't need, then confirm.
-    </Text>
-
-    {miniGoals.map((mg, i) => (
-      <Animated.View
-        key={mg.id}
-        entering={FadeInDown.delay(i * 30).duration(260)}
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          backgroundColor: isDark ? '#1a1a1a' : '#f6f7fb',
-          borderRadius: 16,
-          padding: 16,
-          marginBottom: 10,
-          borderWidth: 1,
-          borderColor: isDark ? 'rgba(139,92,246,0.12)' : 'rgba(139,92,246,0.08)',
-        }}>
-        <View
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: RADIUS.sm,
-            backgroundColor: 'rgba(139,92,246,0.15)',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginRight: 12,
-          }}>
-          <Text style={{ color: brand.violet, fontFamily: FONT.extrabold, fontSize: 13 }}>{i + 1}</Text>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text
-            style={{
-              color: isDark ? '#fff' : '#1a1a1a',
-              fontFamily: FONT.semibold,
-              fontSize: 14,
-              marginBottom: 2,
-            }}>
-            {mg.title}
-          </Text>
-          <Text style={{ color: isDark ? '#666' : '#999', fontSize: 12 }}>
-            {mg.taskCount} task{mg.taskCount !== 1 ? 's' : ''}
-            {mg.dueDate ? `  ·  Due ${formatDueDate(mg.dueDate)}` : ''}
-          </Text>
-        </View>
-        <TouchableOpacity onPress={() => onRemove(mg.id)} hitSlop={12} style={{ padding: 4 }} accessibilityLabel="Clear">
-          <Ionicons name="close-circle" size={22} color={isDark ? '#444' : '#ccc'} />
-        </TouchableOpacity>
-      </Animated.View>
-    ))}
-
-    {miniGoals.length === 0 && (
-      <View style={{ alignItems: 'center', paddingVertical: 24 }}>
-        <Text style={{ color: isDark ? '#555' : '#bbb', fontSize: 13 }}>
-          All mini-goals removed.
-        </Text>
-      </View>
-    )}
-
-    {/* Regenerate */}
-    <View style={{ alignItems: 'center', marginTop: 8, marginBottom: 24 }}>
-      <AnimatedPressable
-        onPress={onRegenerate}
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 6,
-        }}>
-        <Ionicons name="refresh" size={14} color="#8b5cf6" />
-        <Text style={{ color: brand.violet, fontSize: 13, fontFamily: FONT.semibold }}>Regenerate</Text>
-      </AnimatedPressable>
-      <Text style={{ color: isDark ? '#555' : '#bbb', fontSize: 11, marginTop: 5 }}>
-        This will use 1 AI credit and take you back to edit your goal
-      </Text>
-    </View>
-
-    {/* Confirm */}
-    <AnimatedPressable
-      onPress={onConfirm}
-      disabled={confirming}
-      scaleDown={0.95}
-      style={{
-        backgroundColor: brand.violet,
-        borderRadius: RADIUS.md,
-        paddingVertical: 18,
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: brand.violet,
-        shadowOpacity: 0.3,
-        shadowRadius: 20,
-        shadowOffset: { width: 0, height: 4 },
-        elevation: 8,
-        opacity: confirming ? 0.7 : 1,
-      }}>
-      {confirming ? (
-        <ActivityIndicator color="#fff" />
-      ) : (
-        <Text style={{ color: '#fff', fontFamily: FONT.extrabold, fontSize: 16 }}>
-          Confirm & Save Quest →
-        </Text>
-      )}
-    </AnimatedPressable>
-  </Animated.View>
-);
 
 // ─── Manual Mini-Goal Builder ─────────────────────────────────────────
 
@@ -575,8 +369,11 @@ const TeamQuickAssign = ({
 
   if (teams.length === 0) return null;
 
+  // Plain View: this expands on tap, so it's an ancestor of size-changing
+  // content and must not have its layout owned by an entering animation — same
+  // reason as FriendSelection's root.
   return (
-    <Animated.View entering={FadeInDown.delay(150).duration(260)} style={{ marginBottom: 16 }}>
+    <View style={{ marginBottom: 16 }}>
       <AnimatedPressable
         onPress={() => setExpanded(!expanded)}
         scaleDown={0.98}
@@ -648,7 +445,7 @@ const TeamQuickAssign = ({
           ))}
         </View>
       )}
-    </Animated.View>
+    </View>
   );
 };
 
@@ -665,13 +462,37 @@ const FriendSelection = ({
 }) => {
   const { searchQuery, setSearchQuery, filteredFriends } = useFriendsStore();
   const filtered = filteredFriends();
+  const c = hud(isDark);
 
+  /**
+   * Tapping the row adds the friend as an accountability partner, and tapping it
+   * again removes them. The role chips then refine that choice.
+   *
+   * Partner rather than collaborator for two reasons: it's the role the product
+   * is actually about ("bring someone who'll notice if you stop"), and
+   * collaborators are capped at one on the free plan — so defaulting there would
+   * fire a paywall at someone who just tapped a friend's face and had no idea
+   * they were choosing anything.
+   */
+  const ROLE_LABEL = {
+    collaborator: 'Collaborator',
+    accountability_partner: 'Accountability',
+  } as const;
+
+  // Root is a plain View, not an entering-animated one.
+  //
+  // A Reanimated `entering` hands that view's position and size to the animation
+  // driver. Fine for a view whose box never changes — wrong for this one, which
+  // is the ANCESTOR of the friend rows. When a row expands to show its role
+  // chips this container has to grow, and a layout-animated container doesn't
+  // report the new height to the siblings below it. That's why the AI hint
+  // stayed put.
   return (
-    <Animated.View entering={FadeInDown.delay(150).duration(260)} className="my-3 space-y-4">
-      <Text
-        className="text-xs font-bold uppercase tracking-widest"
-        style={{ color: isDark ? '#adaaaa' : '#666' }}>
-        Add Participants
+    <View className="my-3 gap-4">
+      <HudLabel color={c.textDim}>Add participants</HudLabel>
+      <Text style={{ color: c.textFaint, fontSize: 12, lineHeight: 17, marginTop: 2 }}>
+        Tap someone to bring them along. Collaborators share the tasks;
+        accountability partners just see how you&apos;re doing.
       </Text>
 
       <View
@@ -688,17 +509,45 @@ const FriendSelection = ({
       </View>
 
       {filtered.length > 0 ? (
-        <View className="space-y-3">
+        <View className="gap-3">
           {filtered.map((friend) => {
             const selection = selectedFriends.find((s) => s.userId === friend.id);
+            const isSelected = !!selection;
+
             return (
+              // Plain View: the tap target and the role chips are SIBLINGS, not
+              // nested pressables. Nesting would leave which one handles a chip
+              // tap up to the touch responder, and losing that race removes the
+              // friend instead of setting their role.
               <View
                 key={friend.id}
                 className="rounded-xl p-4"
-                style={{ backgroundColor: isDark ? '#20201f' : '#f6f7fb' }}>
-                <View className="mb-3 flex-row items-center">
+                style={{
+                  backgroundColor: isSelected
+                    ? 'rgba(139,92,246,0.10)'
+                    : isDark
+                      ? '#20201f'
+                      : '#f6f7fb',
+                  borderWidth: 1,
+                  borderColor: isSelected ? c.violet : 'transparent',
+                }}>
+                <AnimatedPressable
+                  // The whole name row is the target now — it used to be inert,
+                  // so tapping a friend's face did nothing at all.
+                  onPress={() =>
+                    onSelect(friend.id, isSelected ? null : 'accountability_partner')
+                  }
+                  scaleDown={0.98}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: isSelected }}
+                  accessibilityLabel={
+                    isSelected
+                      ? `${friend.username}, added as ${ROLE_LABEL[selection.role]}. Tap to remove.`
+                      : `Add ${friend.username}`
+                  }
+                  className="flex-row items-center">
                   <Image
-                    source={{ uri: friend.profilePic }}
+                    source={{ uri: avatarUri(friend.profilePic, friend.username) }}
                     className="h-10 w-10 rounded-full bg-gray-200"
                   />
                   <View className="ml-3 flex-1">
@@ -709,27 +558,58 @@ const FriendSelection = ({
                       {friend.email}
                     </Text>
                   </View>
-                </View>
-                <View className="flex-row gap-2">
-                  {(['collaborator', 'accountability_partner'] as const).map((role) => (
-                    <AnimatedPressable
-                      key={role}
-                      onPress={() => onSelect(friend.id, selection?.role === role ? null : role)}
-                      className="flex-1 items-center justify-center rounded-lg py-2"
-                      style={{
-                        backgroundColor:
-                          selection?.role === role ? brand.violet : isDark ? '#262626' : '#e5e7eb',
-                      }}>
-                      <Text
-                        className="text-xs font-bold"
-                        style={{
-                          color: selection?.role === role ? '#fff' : isDark ? '#fff' : '#1a1a1a',
-                        }}>
-                        {role === 'collaborator' ? 'Collaborator' : 'Accountability'}
-                      </Text>
-                    </AnimatedPressable>
-                  ))}
-                </View>
+                  {/* Stands in for a checkbox — the row's state has to be
+                      readable at a glance, not inferred from a chip's fill. */}
+                  <Ionicons
+                    name={isSelected ? 'checkmark-circle' : 'add-circle-outline'}
+                    size={24}
+                    color={isSelected ? c.violet : c.textFaint}
+                  />
+                </AnimatedPressable>
+
+                {/*
+                  Role only matters once they're actually coming.
+
+                  A plain View, not an entering-animated one: a Reanimated
+                  `entering` on a conditionally mounted child hands its layout to
+                  the animation, and the ancestors' measured height can stay
+                  stale — so the content below the list wouldn't move down as
+                  rows expanded. Not worth a 200ms fade.
+                */}
+                {isSelected && (
+                  <View className="mt-3 flex-row gap-2">
+                    {(['collaborator', 'accountability_partner'] as const).map((role) => {
+                      const active = selection.role === role;
+                      return (
+                        <AnimatedPressable
+                          key={role}
+                          onPress={() => onSelect(friend.id, role)}
+                          containerStyle={{ flex: 1 }}
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected: active }}
+                          accessibilityLabel={`${ROLE_LABEL[role]} role for ${friend.username}`}
+                          className="flex-row items-center justify-center gap-1.5 rounded-lg py-2"
+                          style={{
+                            backgroundColor: active ? c.violet : 'transparent',
+                            // A visible edge is what makes these read as buttons
+                            // rather than grey metadata tags.
+                            borderWidth: 1,
+                            borderColor: active ? c.violet : c.panelBorderStrong,
+                          }}>
+                          {active && <Ionicons name="checkmark" size={13} color="#fff" />}
+                          <Text
+                            style={{
+                              fontSize: 12,
+                              fontFamily: FONT.semibold,
+                              color: active ? '#fff' : c.textDim,
+                            }}>
+                            {ROLE_LABEL[role]}
+                          </Text>
+                        </AnimatedPressable>
+                      );
+                    })}
+                  </View>
+                )}
               </View>
             );
           })}
@@ -739,7 +619,7 @@ const FriendSelection = ({
           No friends found
         </Text>
       )}
-    </Animated.View>
+    </View>
   );
 };
 
@@ -801,10 +681,10 @@ const NewShard = () => {
   // the source of truth — this is a client guard to trigger the paywall early.
   const FREE_COLLABORATOR_LIMIT = 1;
 
-  const [step, setStep] = useState<1 | 2>(1);
-  const [mode, setMode] = useState<CreationMode>('ai');
+  // Steps are data, not a number — see hooks/useCreationSteps.ts.
+  const wizard = useCreationSteps('ai');
+  const { mode, setMode, step } = wizard;
   const [loading, setLoading] = useState(false); // AI generating
-  const [confirming, setConfirming] = useState(false); // saving after review
   const [selectedFriends, setSelectedFriends] = useState<SelectedFriend[]>([]);
 
   // Habit tracking
@@ -815,12 +695,18 @@ const NewShard = () => {
   const [aiGoal, setAiGoal] = useState('');
   const [aiDeadline, setAiDeadline] = useState<Date | undefined>(undefined);
   const [showAiDatePicker, setShowAiDatePicker] = useState(false);
+  // Separate from the compose-step picker: this one writes to the DRAFT, which
+  // is what commit actually reads. Sharing the compose picker would have set
+  // local state nothing downstream looks at.
+  const [shapeDatePicker, setShapeDatePicker] = useState(false);
   const [aiImageUri, setAiImageUri] = useState<string | null>(null);
   const [aiImageUrl, setAiImageUrl] = useState<string | null>(null);
 
-  // AI review state
-  const [pendingShardId, setPendingShardId] = useState<string | null>(null);
-  const [reviewMiniGoals, setReviewMiniGoals] = useState<MiniGoalPreview[]>([]);
+  // The draft owns everything the AI flow produces. Nothing is a real quest
+  // until commit(), which is what makes the plan editable and what stops an
+  // abandoned generation occupying a free-tier quest slot.
+  const questDraft = useQuestDraft();
+  const [answers, setAnswers] = useState<BriefAnswers>({});
 
   // Manual mode state (isolated)
   const [manualTitle, setManualTitle] = useState('');
@@ -833,11 +719,24 @@ const NewShard = () => {
   const [manualImageUrl, setManualImageUrl] = useState<string | null>(null);
   const [miniGoalDrafts, setMiniGoalDrafts] = useState<MiniGoalDraft[]>([]);
 
+  // Course mode state (isolated)
+  const [courseGoal, setCourseGoal] = useState('');
+  const [courseDeadline, setCourseDeadline] = useState<Date | undefined>(undefined);
+  const [showCourseDatePicker, setShowCourseDatePicker] = useState(false);
+  const [courseImageUri, setCourseImageUri] = useState<string | null>(null);
+  const [courseImageUrl, setCourseImageUrl] = useState<string | null>(null);
+  const [courseDraftId, setCourseDraftId] = useState<string | null>(null);
+  const [courseCurriculum, setCourseCurriculum] = useState<CurriculumData | null>(null);
+  const [courseNotice, setCourseNotice] = useState<string | undefined>(undefined);
+  const [courseRhythm, setCourseRhythm] = useState<RhythmData>({
+    days: [1, 3, 5],
+    sessionMinutes: 30,
+  });
+
   // AI credit count
   const [aiRemaining, setAiRemaining] = useState<number | null>(null);
-  const [aiWarning, setAiWarning] = useState<string | null>(null);
   // 0 = free tier exhausted; -1 = unlimited (Pro). Gate AI generation on this.
-  const outOfCredits = mode === 'ai' && aiRemaining === 0;
+  const outOfCredits = (mode === 'ai' || mode === 'course') && aiRemaining === 0;
 
   const { setFriends } = useFriendsStore();
 
@@ -849,15 +748,15 @@ const NewShard = () => {
   });
 
   useQuery(GET_AI_USAGE, {
-    skip: mode !== 'ai',
+    skip: mode === 'manual',
     onCompleted: (data) => {
       if (data?.getAIUsage?.success) setAiRemaining(data.getAIUsage.remaining);
     },
   });
 
-  const [createShard] = useMutation(CREATE_SHARD);
   const [createShardManual] = useMutation(CREATE_SHARD_MANUAL);
-  const [deleteMiniGoal] = useMutation(DELETE_MINI_GOAL);
+  const [importCurriculumMutation, { loading: importCurriculumLoading }] = useMutation(IMPORT_CURRICULUM);
+  const [createShardFromCurriculumMutation, { loading: createCourseShardLoading }] = useMutation(CREATE_SHARD_FROM_CURRICULUM);
   const [fetchSignedUrl] = useLazyQuery(GET_SIGNED_UPLOAD_URL);
 
   const handleFriendSelect = (
@@ -921,6 +820,13 @@ const NewShard = () => {
 
   // ── AI flow ──
 
+  /**
+   * Goal → questions. Doesn't generate anything yet.
+   *
+   * The interview is best-effort: if it fails or returns nothing there's no
+   * point showing an empty step, so we go straight to generating. Intake
+   * improves the plan; it must never be a gate in front of it.
+   */
   const handleAIContinue = async () => {
     if (outOfCredits) {
       openPaywall('ai_credits');
@@ -930,66 +836,78 @@ const NewShard = () => {
       addAlert({ str: 'Please describe your goal', type: 'error' });
       return;
     }
-    // Move to step 2 immediately so the AILoadingView is visible during generation
+
     setLoading(true);
-    setStep(2);
-    setAiWarning(null);
-    scrollRef.current?.scrollTo({ y: 0, animated: true });
     try {
-      let imageUrl = aiImageUrl;
-      if (aiImageUri && !aiImageUrl) {
-        imageUrl = await uploadImage(aiImageUri);
-        if (imageUrl) setAiImageUrl(imageUrl);
-      }
-
-      const { data } = await createShard({
-        variables: {
-          goal: aiGoal,
-          deadline: aiDeadline?.toISOString(),
-          image: imageUrl,
-          participants: selectedFriends.map((f) => ({ user: f.userId, role: f.role })),
-          questType: isHabit ? 'habit' : 'standard',
-          cadence: isHabit ? cadence : undefined,
-        },
-      });
-
-      if (data?.createShard?.needsUpgrade) {
-        addAlert({ str: data.createShard.message, type: 'warning' });
-        setStep(1);
-        openPaywall('ai_credits');
+      const questions = await questDraft.loadQuestions(aiGoal, aiDeadline?.toISOString());
+      if (questions.length === 0) {
+        await generatePlan({});
         return;
       }
-
-      if (data?.createShard?.success) {
-        if (data.createShard.aiCallsRemaining !== undefined)
-          setAiRemaining(data.createShard.aiCallsRemaining);
-        setPendingShardId(data.createShard.shard?.id);
-        setReviewMiniGoals(data.createShard.shard?.miniGoals || []);
-        if (data.createShard.warning) setAiWarning(data.createShard.warning);
-      } else {
-        addAlert({ str: data?.createShard?.message || 'Failed to create quest', type: 'error' });
-        setStep(1);
-      }
-    } catch (err: any) {
-      addAlert({ str: err?.message || 'Failed to create quest. Please try again.', type: 'error' });
-      setStep(1);
+      wizard.next();
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAIConfirm = () => {
-    // Quest already saved in DB — just navigate.
-    // `replace`, not `push`: the quest exists now, so leaving the creation flow
-    // on the stack let Back walk into a wizard that would create a second one.
-    router.replace('/Home');
+  /** Questions → plan. Spends the AI credit; still writes no quest. */
+  const generatePlan = async (finalAnswers: BriefAnswers) => {
+    wizard.goTo('shape');
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+
+    let imageUrl = aiImageUrl;
+    if (aiImageUri && !aiImageUrl) {
+      imageUrl = await uploadImage(aiImageUri);
+      if (imageUrl) setAiImageUrl(imageUrl);
+    }
+
+    const res = await questDraft.generate({
+      goal: aiGoal,
+      deadline: aiDeadline?.toISOString(),
+      image: imageUrl,
+      participants: selectedFriends.map((f) => ({ user: f.userId, role: f.role })),
+      questType: isHabit ? 'habit' : 'standard',
+      cadence: isHabit ? cadence : undefined,
+      answers: Object.keys(finalAnswers).length > 0 ? finalAnswers : undefined,
+    });
+
+    if (res?.needsUpgrade) {
+      addAlert({ str: res.message, type: 'warning' });
+      wizard.reset();
+      openPaywall('ai_credits');
+      return;
+    }
+    if (!res?.success) {
+      addAlert({ str: res?.message || 'Failed to build your plan', type: 'error' });
+      wizard.reset();
+    }
   };
 
-  const handleAIRegenerate = async () => {
-    // Go back to step 1 so user can re-submit
-    setStep(1);
-    setReviewMiniGoals([]);
-    setPendingShardId(null);
+  /** Answers done → generate. Skipping records which slots were offered. */
+  const handleSharpenContinue = () => generatePlan(answers);
+
+  const handleSkipAll = () => {
+    const skipped = questDraft.questions.map((q) => q.slot);
+    setAnswers({ skipped });
+    generatePlan({ skipped });
+  };
+
+  /** Make the draft real. */
+  const handleCommit = async () => {
+    const res = await questDraft.commit();
+    if (res?.needsUpgrade) {
+      addAlert({ str: res.message, type: 'warning' });
+      openPaywall('shard_limit');
+      return;
+    }
+    if (res?.success) {
+      // `replace`, not `push`: the quest exists now, so leaving the creation
+      // flow on the stack let Back walk into a wizard that would create another.
+      router.replace('/Home');
+    } else {
+      addAlert({ str: res?.message || 'Failed to create quest', type: 'error' });
+    }
   };
 
   // ── Manual flow ──
@@ -999,7 +917,7 @@ const NewShard = () => {
       addAlert({ str: 'Please fill in title and description', type: 'error' });
       return;
     }
-    setStep(2);
+    wizard.next();
     scrollRef.current?.scrollTo({ y: 0, animated: true });
   };
 
@@ -1057,10 +975,283 @@ const NewShard = () => {
     }
   };
 
-  const handleBack = () => {
-    setStep(1);
+  // ── Course flow ──
+
+  const handleCourseContinue = () => {
+    if (outOfCredits) {
+      openPaywall('ai_credits');
+      return;
+    }
+    if (!courseGoal.trim()) {
+      addAlert({ str: 'Please describe what you want to achieve with this course', type: 'error' });
+      return;
+    }
+    wizard.next();
     scrollRef.current?.scrollTo({ y: 0, animated: true });
   };
+
+  const handleCourseImport = async (data: CourseSourceData) => {
+    if (outOfCredits) {
+      openPaywall('ai_credits');
+      return;
+    }
+    try {
+      const res = await importCurriculumMutation({
+        variables: {
+          input: {
+            url: data.url,
+            pastedText: data.pastedText,
+            goal: courseGoal.trim() || undefined,
+          },
+        },
+      });
+
+      const result = res.data?.importCurriculum;
+      if (result?.needsUpgrade) {
+        openPaywall('ai_credits');
+        return;
+      }
+      if (result?.success && result.curriculum && result.draftId) {
+        setCourseDraftId(result.draftId);
+        setCourseCurriculum(result.curriculum);
+        setCourseNotice(result.notice);
+        wizard.next();
+        scrollRef.current?.scrollTo({ y: 0, animated: true });
+      } else {
+        addAlert({
+          str: result?.message || 'Failed to import curriculum',
+          type: 'error',
+        });
+      }
+    } catch (e: any) {
+      addAlert({
+        str: e.message || 'Failed to import curriculum',
+        type: 'error',
+      });
+    }
+  };
+
+  const handleCourseCreateQuest = async () => {
+    if (!courseCurriculum || !courseDraftId) return;
+
+    let imageUrl: string | undefined = courseImageUrl || courseCurriculum.thumbnail || undefined;
+    if (courseImageUri && !courseImageUrl) {
+      const uploaded = await uploadImage(courseImageUri);
+      if (uploaded) {
+        imageUrl = uploaded;
+        setCourseImageUrl(uploaded);
+      }
+    }
+
+    try {
+      const res = await createShardFromCurriculumMutation({
+        variables: {
+          input: {
+            draftId: courseDraftId,
+            curriculum: {
+              provider: courseCurriculum.provider,
+              fidelity: courseCurriculum.fidelity,
+              title: courseCurriculum.title,
+              author: courseCurriculum.author,
+              url: courseCurriculum.url,
+              thumbnail: courseCurriculum.thumbnail,
+              totalSeconds: courseCurriculum.totalSeconds,
+              fetchedAt: courseCurriculum.fetchedAt,
+              sections: courseCurriculum.sections.map((sec) => ({
+                title: sec.title,
+                items: sec.items.map((item) => ({
+                  kind: item.kind,
+                  title: item.title,
+                  durationSeconds: item.durationSeconds,
+                  url: item.url,
+                  externalId: item.externalId,
+                  optional: item.optional,
+                  synthesized: item.synthesized,
+                })),
+              })),
+            },
+            rhythm: {
+              days: courseRhythm.days,
+              sessionMinutes: courseRhythm.sessionMinutes,
+              timeOfDay: courseRhythm.timeOfDay,
+            },
+            brief: {
+              done: courseGoal,
+              rhythm: {
+                days: courseRhythm.days,
+                sessionMinutes: courseRhythm.sessionMinutes,
+                timeOfDay: courseRhythm.timeOfDay,
+              },
+            },
+            image: imageUrl,
+            participants: selectedFriends.map((f) => ({ user: f.userId, role: f.role })),
+          },
+        },
+      });
+
+      const result = res.data?.createShardFromCurriculum;
+      if (result?.needsUpgrade) {
+        openPaywall('shard_limit');
+        return;
+      }
+      if (result?.success) {
+        addAlert({ str: result.message || 'Course quest created!', type: 'success' });
+        router.replace('/Home');
+      } else {
+        addAlert({ str: result?.message || 'Failed to start course quest', type: 'error' });
+      }
+    } catch (e: any) {
+      addAlert({ str: e.message || 'Failed to start course quest', type: 'error' });
+    }
+  };
+
+  const handleBack = () => {
+    // One step, not all the way home — identical for today's two-step modes,
+    // and correct for a three-step one.
+    wizard.back();
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+  };
+
+  // One place the primary action's words and icon are decided, since three
+  // steps now share the pinned footer.
+  const ctaLabel =
+    step === 'sharpen'
+      ? 'Build my plan'
+      : step === 'shape'
+        ? 'Start this quest'
+        : outOfCredits
+          ? 'Unlock AI · Go Pro'
+          : mode === 'ai'
+            ? 'Forge Quest'
+            : mode === 'course'
+              ? 'Continue to Source'
+              : 'Continue';
+
+  const ctaIcon: any =
+    step === 'shape'
+      ? 'checkmark-circle'
+      : step === 'sharpen'
+        ? 'flash'
+        : outOfCredits
+          ? 'lock-open'
+          : mode === 'ai'
+            ? 'flash'
+            : 'arrow-forward';
+
+
+  /**
+   * How the quest runs and who's coming.
+   *
+   * Lives at the END of the flow for AI mode and on the first screen for manual.
+   * These were the two biggest blocks on step one, in front of the single field
+   * that actually matters — and participants in particular only make sense once
+   * there's a plan to invite someone TO.
+   */
+  const renderQuestOptions = () => (
+    <>
+            {/* Habit Setting */}
+            <View
+              style={{
+                marginBottom: 24,
+                backgroundColor: isDark ? '#1a1a1a' : '#fff',
+                borderRadius: RADIUS.lg,
+                padding: 16,
+                borderWidth: 1,
+                borderColor: isDark ? '#2c2c2c' : '#eee',
+              }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      color: isDark ? '#fff' : '#1a1a1a',
+                      fontFamily: FONT.bold,
+                      fontSize: 16,
+                    }}>
+                    Recurring Habit
+                  </Text>
+                  <Text style={{ color: '#767575', fontSize: 13, marginTop: 4 }}>
+                    Automatically reset completed tasks on a scheduled interval.
+                  </Text>
+                </View>
+                <AnimatedPressable onPress={() => setIsHabit(!isHabit)}>
+                  <View
+                    style={{
+                      width: 46,
+                      height: 26,
+                      borderRadius: 13,
+                      padding: 3,
+                      backgroundColor: isHabit ? brand.violet : isDark ? '#333' : '#e5e7eb',
+                    }}>
+                    <View
+                      style={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: 10,
+                        backgroundColor: '#fff',
+                        transform: [{ translateX: isHabit ? 20 : 0 }],
+                      }}
+                    />
+                  </View>
+                </AnimatedPressable>
+              </View>
+
+              {isHabit && (
+                <Animated.View
+                  entering={FadeInDown.duration(300)}
+                  style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+                  {(['daily', 'weekly'] as const).map((c) => (
+                    <AnimatedPressable
+                      key={c}
+                      onPress={() => setCadence(c)}
+                      containerStyle={{ flex: 1 }} style={{
+                        paddingVertical: 12,
+                        borderRadius: RADIUS.sm,
+                        alignItems: 'center',
+                        backgroundColor:
+                          cadence === c
+                            ? 'rgba(139,92,246,0.1)'
+                            : isDark
+                              ? '#2c2c2c'
+                              : '#f8f8f8',
+                        borderWidth: 1,
+                        borderColor: cadence === c ? brand.violet : 'transparent',
+                      }}>
+                      <Text
+                        style={{
+                          color: cadence === c ? brand.violet : '#767575',
+                          fontFamily: FONT.semibold,
+                          textTransform: 'capitalize',
+                        }}>
+                        {c}
+                      </Text>
+                    </AnimatedPressable>
+                  ))}
+                </Animated.View>
+              )}
+            </View>
+            {/* Friends */}
+            <View className="mt-6">
+              <TeamQuickAssign
+                isDark={isDark}
+                onAssignTeam={(memberIds) => {
+                  memberIds
+                    .filter((id) => id !== currentUserId)
+                    .forEach((id) => handleFriendSelect(id, 'collaborator'));
+                }}
+              />
+              <FriendSelection
+                selectedFriends={selectedFriends}
+                onSelect={handleFriendSelect}
+                isDark={isDark}
+              />
+            </View>
+    </>
+  );
 
   const glassStyle = {
     backgroundColor: c.panel,
@@ -1078,15 +1269,17 @@ const NewShard = () => {
         {/* Header */}
         <View className="flex-row items-center justify-between px-6 py-4">
           <AnimatedPressable
-            onPress={step === 2 ? handleBack : () => router.back()}
+            onPress={wizard.isFirst ? () => router.back() : handleBack}
             hitSlop={20}
             scaleDown={0.9}>
             <AntDesign name="arrowleft" size={22} color={c.textDim} />
           </AnimatedPressable>
           <View style={{ alignItems: 'center' }}>
-            <HudLabel color={c.textFaint} size={12}>{`Step ${step} of 2`}</HudLabel>
+            <HudLabel
+              color={c.textFaint}
+              size={12}>{`Step ${wizard.stepNumber} of ${wizard.totalSteps}`}</HudLabel>
             <Text style={{ fontFamily: FONT.extrabold, fontSize: 19, letterSpacing: -0.3, color: c.text, marginTop: 2 }}>
-              {step === 1 ? 'New Quest' : mode === 'ai' ? 'Review' : 'Mini-Goals'}
+              {wizard.title}
             </Text>
           </View>
           <View style={{ width: 22 }} />
@@ -1095,100 +1288,16 @@ const NewShard = () => {
         <ScrollView
           ref={scrollRef}
           className="flex-1 px-5"
-          contentContainerStyle={{ paddingBottom: 80 }}>
+          // The CTA is its own row below the scroll now, so this only needs
+          // breathing room under the last card — not clearance for a button.
+          contentContainerStyle={{ paddingBottom: 24 }}>
           <Animated.View entering={FadeIn.duration(400)}>
-            <StepIndicator step={step} isDark={isDark} />
+            <StepIndicator current={wizard.stepNumber} total={wizard.totalSteps} isDark={isDark} />
 
             {/* ─── STEP 1 ──────────────────────────────────── */}
-            {step === 1 && (
+            {step === 'compose' && (
               <>
                 <ModeSelector mode={mode} onSelect={setMode} isDark={isDark} />
-
-                {/* Habit Setting */}
-                <View
-                  style={{
-                    marginBottom: 24,
-                    backgroundColor: isDark ? '#1a1a1a' : '#fff',
-                    borderRadius: RADIUS.lg,
-                    padding: 16,
-                    borderWidth: 1,
-                    borderColor: isDark ? '#2c2c2c' : '#eee',
-                  }}>
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                    }}>
-                    <View style={{ flex: 1 }}>
-                      <Text
-                        style={{
-                          color: isDark ? '#fff' : '#1a1a1a',
-                          fontFamily: FONT.bold,
-                          fontSize: 16,
-                        }}>
-                        Recurring Habit
-                      </Text>
-                      <Text style={{ color: '#767575', fontSize: 13, marginTop: 4 }}>
-                        Automatically reset completed tasks on a scheduled interval.
-                      </Text>
-                    </View>
-                    <AnimatedPressable onPress={() => setIsHabit(!isHabit)}>
-                      <View
-                        style={{
-                          width: 46,
-                          height: 26,
-                          borderRadius: 13,
-                          padding: 3,
-                          backgroundColor: isHabit ? brand.violet : isDark ? '#333' : '#e5e7eb',
-                        }}>
-                        <View
-                          style={{
-                            width: 20,
-                            height: 20,
-                            borderRadius: 10,
-                            backgroundColor: '#fff',
-                            transform: [{ translateX: isHabit ? 20 : 0 }],
-                          }}
-                        />
-                      </View>
-                    </AnimatedPressable>
-                  </View>
-
-                  {isHabit && (
-                    <Animated.View
-                      entering={FadeInDown.duration(300)}
-                      style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
-                      {(['daily', 'weekly'] as const).map((c) => (
-                        <AnimatedPressable
-                          key={c}
-                          onPress={() => setCadence(c)}
-                          containerStyle={{ flex: 1 }} style={{
-                            paddingVertical: 12,
-                            borderRadius: RADIUS.sm,
-                            alignItems: 'center',
-                            backgroundColor:
-                              cadence === c
-                                ? 'rgba(139,92,246,0.1)'
-                                : isDark
-                                  ? '#2c2c2c'
-                                  : '#f8f8f8',
-                            borderWidth: 1,
-                            borderColor: cadence === c ? brand.violet : 'transparent',
-                          }}>
-                          <Text
-                            style={{
-                              color: cadence === c ? brand.violet : '#767575',
-                              fontFamily: FONT.semibold,
-                              textTransform: 'capitalize',
-                            }}>
-                            {c}
-                          </Text>
-                        </AnimatedPressable>
-                      ))}
-                    </Animated.View>
-                  )}
-                </View>
 
                 {/* AI credit count */}
                 {mode === 'ai' && aiRemaining !== null && (
@@ -1262,6 +1371,43 @@ const NewShard = () => {
                     </View>
                   </View>
                 )}
+
+                {/* Course Form */}
+                {mode === 'course' && (
+                  <View style={glassStyle}>
+                    <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, backgroundColor: c.violet, opacity: 0.85 }} />
+                    <HudLabel color={c.textDim} style={{ marginBottom: 12 }}>
+                      What do you want to learn or achieve?
+                    </HudLabel>
+                    <TextInput
+                      value={courseGoal}
+                      onChangeText={setCourseGoal}
+                      placeholder="e.g., Master Full-Stack Web Development"
+                      multiline
+                      numberOfLines={4}
+                      style={{
+                        fontSize: 18,
+                        fontFamily: FONT.semibold,
+                        borderBottomWidth: 1.5,
+                        borderBottomColor: courseGoal ? c.violet : c.panelBorderStrong,
+                        paddingVertical: 12,
+                        minHeight: 100,
+                        color: c.text,
+                      }}
+                      placeholderTextColor={c.textFaint}
+                      textAlignVertical="top"
+                    />
+                    <View className="mt-6">
+                      <MediaDateGrid
+                        onImageSelect={setCourseImageUri}
+                        deadline={courseDeadline}
+                        onDatePress={() => setShowCourseDatePicker(true)}
+                      />
+                    </View>
+                  </View>
+                )}
+
+                {mode === 'manual' && renderQuestOptions()}
 
                 {/* Manual Form */}
                 {mode === 'manual' && (
@@ -1372,27 +1518,14 @@ const NewShard = () => {
                   </View>
                 )}
 
-                {/* Friends */}
-                <View className="mt-6">
-                  <TeamQuickAssign
-                    isDark={isDark}
-                    onAssignTeam={(memberIds) => {
-                      memberIds
-                        .filter((id) => id !== currentUserId)
-                        .forEach((id) => handleFriendSelect(id, 'collaborator'));
-                    }}
-                  />
-                  <FriendSelection
-                    selectedFriends={selectedFriends}
-                    onSelect={handleFriendSelect}
-                    isDark={isDark}
-                  />
-                </View>
-
-                {/* AI hint */}
+                {/*
+                  AI hint — a plain View for the same reason as the participants
+                  container above it: this sits BELOW content that changes size,
+                  so it has to be free to be pushed down. An `entering` animation
+                  owns its position, and an owned position doesn't get pushed.
+                */}
                 {mode === 'ai' && (
-                  <Animated.View
-                    entering={FadeInDown.delay(150).duration(260)}
+                  <View
                     className="mt-6 flex-row items-start gap-3 rounded-2xl border p-4"
                     style={{
                       borderColor: isDark ? 'rgba(139,92,246,0.15)' : 'rgba(139,92,246,0.1)',
@@ -1405,76 +1538,129 @@ const NewShard = () => {
                       Our AI will break down your goal into manageable steps, suggest resources, and
                       set up a personalised timeline.
                     </Text>
-                  </Animated.View>
+                  </View>
                 )}
 
-                {/* CTA Step 1 */}
-                <Animated.View entering={FadeInDown.delay(150).duration(260)} className="mt-10">
-                  <AnimatedPressable
-                    onPress={mode === 'ai' ? handleAIContinue : handleManualContinue}
-                    disabled={loading}
-                    scaleDown={0.95}
-                    className="flex-row items-center justify-center gap-3 py-4"
+                {mode === 'course' && (
+                  <View
+                    className="mt-6 flex-row items-start gap-3 rounded-2xl border p-4"
                     style={{
-                      backgroundColor: c.violet,
-                      borderRadius: RADIUS.md,
-                      shadowColor: '#7c3aed',
-                      shadowOpacity: 0.35,
-                      shadowRadius: 14,
-                      shadowOffset: { width: 0, height: 4 },
-                      elevation: 6,
-                      opacity: loading ? 0.7 : 1,
+                      borderColor: isDark ? 'rgba(139,92,246,0.15)' : 'rgba(139,92,246,0.1)',
+                      backgroundColor: isDark ? 'rgba(139,92,246,0.05)' : 'rgba(139,92,246,0.04)',
                     }}>
-                    {loading ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <>
-                        <Ionicons
-                          name={outOfCredits ? 'lock-open' : mode === 'ai' ? 'flash' : 'arrow-forward'}
-                          size={18}
-                          color="#fff"
-                        />
-                        <Text style={{ color: '#fff', fontFamily: FONT.bold, fontSize: 15 }}>
-                          {outOfCredits ? 'Unlock AI · Go Pro' : mode === 'ai' ? 'Forge Quest' : 'Continue'}
-                        </Text>
-                      </>
-                    )}
-                  </AnimatedPressable>
-                </Animated.View>
+                    <Ionicons name="book-outline" size={18} color="#8b5cf6" />
+                    <Text
+                      className="flex-1 text-xs leading-5"
+                      style={{ color: isDark ? '#adaaaa' : '#666' }}>
+                      Import a course from YouTube, Udemy, Coursera, or a syllabus and turn it into a paced study plan.
+                    </Text>
+                  </View>
+                )}
+
               </>
             )}
 
-            {/* ─── STEP 2 (AI) — Loading or Review ───────── */}
-            {step === 2 && mode === 'ai' && loading && (
-              <AILoadingView
+            {/* ─── SHARPEN (AI) — the interview ─────────── */}
+            {step === 'sharpen' && (
+              <SharpenStep
+                questions={questDraft.questions}
+                answers={answers}
+                onChange={setAnswers}
+                onSkipAll={handleSkipAll}
                 isDark={isDark}
-                onCancel={() => {
-                  setLoading(false);
-                  setStep(1);
-                }}
               />
             )}
 
-            {step === 2 && mode === 'ai' && !loading && (
-              <View style={glassStyle}>
-                <AIReviewStep
-                  miniGoals={reviewMiniGoals}
-                  onRemove={(id) => {
-                    setReviewMiniGoals((prev) => prev.filter((mg) => mg.id !== id));
-                    // Delete from DB — fire and forget, non-blocking
-                    deleteMiniGoal({ variables: { miniGoalId: id } }).catch(() => {});
-                  }}
-                  onConfirm={handleAIConfirm}
-                  onRegenerate={handleAIRegenerate}
+            {/* ─── SHAPE (AI) — generation lands here, then edit ─── */}
+            {step === 'shape' && questDraft.generating && (
+              <GeneratingView
+                phases={questDraft.streamedPhases}
+                onCancel={() => wizard.reset()}
+                isDark={isDark}
+              />
+            )}
+
+            {step === 'shape' && !questDraft.generating && questDraft.plan && (
+              <>
+                <ShapeWorkspace
+                  plan={questDraft.plan}
+                  warning={questDraft.warning}
+                  onEdit={questDraft.applyEdit}
                   isDark={isDark}
-                  confirming={confirming}
-                  warning={aiWarning}
+                  busy={questDraft.refining}
+                  // Both fixes change inputs the scheduler reads at commit, so
+                  // they're real levers — but neither re-runs the model, so the
+                  // warning text stays as generated until the next refinement.
+                  onChangeDeadline={() => setShapeDatePicker(true)}
+                  onChangeRhythm={
+                    questDraft.questions.some((q) => q.slot === 'rhythm')
+                      ? () => {
+                          wizard.goTo('sharpen');
+                          scrollRef.current?.scrollTo({ y: 0, animated: true });
+                        }
+                      : undefined
+                  }
                 />
-              </View>
+                <RefineBar
+                  refinements={questDraft.draft?.refinements ?? []}
+                  remaining={questDraft.draft?.refinementsRemaining ?? 0}
+                  changes={questDraft.changes}
+                  canUndo={!!questDraft.draft?.canUndo}
+                  busy={questDraft.refining}
+                  onRefine={async (instruction) => {
+                    const res = await questDraft.refine(instruction);
+                    if (res && !res.success && res.message) {
+                      addAlert({ str: res.message, type: 'warning' });
+                    }
+                  }}
+                  onUndo={questDraft.undo}
+                  onDismissChanges={questDraft.clearChanges}
+                  isDark={isDark}
+                />
+                {/* Below the plan and the refine box: these are decisions about
+                    a plan that now exists, not preconditions for making one. */}
+                {renderQuestOptions()}
+              </>
+            )}
+
+            {/* ─── COURSE MODE STEPS ───────────────────────── */}
+            {step === 'source' && (
+              <CourseSourceStep
+                goal={courseGoal}
+                onImport={handleCourseImport}
+                loading={importCurriculumLoading}
+                notice={courseNotice}
+                isDark={isDark}
+              />
+            )}
+
+            {step === 'curriculumReview' && courseCurriculum && (
+              <CurriculumReviewStep
+                curriculum={courseCurriculum}
+                onChange={setCourseCurriculum}
+                onProceed={() => {
+                  wizard.next();
+                  scrollRef.current?.scrollTo({ y: 0, animated: true });
+                }}
+                isDark={isDark}
+              />
+            )}
+
+            {step === 'pace' && courseCurriculum && courseDraftId && (
+              <CoursePaceStep
+                draftId={courseDraftId}
+                curriculum={courseCurriculum}
+                rhythm={courseRhythm}
+                deadline={courseDeadline?.toISOString()}
+                onChangeRhythm={setCourseRhythm}
+                onCreateQuest={handleCourseCreateQuest}
+                loading={createCourseShardLoading}
+                isDark={isDark}
+              />
             )}
 
             {/* ─── STEP 2 (Manual) — Mini-Goal Builder ───── */}
-            {step === 2 && mode === 'manual' && (
+            {step === 'minigoals' && (
               <Animated.View entering={FadeInDown.duration(400)}>
                 <View style={glassStyle}>
                   <MiniGoalBuilder
@@ -1527,7 +1713,99 @@ const NewShard = () => {
             )}
           </Animated.View>
         </ScrollView>
+
+        {/*
+          Primary action, pinned to the screen rather than the end of the scroll.
+          In the flow it sat below the friend picker, so it drifted up and down
+          as that list expanded and could land mid-screen — and reaching the main
+          action meant scrolling past everything optional.
+        */}
+        {(step === 'compose' || step === 'sharpen' || step === 'shape') && (
+          <View
+            style={{
+              paddingHorizontal: 20,
+              paddingTop: 12,
+              paddingBottom: 12,
+              backgroundColor: c.bg,
+              borderTopWidth: 1,
+              borderTopColor: c.panelBorder,
+            }}>
+            <AnimatedPressable
+              onPress={
+                step === 'sharpen'
+                  ? handleSharpenContinue
+                  : step === 'shape'
+                    ? handleCommit
+                    : mode === 'ai'
+                      ? handleAIContinue
+                      : mode === 'course'
+                        ? handleCourseContinue
+                        : handleManualContinue
+              }
+              disabled={
+                loading ||
+                questDraft.generating ||
+                questDraft.committing ||
+                // Committing an empty plan is the one thing the workspace can
+                // reach that the server would reject.
+                (step === 'shape' && !questDraft.plan?.miniQuests.length)
+              }
+              scaleDown={0.95}
+              accessibilityRole="button"
+              accessibilityLabel={ctaLabel}
+              className="flex-row items-center justify-center gap-3 py-4"
+              style={{
+                backgroundColor: c.violet,
+                borderRadius: RADIUS.md,
+                shadowColor: '#7c3aed',
+                shadowOpacity: 0.35,
+                shadowRadius: 14,
+                shadowOffset: { width: 0, height: 4 },
+                elevation: 6,
+                opacity: loading || questDraft.generating || questDraft.committing ? 0.7 : 1,
+              }}>
+              {loading || questDraft.committing ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name={ctaIcon} size={18} color="#fff" />
+                  <Text style={{ color: '#fff', fontFamily: FONT.bold, fontSize: 15 }}>
+                    {ctaLabel}
+                  </Text>
+                </>
+              )}
+            </AnimatedPressable>
+
+            {/* Shaping is optional — the plan is committable the moment it lands. */}
+            {step === 'sharpen' && (
+              <Text
+                style={{
+                  textAlign: 'center',
+                  color: c.textFaint,
+                  fontSize: 12,
+                  marginTop: 10,
+                }}>
+                Every question is optional
+              </Text>
+            )}
+          </View>
+        )}
       </KeyboardAvoidingView>
+
+      {shapeDatePicker && (
+        <DateTimePicker
+          value={
+            questDraft.draft?.deadline ? new Date(questDraft.draft.deadline) : new Date()
+          }
+          mode="date"
+          display={Platform.OS === 'ios' ? 'inline' : 'default'}
+          minimumDate={new Date()}
+          onChange={(_, d) => {
+            setShapeDatePicker(Platform.OS === 'ios');
+            if (d) questDraft.applyEdit({ op: 'setDeadline', dueDate: String(d.getTime()) });
+          }}
+        />
+      )}
 
       {showAiDatePicker && (
         <DateTimePicker

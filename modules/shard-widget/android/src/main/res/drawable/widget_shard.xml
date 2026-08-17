@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The shard motif.
+
+  First cut of this traced the tall crystal from components/AnimatedCrystal.tsx.
+  On a device it was unreadable: that silhouette is 84:180, so at a height that
+  sits beside a 28sp numeral it is ten dp wide and reads as a purple sliver
+  rather than a crystal. Rendered proof is in the render test's PNGs.
+
+  So it is the wordmark's triangle instead — the ▲ from SH▲RD in
+  components/hud WordMark — which is the mark a user has actually seen, and the
+  one shape that still reads at 13dp. The lit/shadow split down the centre ridge
+  keeps the faceted-crystal character that a flat triangle would lose.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="13dp"
+    android:height="13dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+  <!-- Lit face -->
+  <path
+      android:fillColor="@color/widget_violet_light"
+      android:pathData="M50 4 L4 94 L50 94 Z" />
+  <!-- Shadow face -->
+  <path
+      android:fillColor="@color/widget_violet_deep"
+      android:pathData="M50 4 L96 94 L50 94 Z" />
+</vector>

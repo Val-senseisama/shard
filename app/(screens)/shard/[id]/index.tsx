@@ -12,6 +12,8 @@ import { useColorScheme } from '~/hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useUserStore } from '~/store/user.store';
+import BriefEditor from '~/components/new-shard/BriefEditor';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_SHARD, GET_SHARD_SCHEDULE, GET_SHARD_ANALYTICS } from '~/Graphql/Queries';
@@ -237,6 +239,8 @@ interface OverviewTabProps {
   expandedSummary: boolean;
   setExpandedSummary: (v: boolean) => void;
   onComplete: (miniGoalId: string, taskIndex: number, completed: boolean) => void;
+  /** Owner-only. Absent for participants, which is what hides the control. */
+  onEditBrief?: () => void;
 }
 const OverviewTab = memo(
   ({
@@ -246,6 +250,7 @@ const OverviewTab = memo(
     expandedSummary,
     setExpandedSummary,
     onComplete,
+    onEditBrief,
   }: OverviewTabProps) => {
     const theme = t(isDark);
     const shadow = getCardShadow(isDark);
@@ -267,9 +272,25 @@ const OverviewTab = memo(
             borderLeftColor: ACCENT,
             ...(shadow as any),
           }}>
-          <Text style={[S.sectionLabel, { color: theme.textSecondary, marginBottom: 8 }]}>
-            SHARD SUMMARY
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            <Text style={[S.sectionLabel, { color: theme.textSecondary, flex: 1 }]}>
+              SHARD SUMMARY
+            </Text>
+            {/* The brief drives the coach, reflections and nudge copy, so a
+                wrong one quietly skews all of them — it has to be correctable. */}
+            {!!onEditBrief && (
+              <AnimatedPressable
+                onPress={onEditBrief}
+                hitSlop={8}
+                accessibilityLabel="Edit what this quest is about"
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Ionicons name="create-outline" size={14} color={ACCENT} />
+                <Text style={{ color: ACCENT, fontSize: 12, fontFamily: FONT.semibold }}>
+                  About
+                </Text>
+              </AnimatedPressable>
+            )}
+          </View>
           <Text
             style={{ fontSize: 14, lineHeight: 22, color: theme.text }}
             numberOfLines={expandedSummary ? undefined : 3}>
@@ -537,6 +558,10 @@ const ShardDetail = () => {
     newLevel: 0,
   });
   const [expandedSummary, setExpandedSummary] = useState(false);
+  const [editingBrief, setEditingBrief] = useState(false);
+  // Only the owner set the brief, and only the owner's answers drive the AI —
+  // a participant editing it would be rewriting someone else's intent.
+  const currentUserId = useUserStore((st) => st.user?.id);
   const [refreshing, setRefreshing] = useState(false);
 
   // ─── Queries ──────────────────────────────────────────────────────
@@ -551,6 +576,9 @@ const ShardDetail = () => {
     notifyOnNetworkStatusChange: true,
   });
   const shard = shardData?.getShard?.shard;
+  const isShardOwner =
+    !!currentUserId &&
+    (shard?.owner?.id ?? shard?.owner?._id?.toString()) === currentUserId;
 
   const {
     data: scheduleData,
@@ -933,7 +961,20 @@ const ShardDetail = () => {
           expandedSummary={expandedSummary}
           setExpandedSummary={setExpandedSummary}
           onComplete={handleCompleteTask}
+          onEditBrief={isShardOwner ? () => setEditingBrief(true) : undefined}
         />
+        {isShardOwner && (
+          <BriefEditor
+            shardId={id as string}
+            brief={shard?.brief}
+            visible={editingBrief}
+            onClose={() => setEditingBrief(false)}
+            // Refetch so the summary and any later coach reply read the new
+            // brief rather than the cached one.
+            onSaved={() => refetchShard?.()}
+            isDark={isDark}
+          />
+        )}
         <ProgressTab
           visible={activeTab === 'progress'}
           isDark={isDark}

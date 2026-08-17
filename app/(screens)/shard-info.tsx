@@ -40,9 +40,10 @@ import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { useAppStore } from '~/store/app.store';
 import ShardHeaderSkeleton from '@/components/ShardHeaderSkeleton';
 import GoalCardSkeleton from '@/components/GoalCardSkeleton';
-import ProgressChartSkeleton from '@/components/ProgressChartSkeleton';
 import Toast from 'react-native-toast-message';
 import ScheduleTaskSkeleton from '@/components/ScheduleTaskSkeleton';
+import { avatarUri } from '~/helpers/avatarUri';
+import { DEFAULT_SHARD_IMAGE } from '~/components/ShardCard';
 import AssignmentSheet from '~/components/AssignmentSheet';
 import { useUserStore } from '~/store/user.store';
 import AnimatedPressable from '~/components/AnimatedPressable';
@@ -995,7 +996,7 @@ const ShardInfo = () => {
                 <View className="mr-4">
                   {/* Shard Image */}
                   <Image
-                    source={{ uri: shard.image }}
+                    source={{ uri: shard.image || DEFAULT_SHARD_IMAGE }}
                     className="mb-3 h-40 w-40 rounded-xl bg-gray-200"
                     resizeMode="cover"
                   />

@@ -12,6 +12,17 @@ export interface ScheduleTask {
   /** Epoch-millis string. Drives the undo window; null once undone. */
   completedAt?: string | null;
   xpReward: number;
+  /**
+   * 0-based position within the parent mini-goal.
+   *
+   * `completeTask` and `resolveOverdueTask` both address a task by this index.
+   * The schedule API has always returned it; the client used to re-derive it by
+   * splitting the composite `${miniGoalId}-${taskIndex}` id instead, which works
+   * but is a second source of truth for the same fact.
+   */
+  taskIndex?: number;
+  /** Past due and still open, as marked by the server's nightly sweep. */
+  overdue?: boolean;
 }
 
 interface ScheduleStore {

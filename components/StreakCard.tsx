@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_STREAKS } from '~/Graphql/Queries';
 import { REPAIR_STREAK } from '~/Graphql/Mutations';
-import { hud, FONT, RADIUS, HudLabel, Num, HudButton } from '~/components/hud';
+import { hud, FONT, RADIUS, HudLabel, HudSkeleton, Num, HudButton } from '~/components/hud';
 
 /**
  * The streak, with the state it's actually in.
@@ -31,7 +31,7 @@ export default function StreakCard({ onRepaired }: { onRepaired?: (days: number)
   const isDark = useColorScheme() === 'dark';
   const c = hud(isDark);
 
-  const { data, refetch } = useQuery(GET_STREAKS, { fetchPolicy: 'cache-and-network' });
+  const { data, loading, refetch } = useQuery(GET_STREAKS, { fetchPolicy: 'cache-and-network' });
   const [repair, { loading: repairing }] = useMutation(REPAIR_STREAK);
 
   const streak: StreakInfo | undefined = data?.getStreaks?.streaks?.[0];
@@ -48,6 +48,40 @@ export default function StreakCard({ onRepaired }: { onRepaired?: (days: number)
       // The mutation surfaces its own message; nothing useful to add here.
     }
   }, [repair, refetch, onRepaired]);
+
+  // Hold the slot while the first fetch is in flight.
+  //
+  // This used to `return null` until GET_STREAKS resolved, which is what caused
+  // the card to render on top of the Pro banner and the Account list. An empty
+  // wrapper measures zero, every sibling below it gets laid out at that zero
+  // height, and then the card's ~190px of content arrives and paints outside its
+  // own bounds — RN Android does not clip an overflowing View — landing behind
+  // whatever was placed in the space it never reserved. A skeleton makes the
+  // slot the same height from the first frame, so nothing after it ever moves.
+  //
+  // `data === undefined` rather than `loading`: this is cache-and-network, so
+  // `loading` is also true during background refetches, and blanking a card the
+  // user is already reading would be its own bug.
+  if (data === undefined && loading) {
+    return (
+      <View
+        style={{
+          backgroundColor: c.panel,
+          borderColor: c.panelBorder,
+          borderWidth: 1,
+          borderRadius: RADIUS.md,
+          padding: 16,
+        }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <HudSkeleton isDark={isDark} width={40} height={40} radius={RADIUS.pill} />
+          <View style={{ flex: 1, gap: 6 }}>
+            <HudSkeleton isDark={isDark} width={72} height={22} radius={6} />
+            <HudSkeleton isDark={isDark} width="60%" height={12} radius={4} />
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   if (!streak) return null;
 

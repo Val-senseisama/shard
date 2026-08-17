@@ -1,7 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  The widget card. `panel`, not `bg` — see the note in values/colors.xml.
+
+  A flat fill would be honest to the app's cards, but a home screen puts this on
+  an arbitrary wallpaper with no page behind it, so it gets the faintest vertical
+  lift (panel → panel over bgElev) to keep it from reading as a sticker. The two
+  stops are 6 points apart; it is a gradient you notice only by its absence.
+-->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-  <solid android:color="@color/widget_bg" />
-  <corners android:radius="24dp" />
+  <gradient
+      android:angle="270"
+      android:startColor="@color/widget_panel"
+      android:endColor="@color/widget_panel_high"
+      android:type="linear" />
+  <corners android:radius="@dimen/widget_corner" />
   <stroke android:width="1dp" android:color="@color/widget_border" />
 </shape>

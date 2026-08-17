@@ -6,10 +6,13 @@ import AnimatedPressable from './AnimatedPressable';
 import { Ionicons } from '@expo/vector-icons';
 import { hud, FONT, HudLabel, Mono, ShardBar } from './hud';
 
+export const DEFAULT_SHARD_IMAGE =
+  'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=800&auto=format&fit=crop&q=80';
+
 interface ShardCardProps {
   title: string;
   summary: string;
-  image: string;
+  image?: string;
   completionRate: number;
   unreadCount?: number;
   participantsCount?: number;
@@ -46,7 +49,7 @@ const ShardCard: React.FC<ShardCardProps> = ({
       }}>
       {/* Cover image with obsidian scrim + HUD status tag */}
       <View>
-        <Image source={{ uri: image }} style={{ width: '100%', height: 148 }} resizeMode="cover" />
+        <Image source={{ uri: image || DEFAULT_SHARD_IMAGE }} style={{ width: '100%', height: 148 }} resizeMode="cover" />
         <LinearGradient
           colors={['transparent', isDark ? 'rgba(11,11,16,0.85)' : 'rgba(20,20,30,0.55)']}
           style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 80 }}

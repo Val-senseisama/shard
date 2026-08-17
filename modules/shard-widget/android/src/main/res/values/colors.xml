@@ -7,16 +7,40 @@
   Duplicated rather than imported because RemoteViews resolves resources from
   XML at render time and cannot reach the JS palette. If palette.js changes,
   change these too.
+
+  Note on `widget_bg`: the widget uses `panel`, not `bg`. In the app, `bg` is the
+  page behind the cards and no surface is ever drawn in it — every card is
+  `panel` on top. A widget IS a card (it sits on the wallpaper, not on a Shard
+  screen), so painting it `#0F0E0E` made it read as a hole rather than one of the
+  app's panels.
+
+  The rgba() borders in palette.js are flattened to their composite over
+  `panel` — RemoteViews drawables can hold alpha, but a hairline that blends
+  with whatever wallpaper shows through the corner radius is not what the app
+  does, and the flattened value is what the eye actually sees in-app.
 -->
 <resources>
-  <color name="widget_bg">#0F0E0E</color>
+  <!-- Surfaces. panel = hud.panel, panelHigh = hud.bgElev used for inset wells. -->
   <color name="widget_panel">#1E1E1E</color>
-  <color name="widget_border">#2A2A2A</color>
+  <color name="widget_panel_high">#181818</color>
+  <color name="widget_border">#2C2C2C</color>
+
+  <!-- Type. -->
   <color name="widget_text">#FFFFFF</color>
   <color name="widget_text_dim">#9B9AA0</color>
   <color name="widget_text_faint">#6B6A70</color>
+
+  <!-- Accents. violet = primary, cyan = refraction (used only as the far end of
+       the progress gradient, exactly as ShardBar does), ember = streak warmth. -->
   <color name="widget_violet">#8B5CF6</color>
   <color name="widget_violet_deep">#6D28D9</color>
+  <color name="widget_violet_light">#A78BFA</color>
+  <color name="widget_cyan">#48E0EE</color>
   <color name="widget_ember">#F5A524</color>
   <color name="widget_track">#2A2A2A</color>
+
+  <!-- Tints for pill chips: the accent at low alpha over panel, which is how
+       every badge in the app is filled. -->
+  <color name="widget_ember_tint">#26F5A524</color>
+  <color name="widget_violet_tint">#268B5CF6</color>
 </resources>

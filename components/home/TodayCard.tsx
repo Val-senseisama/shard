@@ -5,12 +5,12 @@ import { useQuery, useMutation, useApolloClient } from '@apollo/client';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import Toast from 'react-native-toast-message';
-import { GET_MY_SCHEDULE } from '~/Graphql/Queries';
+import { GET_MY_SCHEDULE, MY_SIDE_QUESTS } from '~/Graphql/Queries';
 import { COMPLETE_TASK, UNCOMPLETE_TASK } from '~/Graphql/Mutations';
 import { useOfflineMutation } from '~/hooks/useOfflineMutation';
 import { useScheduleStore, ScheduleTask } from '~/store/schedule.store';
 import { useUserStore } from '~/store/user.store';
-import { groupTasksByLocalDate, todayKey } from '~/helpers/dateKeys';
+import { buildTodayPlan, daysFromToday } from '~/helpers/todayPlan';
 import { canUndo } from '~/helpers/undo';
 import Animated, { LinearTransition } from 'react-native-reanimated';
 import AnimatedPressable from '~/components/AnimatedPressable';
@@ -132,9 +132,18 @@ const TodayCard = ({ isDark: isDarkProp }: { isDark?: boolean }) => {
     if (data?.getMySchedule) setSchedule(data.getMySchedule);
   }, [data, setSchedule]);
 
-  // NB: deliberately NOT using getMySchedule.todaysTasks — the server buckets
-  // it in UTC. See helpers/dateKeys.ts.
-  const todaysTasks = useMemo(() => groupTasksByLocalDate(tasks)[todayKey()] ?? [], [tasks]);
+  // Only consulted when today is empty, so it must never gate the card: a
+  // failure here has to leave Home rendering exactly as it would have.
+  const { data: questData } = useQuery(MY_SIDE_QUESTS, { fetchPolicy: 'cache-first' });
+
+  // The one answer to "what should I do today", shared with the home-screen
+  // widget so the two can never disagree. Also re-buckets by LOCAL day — the
+  // server's `todaysTasks` is UTC. See helpers/todayPlan.ts.
+  const plan = useMemo(
+    () => buildTodayPlan(tasks, questData?.mySideQuests?.sideQuests ?? []),
+    [tasks, questData]
+  );
+  const todaysTasks = plan.tasks;
 
   // A task already being completed must not be submitted twice; the second
   // request returns success with xpEarned: 0 and would show a "+0 XP" party.
@@ -231,6 +240,35 @@ const TodayCard = ({ isDark: isDarkProp }: { isDark?: boolean }) => {
 
   const doneCount = todaysTasks.filter((t) => t.completed).length;
   const total = todaysTasks.length;
+
+  // On a fallback day the suggestion is a real task borrowed from another day,
+  // so look the original back up and render it through TaskRow. That buys the
+  // tick, the XP line and the undo window for free, and — more to the point —
+  // means completing it goes down the same path as any other task rather than a
+  // second implementation that could drift.
+  const fallbackTask = useMemo(() => {
+    const s = plan.suggestion;
+    if (!s || s.kind !== 'task') return null;
+    return tasks.find((t) => t.id === s.id) ?? null;
+  }, [plan.suggestion, tasks]);
+
+  // One line that explains both why the card is empty and why this particular
+  // thing is being offered. Says "nothing scheduled" every time, because that
+  // is still true and hiding it would make a borrowed task look like a plan.
+  const fallbackReason = useMemo(() => {
+    if (plan.source === 'overdue') {
+      const late = -daysFromToday(fallbackTask?.dueDate);
+      return `Nothing scheduled — this one is ${late} day${late === 1 ? '' : 's'} late`;
+    }
+    if (plan.source === 'sideQuest') return 'Nothing scheduled — a side quest keeps your streak';
+    if (plan.source === 'upcoming') {
+      const away = daysFromToday(fallbackTask?.dueDate);
+      return away <= 1
+        ? 'Nothing scheduled — get a head start on tomorrow'
+        : `Nothing scheduled — get a head start on something due in ${away} days`;
+    }
+    return null;
+  }, [plan.source, fallbackTask]);
   const allDone = total > 0 && doneCount === total;
   const xpToday = todaysTasks.filter((t) => t.completed).reduce((sum, t) => sum + (t.xpReward || 0), 0);
   const visible = todaysTasks.slice(0, MAX_ROWS);
@@ -281,20 +319,56 @@ const TodayCard = ({ isDark: isDarkProp }: { isDark?: boolean }) => {
             ))}
           </View>
         ) : total === 0 ? (
-          <AnimatedPressable
-            scaleDown={0.98}
-            onPress={() => router.push('/(screens)/(tabs)/schedule')}
-            style={{ flexDirection: 'row', alignItems: 'center', paddingTop: 14 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 14, fontFamily: FONT.semibold, color: c.textDim }}>
-                Nothing scheduled today
+          // The planner had nothing for today. That is not the same as the user
+          // having nothing to do, and it used to be reported as if it were —
+          // while the streak, which counts activity and ignores the schedule,
+          // quietly ran out. helpers/todayPlan.ts finds the next best thing.
+          <View style={{ paddingTop: 14 }}>
+            {fallbackReason && (
+              <Text style={{ fontSize: 13, fontFamily: FONT.regular, color: c.textDim }}>
+                {fallbackReason}
               </Text>
-              <Text style={{ fontSize: 13, fontFamily: FONT.regular, color: c.violet, marginTop: 3 }}>
-                Plan my day
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={c.textFaint} />
-          </AnimatedPressable>
+            )}
+
+            {fallbackTask ? (
+              <TaskRow task={fallbackTask} isDark={isDark} onToggle={handleToggle} />
+            ) : plan.suggestion ? (
+              <AnimatedPressable
+                scaleDown={0.98}
+                onPress={() => router.push('/(screens)/side-quests')}
+                accessibilityLabel={`Side quest: ${plan.suggestion.title}`}
+                style={{ flexDirection: 'row', alignItems: 'center', paddingTop: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <Text numberOfLines={2} style={{ fontSize: 14, fontFamily: FONT.semibold, color: c.text }}>
+                    {plan.suggestion.title}
+                  </Text>
+                  {plan.suggestion.xpReward > 0 && (
+                    <Num color={c.ember} size={12} style={{ marginTop: 3 }}>
+                      +{plan.suggestion.xpReward} XP
+                    </Num>
+                  )}
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={c.textFaint} />
+              </AnimatedPressable>
+            ) : (
+              // Genuinely nothing anywhere — no tasks, no side quests. The only
+              // honest version of the old copy, and now rare.
+              <AnimatedPressable
+                scaleDown={0.98}
+                onPress={() => router.push('/(screens)/(tabs)/schedule')}
+                style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontFamily: FONT.semibold, color: c.textDim }}>
+                    Nothing scheduled today
+                  </Text>
+                  <Text style={{ fontSize: 13, fontFamily: FONT.regular, color: c.violet, marginTop: 3 }}>
+                    Plan my day
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={c.textFaint} />
+              </AnimatedPressable>
+            )}
+          </View>
         ) : allDone ? (
           <View style={{ paddingTop: 14 }}>
             <Text style={{ fontSize: 15, fontFamily: FONT.bold, color: c.text }}>Today cleared 🔥</Text>

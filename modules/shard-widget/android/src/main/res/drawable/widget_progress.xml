@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The XP bar, which the design system names as one of the three things the
+  identity actually lives in (colour, shard motif, XP bars) — the widget had
+  none of them. Mirrors components/hud ShardBar: `track` groove, pill radius,
+  violet → cyan refraction fill.
+
+  Not a pixel-exact port. ShardBar sizes its gradient to the *fill*, so cyan is
+  visible at the leading edge at any progress; a <clip> lays the gradient out at
+  full width and reveals it left-to-right, so a 20% bar would be flat violet.
+  The three stops compensate — violetLight → violet lands in the first third, so
+  the bar still refracts when the day has barely started.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+  <item android:id="@android:id/background">
+    <shape android:shape="rectangle">
+      <solid android:color="@color/widget_track" />
+      <corners android:radius="@dimen/hud_radius_pill" />
+    </shape>
+  </item>
+  <item android:id="@android:id/progress">
+    <clip android:clipOrientation="horizontal" android:gravity="left">
+      <shape android:shape="rectangle">
+        <gradient
+            android:angle="0"
+            android:startColor="@color/widget_violet_light"
+            android:centerColor="@color/widget_violet"
+            android:endColor="@color/widget_cyan"
+            android:type="linear" />
+        <corners android:radius="@dimen/hud_radius_pill" />
+      </shape>
+    </clip>
+  </item>
+</layer-list>

@@ -709,8 +709,18 @@ const Account = () => {
         {/* ── Streak ── */}
         {/* Its own surface because the streak has states now (at risk, frozen,
             broken-and-repairable), not just a count. The small tile below still
-            shows the number at a glance. */}
-        <Animated.View entering={FadeInDown.delay(100).duration(260)} className="mx-5 mt-4">
+            shows the number at a glance.
+
+            Deliberately NOT an entering animation, unlike its neighbours. This
+            card's size depends on data that arrives after mount — the repair
+            block only exists in the broken state and adds ~115px — and a
+            Reanimated layout animation snapshots the view's frame. Animating a
+            container that then grows leaves the native view holding the old
+            frame, so the card painted its content outside its own bounds and
+            behind the Pro banner and the Account list, which had been laid out
+            in the space it never reserved. Every sibling here mounts at its full
+            size in one go; this one does not, so it does not get the animation. */}
+        <View className="mx-5 mt-4">
           <StreakCard
             onRepaired={(days) =>
               Toast.show({
@@ -720,11 +730,22 @@ const Account = () => {
               })
             }
           />
-        </Animated.View>
+        </View>
 
         {/* ── Pro Upsell (free users only) ── */}
+        {/* No `entering` here, unlike the sections above it.
+
+            A Reanimated entering animation captures the view's layout at MOUNT.
+            This block is gated on `user`, so it mounts after the first paint —
+            at a moment when the streak card above it is still the height of its
+            loading skeleton. It froze at that position and never moved again,
+            which is why it was drawn over the streak card ~110dp too high.
+
+            The rule this encodes: `entering` is only safe on a view that exists
+            at first paint. Anything that mounts on async data must not carry
+            one, because there is no guarantee the layout above it has settled. */}
         {user?.subscriptionTier !== 'pro' && (
-          <Animated.View entering={FadeInDown.delay(150).duration(260)} className="mx-5 mt-5">
+          <View className="mx-5 mt-5">
             <AnimatedPressable onPress={() => openPaywall('account')} scaleDown={0.97}>
               <LinearGradient
                 colors={['#7c3aed', brand.violetDeep]}
@@ -763,12 +784,13 @@ const Account = () => {
                 <Ionicons name="chevron-forward" size={22} color="#fff" />
               </LinearGradient>
             </AnimatedPressable>
-          </Animated.View>
+          </View>
         )}
 
         {/* ── Invite friends (referral) ── */}
+        {/* Same reason as the Pro block above: mounts on async user data. */}
         {user?.referralCode && (
-          <Animated.View entering={FadeInDown.delay(150).duration(260)} className="mx-5 mt-4">
+          <View className="mx-5 mt-4">
             <AnimatedPressable
               onPress={() => {
                 Share.share({
@@ -808,15 +830,18 @@ const Account = () => {
                 <Ionicons name="share-social-outline" size={22} color={isDark ? '#B9B9B9' : '#666666'} />
               </View>
             </AnimatedPressable>
-          </Animated.View>
+          </View>
         )}
 
         {/* ── Settings Sections ── */}
-        {settingsSections.map((section, sectionIndex) => (
-          <Animated.View
-            key={section.title}
-            entering={FadeInDown.delay(200 + sectionIndex * 80).duration(260)}
-            className="mx-5 mt-5">
+        {/* No `entering`, for the same reason as the two blocks above — these sit
+            below the streak card, whose height is not known until GET_STREAKS
+            resolves. A Reanimated entering animation on Android commits an
+            absolute frame; when the card above then grows from its skeleton to
+            its full height, these do not move, and the section is drawn on top
+            of the Pro banner instead of below it. */}
+        {settingsSections.map((section) => (
+          <View key={section.title} className="mx-5 mt-5">
             <Text
               style={{
                 fontSize: 10,
@@ -844,11 +869,11 @@ const Account = () => {
                 />
               ))}
             </View>
-          </Animated.View>
+          </View>
         ))}
 
         {/* ── Logout ── */}
-        <Animated.View entering={FadeInDown.delay(150).duration(260)} className="mx-5 mt-6">
+        <View className="mx-5 mt-6">
           <AnimatedPressable onPress={handleLogout} scaleDown={0.97}>
             <View
               style={{
@@ -862,7 +887,7 @@ const Account = () => {
               <Text style={{ fontSize: 14, fontFamily: FONT.semibold, color: '#ef4444' }}>Log Out</Text>
             </View>
           </AnimatedPressable>
-        </Animated.View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

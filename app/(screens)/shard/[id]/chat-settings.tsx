@@ -16,6 +16,7 @@ import { GET_CHAT } from '~/Graphql/Queries';
 import { REMOVE_SHARD_PARTICIPANT, ASSIGN_TASK_FROM_CHAT } from '~/Graphql/Mutations';
 import { useAppStore } from '~/store/app.store';
 import { useUserStore } from '~/store/user.store';
+import { avatarUri } from '~/helpers/avatarUri';
 
 const ChatSettings = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -74,7 +75,7 @@ const ChatSettings = () => {
     <View className="flex-row items-center justify-between border-b border-gray-100 p-4 dark:border-gray-800">
       <View className="flex-row items-center">
         <Image
-          source={{ uri: item.profilePic || 'https://via.placeholder.com/40' }}
+          source={{ uri: avatarUri(item.profilePic, item.username) }}
           className="h-10 w-10 rounded-full"
         />
         <View className="ml-3">

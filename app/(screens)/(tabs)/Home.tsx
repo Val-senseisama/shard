@@ -36,6 +36,7 @@ import { ACCENT } from '~/components/shard/constants';
 import { hud, FONT, HudLabel, Mono, ShardBar, RADIUS } from '~/components/hud';
 import TodayCard from '~/components/home/TodayCard';
 import RankCard from '~/components/home/RankCard';
+import WidgetPromptCard from '~/components/home/WidgetPromptCard';
 import * as syncService from '~/services/syncService';
 import { useUnlocks } from '~/helpers/unlocks';
 
@@ -199,10 +200,15 @@ const Home = () => {
             off. Before that it's a dead end taking attention from the first
             quest — see helpers/unlocks.ts. */}
         {unlocks.leaderboard && <RankCard isDark={isDark} />}
+        {/* Below the two cards that earn their place daily, not above them —
+            this one is an offer, and an offer that displaces the thing the user
+            came for is an ad. It renders nothing unless the device can pin a
+            widget, hasn't already, and the user hasn't waved it away. */}
+        {unlocks.widgetPrompt && <WidgetPromptCard isDark={isDark} />}
         <QuestLogHeader count={shards.length} isDark={isDark} />
       </>
     ),
-    [isDark, shards.length, unlocks.leaderboard]
+    [isDark, shards.length, unlocks.leaderboard, unlocks.widgetPrompt]
   );
 
   return (

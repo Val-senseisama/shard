@@ -134,13 +134,27 @@ export const HudButton = ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    // Works because every wrapper above this is a column with the default
+    // `alignItems: 'stretch'`, so the Pressable is already the parent's width
+    // and this fills it. In a ROW parent it would stretch vertically instead —
+    // if a call site ever needs a full-width button inside a row, that wants
+    // `flex: 1` on AnimatedPressable's containerStyle, not this.
     alignSelf: fullWidth ? 'stretch' : 'flex-start',
     opacity: isDisabled ? 0.55 : 1,
     overflow: 'hidden',
   };
 
   return (
-    <AnimatedPressable onPress={onPress} disabled={isDisabled} scaleDown={0.96} style={style}>
+    <AnimatedPressable
+      onPress={onPress}
+      disabled={isDisabled}
+      scaleDown={0.96}
+      // The label lives on the Pressable rather than being inferred from the
+      // Text child, so `loading` — which swaps that Text for a spinner — doesn't
+      // leave a screen reader with an unnamed button mid-press.
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
+      style={style}>
       {variant === 'primary' ? (
         <LinearGradient
           colors={isDisabled ? [c.track, c.track] : [c.violet, c.violetDeep]}

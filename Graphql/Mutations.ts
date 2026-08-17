@@ -899,6 +899,23 @@ export const RESOLVE_OVERDUE_TASK = gql`
   }
 `;
 
+/**
+ * Move a whole mini-goal, carrying its open tasks with it.
+ *
+ * Distinct from `updateMiniGoal`, which writes a `dueDate` on the mini-goal and
+ * moves nothing — the schedule is built from task due dates, so that alone
+ * changes a label and no work. This shifts every open task by the same delta,
+ * so the spacing the plan encodes survives the move.
+ */
+export const RESCHEDULE_MINI_GOAL = gql`
+  mutation RescheduleMiniGoal($miniGoalId: ID!, $newDueDate: String!) {
+    rescheduleMiniGoal(miniGoalId: $miniGoalId, newDueDate: $newDueDate) {
+      success
+      message
+    }
+  }
+`;
+
 /** Records that a completion card actually went out — measures the growth loop. */
 export const RECORD_SHARE = gql`
   mutation RecordShare($shareId: ID!, $platform: String!) {
@@ -908,3 +925,236 @@ export const RECORD_SHARE = gql`
     }
   }
 `;
+
+// ─── Quest drafts ────────────────────────────────────────────────────
+//
+// A draft is a quest that isn't real yet. Nothing appears in the user's quest
+// list until COMMIT_QUEST_DRAFT, which is what lets the review step actually
+// edit the plan — and what stops "regenerate" abandoning a quest that still
+// counts against the free-tier cap.
+
+const DRAFT_FIELDS = `
+  id
+  goal
+  deadline
+  refinements
+  refinementsRemaining
+  canUndo
+  plan {
+    mainQuest { title description estimatedDuration xpReward }
+    miniQuests {
+      id
+      title
+      description
+      estimatedDuration
+      xpReward
+      searchHint
+      dueDate
+      steps { id text estimatedDuration xpReward }
+    }
+    warning
+  }
+`;
+
+export const START_QUEST_INTAKE = gql`
+  mutation StartQuestIntake($goal: String!, $deadline: String) {
+    startQuestIntake(goal: $goal, deadline: $deadline) {
+      success
+      message
+      questions {
+        slot
+        prompt
+        inputKind
+        placeholder
+        suggestions
+      }
+    }
+  }
+`;
+
+export const START_QUEST_DRAFT = gql`
+  mutation StartQuestDraft(
+    $goal: String!
+    $deadline: String
+    $image: String
+    $participants: [ParticipantInput!]
+    $questType: String
+    $cadence: String
+    $brief: QuestBriefInput
+  ) {
+    startQuestDraft(
+      goal: $goal
+      deadline: $deadline
+      image: $image
+      participants: $participants
+      questType: $questType
+      cadence: $cadence
+      brief: $brief
+    ) {
+      success
+      message
+      needsUpgrade
+      isCrisis
+      draft { ${DRAFT_FIELDS} }
+    }
+  }
+`;
+
+export const EDIT_QUEST_DRAFT = gql`
+  mutation EditQuestDraft($draftId: ID!, $edit: DraftEditInput!) {
+    editQuestDraft(draftId: $draftId, edit: $edit) {
+      success
+      message
+      draft { ${DRAFT_FIELDS} }
+    }
+  }
+`;
+
+export const COMMIT_QUEST_DRAFT = gql`
+  mutation CommitQuestDraft($draftId: ID!) {
+    commitQuestDraft(draftId: $draftId) {
+      success
+      message
+      needsUpgrade
+      warning
+      shard { id title }
+    }
+  }
+`;
+
+export const REFINE_QUEST_DRAFT = gql`
+  mutation RefineQuestDraft($draftId: ID!, $instruction: String!) {
+    refineQuestDraft(draftId: $draftId, instruction: $instruction) {
+      success
+      message
+      refinementsRemaining
+      changes { kind phaseId title }
+      draft { ${DRAFT_FIELDS} }
+    }
+  }
+`;
+
+export const UNDO_QUEST_DRAFT = gql`
+  mutation UndoQuestDraft($draftId: ID!) {
+    undoQuestDraft(draftId: $draftId) {
+      success
+      message
+      draft { ${DRAFT_FIELDS} }
+    }
+  }
+`;
+
+export const UPDATE_SHARD_BRIEF = gql`
+  mutation UpdateShardBrief($shardId: ID!, $brief: QuestBriefInput!) {
+    updateShardBrief(shardId: $shardId, brief: $brief) {
+      success
+      message
+    }
+  }
+`;
+
+// ─── Course import mutations ──────────────────────────────────────────────────
+
+export const IMPORT_CURRICULUM = gql`
+  mutation ImportCurriculum($input: ImportCurriculumInput!) {
+    importCurriculum(input: $input) {
+      success
+      message
+      draftId
+      needsUpgrade
+      notice
+      curriculum {
+        provider
+        fidelity
+        title
+        author
+        url
+        thumbnail
+        totalSeconds
+        fetchedAt
+        sections {
+          title
+          items {
+            kind
+            title
+            durationSeconds
+            url
+            externalId
+            optional
+            synthesized
+          }
+        }
+      }
+    }
+  }
+`;
+
+export const PACE_CURRICULUM = gql`
+  mutation PaceCurriculum($input: PaceCurriculumInput!) {
+    paceCurriculum(input: $input) {
+      sessionCount
+      projectedEndDate
+      warning
+      miniGoals {
+        title
+        dueDate
+        taskCount
+        totalSeconds
+      }
+    }
+  }
+`;
+
+export const CREATE_SHARD_FROM_CURRICULUM = gql`
+  mutation CreateShardFromCurriculum($input: CreateFromCurriculumInput!) {
+    createShardFromCurriculum(input: $input) {
+      success
+      message
+      needsUpgrade
+      warning
+      shard {
+        id
+        title
+      }
+    }
+  }
+`;
+
+export const CATCH_UP_TO_TASK = gql`
+  mutation CatchUpToTask($shardId: ID!, $miniGoalId: ID!, $taskIndex: Int!) {
+    catchUpToTask(shardId: $shardId, miniGoalId: $miniGoalId, taskIndex: $taskIndex) {
+      success
+      message
+      tasksCompleted
+      xpAwarded
+      batchId
+    }
+  }
+`;
+
+export const UNDO_CATCH_UP = gql`
+  mutation UndoCatchUp($batchId: ID!) {
+    undoCatchUp(batchId: $batchId) {
+      success
+      message
+      tasksCompleted
+      xpAwarded
+      batchId
+    }
+  }
+`;
+
+export const REFLOW_SCHEDULE = gql`
+  mutation ReflowSchedule($shardId: ID!, $rhythm: RhythmInput) {
+    reflowSchedule(shardId: $shardId, rhythm: $rhythm) {
+      success
+      message
+      warning
+      shard {
+        id
+        title
+      }
+    }
+  }
+`;
+

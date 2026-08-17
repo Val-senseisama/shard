@@ -7,10 +7,21 @@
   update here is pushed instead: the app writes a snapshot on foreground and
   after any change, and a widget tap re-renders itself immediately. That is both
   fresher and cheaper on battery than polling.
+
+  minHeight stays at 110dp even though the layout measures ~140dp, and that is
+  not an oversight. Launchers before Android 12 turn the declared size into a
+  cell span with `70 * cells - 30`, so *any* value from 111 to 180 claims three
+  rows — 110 is the largest number that still asks for two. Android 12 and up
+  read targetCellHeight instead and ignore the dp figures entirely. So the
+  layout has to fit whatever two rows happens to be on the device (typically
+  140–190dp), which is what the weighted top row is for: when it is short, the
+  task title drops to one line rather than the button falling off the bottom.
 -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:minWidth="250dp"
     android:minHeight="110dp"
+    android:minResizeWidth="250dp"
+    android:minResizeHeight="110dp"
     android:targetCellWidth="4"
     android:targetCellHeight="2"
     android:updatePeriodMillis="0"
