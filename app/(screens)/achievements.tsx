@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Dimensions } from 'react-native';
-import { brand, FONT, RADIUS } from '~/components/hud';
+import { brand, hud, FONT, TYPE, RADIUS } from '~/components/hud';
 import { useColorScheme } from '~/hooks/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,91 +13,191 @@ import { router } from 'expo-router';
 
 const { width } = Dimensions.get('window');
 const COLUMN_COUNT = 3;
-const ITEM_SIZE = (width - 48) / COLUMN_COUNT;
+const H_PADDING = 16;
+const GRID_GAP = 12;
+/**
+ * Derived from the padding and gap the grid actually uses, not a magic 48.
+ *
+ * The old constant subtracted only the horizontal padding, so three cards plus
+ * their two gaps came to 8px more than the row could hold and the last one
+ * wrapped — a three-column grid that has always rendered two. `floor` keeps a
+ * fractional device width from re-creating the same overflow.
+ */
+const ITEM_SIZE = Math.floor(
+  (width - H_PADDING * 2 - GRID_GAP * (COLUMN_COUNT - 1)) / COLUMN_COUNT
+);
 
-const RarityBadge = ({ rarity }: { rarity: string }) => {
-  const colors: Record<string, string> = {
-    common: '#94a3b8',
-    rare: '#3b82f6',
-    epic: '#a855f7',
-    legendary: '#eab308',
-  };
+/** How many "closest to unlocking" rows sit at the top. */
+const NEXT_UP_COUNT = 3;
 
-  return (
-    <View style={[styles.rarityBadge, { backgroundColor: colors[rarity] || colors.common }]}>
-      <Text style={styles.rarityText}>{rarity.toUpperCase()}</Text>
-    </View>
-  );
+interface AchievementRow {
+  id: string;
+  name: string;
+  description: string;
+  icon?: string;
+  category: string;
+  rarity: string;
+  earned: boolean;
+  progress: number;
+  target: number;
+}
+
+const RARITY_COLORS: Record<string, string> = {
+  common: '#94a3b8',
+  rare: '#3b82f6',
+  epic: '#a855f7',
+  legendary: '#eab308',
 };
 
-const AchievementCard = ({ achievement, isDark }: { achievement: any; isDark: boolean }) => {
-  const isLocked = !achievement.earned;
+const CATEGORY_LABELS: Record<string, string> = {
+  xp: 'Experience',
+  streak: 'Streaks',
+  social: 'Friends',
+  shard: 'Quests',
+  quest: 'Tasks',
+  special: 'Special',
+};
+
+const RarityBadge = ({ rarity }: { rarity: string }) => (
+  <View style={[styles.rarityBadge, { backgroundColor: RARITY_COLORS[rarity] || RARITY_COLORS.common }]}>
+    <Text style={styles.rarityText}>{rarity.charAt(0).toUpperCase() + rarity.slice(1)}</Text>
+  </View>
+);
+
+/**
+ * A locked achievement, told properly.
+ *
+ * The old card showed an emoji, a name and a padlock — the description was
+ * fetched and thrown away, so "Getting Started" gave a user no way to know what
+ * it wanted. A goal you can't read isn't a goal. This row is the description
+ * plus the arithmetic: what you've done, out of what it takes.
+ */
+const LockedRow = ({
+  item,
+  palette,
+  delay = 0,
+}: {
+  item: AchievementRow;
+  palette: ReturnType<typeof hud>;
+  delay?: number;
+}) => {
+  const pct = item.target > 0 ? Math.min(item.progress / item.target, 1) : 0;
+  const started = item.progress > 0;
 
   return (
     <Animated.View
-      entering={FadeInDown.duration(400)}
-      style={[
-        styles.card,
-        {
-          backgroundColor: isDark ? 'rgba(30, 30, 30, 0.6)' : '#ffffff',
-          borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
-          opacity: isLocked ? 0.6 : 1,
-        },
-      ]}>
-      <View style={[styles.iconContainer, isLocked && styles.lockedIcon]}>
-        <Text style={styles.iconText}>{achievement.icon || '🏆'}</Text>
-        {isLocked && (
-          <View style={styles.lockOverlay}>
-            <Ionicons name="lock-closed" size={12} color="#fff" />
-          </View>
-        )}
+      entering={FadeInDown.duration(240).delay(delay)}
+      style={[styles.row, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
+      <View style={[styles.rowIcon, { backgroundColor: palette.track }]}>
+        <Text style={styles.rowIconText}>{item.icon || '🏆'}</Text>
       </View>
-      <Text style={[styles.name, { color: isDark ? '#fff' : '#1a1a1a' }]} numberOfLines={1}>
-        {achievement.name}
-      </Text>
-      <RarityBadge rarity={achievement.rarity} />
+
+      <View style={styles.rowBody}>
+        <Text style={[TYPE.title(14), { color: palette.text }]} numberOfLines={1}>
+          {item.name}
+        </Text>
+        <Text style={[TYPE.body(12), { color: palette.textDim }]} numberOfLines={2}>
+          {item.description}
+        </Text>
+
+        <View style={styles.progressRow}>
+          <View style={[styles.track, { backgroundColor: palette.track }]}>
+            <View
+              style={[
+                styles.fill,
+                {
+                  width: `${Math.round(pct * 100)}%`,
+                  backgroundColor: started ? brand.violet : 'transparent',
+                },
+              ]}
+            />
+          </View>
+          {/* Numerals in mono — the one place the mono rule applies. */}
+          <Text style={[TYPE.num(11), { color: palette.textFaint }]}>
+            {item.progress} / {item.target}
+          </Text>
+        </View>
+      </View>
     </Animated.View>
   );
 };
 
+/** An earned badge. No explanation needed — it's a trophy, not a target. */
+const EarnedCard = ({
+  item,
+  palette,
+}: {
+  item: AchievementRow;
+  palette: ReturnType<typeof hud>;
+}) => (
+  <Animated.View
+    entering={FadeInDown.duration(240)}
+    style={[styles.card, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
+    <View style={[styles.iconContainer, { backgroundColor: 'rgba(139,92,246,0.12)' }]}>
+      <Text style={styles.iconText}>{item.icon || '🏆'}</Text>
+    </View>
+    <Text style={[styles.name, { color: palette.text }]} numberOfLines={1}>
+      {item.name}
+    </Text>
+    <RarityBadge rarity={item.rarity} />
+  </Animated.View>
+);
+
 const AchievementsScreen = () => {
   const isDark = useColorScheme() === 'dark';
+  const palette = hud(isDark);
+  const [showAllLocked, setShowAllLocked] = useState(false);
+
   const { data, loading } = useQuery(GET_ACHIEVEMENTS, {
     fetchPolicy: 'cache-and-network',
   });
 
-  const achievements = data?.getAchievements?.achievements || [];
-  const earnedCount = useMemo(
-    () => achievements.filter((a: any) => a.earned).length,
-    [achievements]
+  // Memoised so the `|| []` fallback doesn't hand the memos below a fresh array
+  // identity on every render.
+  const achievements: AchievementRow[] = useMemo(
+    () => data?.getAchievements?.achievements ?? [],
+    [data]
   );
 
-  const categorized = useMemo(() => {
-    const groups: Record<string, any[]> = {};
-    achievements.forEach((a: any) => {
-      if (!groups[a.category]) groups[a.category] = [];
-      groups[a.category].push(a);
+  const { earned, nextUp, remainingLocked } = useMemo(() => {
+    const earnedList = achievements.filter((a) => a.earned);
+    const locked = achievements.filter((a) => !a.earned);
+
+    // Closest to done first. Ties break on the smaller target, so "1 more task"
+    // outranks "500 more XP" at the same percentage.
+    const byCloseness = [...locked].sort((a, b) => {
+      const ra = a.target > 0 ? a.progress / a.target : 0;
+      const rb = b.target > 0 ? b.progress / b.target : 0;
+      if (rb !== ra) return rb - ra;
+      return a.target - b.target;
     });
-    return Object.entries(groups).sort();
+
+    return {
+      earned: earnedList,
+      nextUp: byCloseness.slice(0, NEXT_UP_COUNT),
+      remainingLocked: byCloseness.slice(NEXT_UP_COUNT),
+    };
   }, [achievements]);
 
+  const lockedByCategory = useMemo(() => {
+    const groups: Record<string, AchievementRow[]> = {};
+    remainingLocked.forEach((a) => {
+      (groups[a.category] ||= []).push(a);
+    });
+    return Object.entries(groups);
+  }, [remainingLocked]);
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: isDark ? '#0e0e0e' : '#f8f9fa' }]}>
-      {/* Header */}
+    <SafeAreaView style={[styles.container, { backgroundColor: palette.bg }]}>
       <View style={styles.header}>
         <AnimatedPressable onPress={() => router.back()} hitSlop={20} accessibilityLabel="Go back">
-          <Ionicons name="chevron-back" size={24} color={isDark ? '#fff' : '#1a1a1a'} />
+          <Ionicons name="chevron-back" size={24} color={palette.text} />
         </AnimatedPressable>
-        <Text style={[styles.headerTitle, { color: isDark ? '#fff' : '#1a1a1a' }]}>
-          Achievements
-        </Text>
+        <Text style={[TYPE.title(18), { color: palette.text }]}>Achievements</Text>
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}>
-        {/* Progress Card */}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         <LinearGradient
           colors={[brand.violet, brand.violetDeep]}
           start={{ x: 0, y: 0 }}
@@ -106,7 +206,7 @@ const AchievementsScreen = () => {
           <View>
             <Text style={styles.progressLabel}>Your Progress</Text>
             <Text style={styles.progressValue}>
-              {earnedCount} / {achievements.length}
+              {earned.length} / {achievements.length}
             </Text>
           </View>
           <View style={styles.trophyIcon}>
@@ -114,23 +214,66 @@ const AchievementsScreen = () => {
           </View>
         </LinearGradient>
 
-        {/* Categories */}
-        {categorized.map(([category, items], sectionIndex) => (
-          <View key={category} style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: isDark ? '#9ca3af' : '#6b7280' }]}>
-              {category.toUpperCase()}
+        {/* Next up — the whole point of the screen for anyone not yet finished. */}
+        {nextUp.length > 0 && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: palette.textDim }]}>Next up</Text>
+            {nextUp.map((item, i) => (
+              <LockedRow key={item.id} item={item} palette={palette} delay={i * 30} />
+            ))}
+          </View>
+        )}
+
+        {earned.length > 0 && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: palette.textDim }]}>
+              Earned · {earned.length}
             </Text>
             <View style={styles.grid}>
-              {items.map((item) => (
-                <AchievementCard key={item.id} achievement={item} isDark={isDark} />
+              {earned.map((item) => (
+                <EarnedCard key={item.id} item={item} palette={palette} />
               ))}
             </View>
           </View>
-        ))}
+        )}
+
+        {/* Everything else stays folded away. Forty padlocks on first open is
+            not a goal list, it's a wall. */}
+        {remainingLocked.length > 0 && (
+          <View style={styles.section}>
+            <AnimatedPressable
+              onPress={() => setShowAllLocked((v) => !v)}
+              style={[
+                styles.showAll,
+                { backgroundColor: palette.panel, borderColor: palette.panelBorder },
+              ]}>
+              <Text style={[TYPE.label(13), { color: palette.textDim }]}>
+                {showAllLocked ? 'Hide' : 'Show'} {remainingLocked.length} more
+              </Text>
+              <Ionicons
+                name={showAllLocked ? 'chevron-up' : 'chevron-down'}
+                size={16}
+                color={palette.textDim}
+              />
+            </AnimatedPressable>
+
+            {showAllLocked &&
+              lockedByCategory.map(([category, items]) => (
+                <View key={category} style={{ marginTop: 16 }}>
+                  <Text style={[styles.sectionTitle, { color: palette.textFaint }]}>
+                    {CATEGORY_LABELS[category] || category}
+                  </Text>
+                  {items.map((item) => (
+                    <LockedRow key={item.id} item={item} palette={palette} />
+                  ))}
+                </View>
+              ))}
+          </View>
+        )}
 
         {loading && achievements.length === 0 && (
           <View style={styles.center}>
-            <Text style={{ color: isDark ? '#767575' : '#9ca3af' }}>
+            <Text style={[TYPE.body(14), { color: palette.textDim }]}>
               Loading your achievements...
             </Text>
           </View>
@@ -151,10 +294,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontFamily: FONT.bold,
-  },
   progressCard: {
     margin: 16,
     padding: 24,
@@ -171,7 +310,7 @@ const styles = StyleSheet.create({
   progressValue: {
     color: '#fff',
     fontSize: 28,
-    fontFamily: FONT.extrabold,
+    fontFamily: FONT.mono,
     marginTop: 4,
   },
   trophyIcon: {
@@ -179,18 +318,65 @@ const styles = StyleSheet.create({
   },
   section: {
     marginTop: 8,
-    paddingHorizontal: 16,
+    // Shares the constant ITEM_SIZE is derived from — change one and the grid
+    // follows, instead of silently losing a column.
+    paddingHorizontal: H_PADDING,
   },
   sectionTitle: {
-    fontSize: 12,
-    fontFamily: FONT.bold,
-    letterSpacing: 1,
+    fontSize: 13,
+    fontFamily: FONT.semibold,
+    letterSpacing: 0.2,
     marginBottom: 12,
   },
+
+  // ── Locked row ──
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  rowIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowIconText: {
+    fontSize: 22,
+    // Locked, but still legible — a fully dimmed emoji reads as broken.
+    opacity: 0.75,
+  },
+  rowBody: {
+    flex: 1,
+    gap: 2,
+  },
+  progressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 6,
+  },
+  track: {
+    flex: 1,
+    height: 4,
+    borderRadius: RADIUS.pill,
+    overflow: 'hidden',
+  },
+  fill: {
+    height: '100%',
+    borderRadius: RADIUS.pill,
+  },
+
+  // ── Earned card ──
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: GRID_GAP,
   },
   card: {
     width: ITEM_SIZE,
@@ -203,29 +389,12 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(139,92,246,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
   },
-  lockedIcon: {
-    backgroundColor: 'rgba(0,0,0,0.05)',
-  },
   iconText: {
     fontSize: 24,
-  },
-  lockOverlay: {
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#6b7280',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#fff',
   },
   name: {
     fontSize: 11,
@@ -234,14 +403,24 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   rarityBadge: {
-    paddingHorizontal: 6,
+    paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: RADIUS.xs,
+    borderRadius: RADIUS.pill,
   },
   rarityText: {
     color: '#fff',
-    fontSize: 8,
-    fontFamily: FONT.extrabold,
+    fontSize: 9,
+    fontFamily: FONT.bold,
+  },
+
+  showAll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
   },
   center: {
     flex: 1,

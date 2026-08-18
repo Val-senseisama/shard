@@ -92,8 +92,8 @@ android {
         applicationId 'com.xavitech.shard'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 21
-        versionName "1.0.3"
+        versionCode 22
+        versionName "1.0.4"
     }
     signingConfigs {
         debug {

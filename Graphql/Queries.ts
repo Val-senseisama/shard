@@ -198,6 +198,7 @@ export const GET_SHARD = gql`
             dueDate
             completed
             assignedTo
+            xpReward
           }
         }
       }
@@ -585,6 +586,8 @@ export const GET_ACHIEVEMENTS = gql`
         rarity
         earned
         pending
+        progress
+        target
       }
     }
   }

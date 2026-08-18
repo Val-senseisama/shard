@@ -15,6 +15,10 @@ export type PaywallSource =
   // proof the product works, and where the trial now ends. This replaces the
   // onboarding paywall, which asked for money before anything had been created.
   | 'first_completion'
+  // A broken streak the user is trying to resurrect. Freezes cover single
+  // missed days for free; repair after a real break is Pro. Highest-intent
+  // trigger in the product — they've already lost something they built.
+  | 'streak_repair'
   | 'generic';
 
 /**

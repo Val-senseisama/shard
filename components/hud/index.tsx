@@ -61,7 +61,7 @@ export const Num = ({
   size?: number;
   style?: StyleProp<TextStyle>;
 }) => (
-  <Text style={[TYPE.num(size), { color: color ?? '#F3F2F8' }, style]}>{children}</Text>
+  <Text style={[TYPE.num(size), color ? { color } : undefined, style]}>{children}</Text>
 );
 
 /** @deprecated Use `Num` — it says what it's for. Same component. */

@@ -6,6 +6,9 @@ import { useQuery, useMutation } from '@apollo/client';
 import { GET_STREAKS } from '~/Graphql/Queries';
 import { REPAIR_STREAK } from '~/Graphql/Mutations';
 import { hud, FONT, RADIUS, HudLabel, HudSkeleton, Num, HudButton } from '~/components/hud';
+import { openPaywall } from '~/helpers/paywall';
+import { useAppStore } from '~/store/app.store';
+import { useUserStore } from '~/store/user.store';
 
 /**
  * The streak, with the state it's actually in.
@@ -31,6 +34,13 @@ export default function StreakCard({ onRepaired }: { onRepaired?: (days: number)
   const isDark = useColorScheme() === 'dark';
   const c = hud(isDark);
 
+  const addAlert = useAppStore((s) => s.addAlert);
+  // Repair is Pro-only, so the card has to say so rather than offer it and then
+  // bounce the user to a paywall they weren't expecting.
+  const isPro = useUserStore(
+    (s) => s.user?.subscriptionTier === 'pro' || !!s.user?.isInTrial
+  );
+
   const { data, loading, refetch } = useQuery(GET_STREAKS, { fetchPolicy: 'cache-and-network' });
   const [repair, { loading: repairing }] = useMutation(REPAIR_STREAK);
 
@@ -40,14 +50,29 @@ export default function StreakCard({ onRepaired }: { onRepaired?: (days: number)
     try {
       const res = await repair();
       const payload = res.data?.repairStreak;
+
       if (payload?.success) {
         onRepaired?.(payload.restored ?? 0);
         refetch();
+        return;
       }
-    } catch {
-      // The mutation surfaces its own message; nothing useful to add here.
+
+      // Repair is Pro-only. This is the strongest upgrade moment in the product
+      // — someone who just lost a 23-day streak — and it used to be a button
+      // that did nothing: the resolver returned `success: false` with a real
+      // explanation and this handler dropped it on the floor.
+      if (payload?.needsUpgrade) {
+        openPaywall('streak_repair');
+        return;
+      }
+
+      if (payload?.message) {
+        addAlert({ str: payload.message, type: 'info' });
+      }
+    } catch (e: any) {
+      addAlert({ str: e?.message || "Couldn't repair your streak.", type: 'error' });
     }
-  }, [repair, refetch, onRepaired]);
+  }, [repair, refetch, onRepaired, addAlert]);
 
   // Hold the slot while the first fetch is in flight.
   //
@@ -172,10 +197,14 @@ export default function StreakCard({ onRepaired }: { onRepaired?: (days: number)
       {showRepair && (
         <View style={{ marginTop: 14 }}>
           <HudLabel color={c.textDim} style={{ marginBottom: 10 }}>
-            You can still get it back — repairs are open for a couple of days.
+            {isPro
+              ? 'You can still get it back — repairs are open for a couple of days.'
+              : 'Freezes cover single missed days. Bringing a broken streak back is a Pro feature.'}
           </HudLabel>
           <HudButton
-            label={repairing ? 'Repairing…' : 'Repair my streak'}
+            label={
+              repairing ? 'Repairing…' : isPro ? 'Repair my streak' : 'Repair with Pro'
+            }
             onPress={handleRepair}
             isDark={isDark}
             variant="primary"

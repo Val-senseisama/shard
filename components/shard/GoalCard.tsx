@@ -10,9 +10,17 @@ interface GoalCardProps {
   idx: number;
   isDark: boolean;
   onComplete: (miniGoalId: string, taskIndex: number, completed: boolean) => void;
+  /**
+   * Long-press an incomplete task: complete it and everything before it.
+   *
+   * A gesture rather than a visible control, because it's the power path — the
+   * discoverable entry point is the "you're N tasks behind" banner above the
+   * list, which teaches this exists. Omitted for shards the viewer can't edit.
+   */
+  onCatchUp?: (miniGoalId: string, taskIndex: number) => void;
 }
 
-export const GoalCard = memo(({ goal, idx, isDark, onComplete }: GoalCardProps) => {
+export const GoalCard = memo(({ goal, idx, isDark, onComplete, onCatchUp }: GoalCardProps) => {
   const theme = t(isDark);
   const shadow = getCardShadow(isDark);
   const color = ACCENT_COLORS[idx % ACCENT_COLORS.length];
@@ -48,6 +56,17 @@ export const GoalCard = memo(({ goal, idx, isDark, onComplete }: GoalCardProps) 
           <AnimatedPressable
             key={i}
             onPress={() => onComplete(goal.id, i, step.completed)}
+            // Only forward for tasks that aren't done — catching up TO a
+            // completed task would be a no-op the sheet couldn't describe.
+            onLongPress={
+              onCatchUp && !step.completed ? () => onCatchUp(goal.id, i) : undefined
+            }
+            accessibilityLabel={step.title}
+            accessibilityHint={
+              onCatchUp && !step.completed
+                ? 'Double tap to complete. Long press to also complete everything before it.'
+                : undefined
+            }
             scaleDown={0.98}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 5 }}>
             <View

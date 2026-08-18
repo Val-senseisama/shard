@@ -1075,6 +1075,10 @@ const NewShard = () => {
               sessionMinutes: courseRhythm.sessionMinutes,
               timeOfDay: courseRhythm.timeOfDay,
             },
+            // Same deadline the pace preview used. Without it the server
+            // re-paces against no deadline and builds a different plan from
+            // the one on screen.
+            deadline: courseDeadline?.toISOString(),
             brief: {
               done: courseGoal,
               rhythm: {
@@ -1095,7 +1099,15 @@ const NewShard = () => {
         return;
       }
       if (result?.success) {
-        addAlert({ str: result.message || 'Course quest created!', type: 'success' });
+        // The pacer's honest arithmetic — dropped optional items, or a finish
+        // date past the deadline. It wins the toast when present: created is
+        // not the same as on schedule, and this is the one moment they'd
+        // notice. Toasts queue by replacing, so showing both shows only one.
+        if (result.warning) {
+          addAlert({ str: result.warning, type: 'info' });
+        } else {
+          addAlert({ str: result.message || 'Course quest created!', type: 'success' });
+        }
         router.replace('/Home');
       } else {
         addAlert({ str: result?.message || 'Failed to start course quest', type: 'error' });
@@ -1815,6 +1827,19 @@ const NewShard = () => {
           onChange={(_, d) => {
             setShowAiDatePicker(Platform.OS === 'ios');
             if (d) setAiDeadline(d);
+          }}
+          minimumDate={new Date()}
+        />
+      )}
+
+      {showCourseDatePicker && (
+        <DateTimePicker
+          value={courseDeadline || new Date()}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'inline' : 'default'}
+          onChange={(_, d) => {
+            setShowCourseDatePicker(Platform.OS === 'ios');
+            if (d) setCourseDeadline(d);
           }}
           minimumDate={new Date()}
         />

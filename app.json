@@ -3,7 +3,7 @@
     "name": "shard",
     "slug": "shard",
     "description": "Tell Shard a goal and it builds the plan: milestones, tasks and real dates scheduled around your week. Add a friend as your accountability partner so someone notices if you stop.",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "scheme": "shard",
     "web": {
       "favicon": "./assets/favicon.png"
@@ -68,7 +68,7 @@
         "expo-channel-name": "production"
       }
     },
-    "runtimeVersion": "1.0.3",
+    "runtimeVersion": "1.0.4",
     "extra": {
       "router": {},
       "eas": {

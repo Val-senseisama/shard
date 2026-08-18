@@ -24,3 +24,6 @@ ios
 .metro-health-check*
 # Local Expo module Gradle output
 modules/*/android/build/
+
+# Local backup of signing material — never commit
+.keystore-backup-*/

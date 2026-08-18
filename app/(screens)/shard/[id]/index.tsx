@@ -22,7 +22,11 @@ import {
   UNCOMPLETE_TASK,
   COMPLETE_SHARD,
   CREATE_SHARD_CHAT,
+  CATCH_UP_TO_TASK,
+  UNDO_CATCH_UP,
 } from '~/Graphql/Mutations';
+import Toast from 'react-native-toast-message';
+import CatchUpSheet, { type CatchUpTarget } from '~/components/shard/CatchUpSheet';
 import CelebrationOverlay from '~/components/CelebrationOverlay';
 import { useAppStore } from '~/store/app.store';
 import AnimatedPressable from '~/components/AnimatedPressable';
@@ -241,6 +245,10 @@ interface OverviewTabProps {
   onComplete: (miniGoalId: string, taskIndex: number, completed: boolean) => void;
   /** Owner-only. Absent for participants, which is what hides the control. */
   onEditBrief?: () => void;
+  /** Long-press a task to complete it and everything before it. */
+  onCatchUp?: (miniGoalId: string, taskIndex: number) => void;
+  /** Set only when enough work is overdue to be worth offering a bulk fix. */
+  behind?: { count: number; miniGoalId: string; taskIndex: number } | null;
 }
 const OverviewTab = memo(
   ({
@@ -251,6 +259,8 @@ const OverviewTab = memo(
     setExpandedSummary,
     onComplete,
     onEditBrief,
+    onCatchUp,
+    behind,
   }: OverviewTabProps) => {
     const theme = t(isDark);
     const shadow = getCardShadow(isDark);
@@ -317,8 +327,46 @@ const OverviewTab = memo(
 
         <Text style={[S.sectionLabel, { color: theme.textSecondary }]}>SHARD GOALS</Text>
 
+        {/* The discoverable half of catch-up. Falling behind is the moment a
+            quest gets abandoned, and the only thing on offer until now was
+            ticking twelve boxes one at a time. This also teaches that the
+            long-press on any task exists. */}
+        {behind && onCatchUp && (
+          <AnimatedPressable
+            onPress={() => onCatchUp(behind.miniGoalId, behind.taskIndex)}
+            accessibilityLabel={`You are ${behind.count} tasks behind. Catch up.`}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 10,
+              padding: 12,
+              borderRadius: RADIUS.md,
+              backgroundColor: theme.card,
+              borderWidth: 1,
+              borderColor: theme.border,
+            }}>
+            <Ionicons name="time-outline" size={18} color={theme.textSecondary} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 13, fontFamily: FONT.semibold, color: theme.text }}>
+                You&apos;re {behind.count} tasks behind
+              </Text>
+              <Text style={{ fontSize: 11, color: theme.textSecondary, marginTop: 1 }}>
+                Catch up in one go, or long-press any task
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
+          </AnimatedPressable>
+        )}
+
         {shard.minigoals?.map((goal: any, idx: number) => (
-          <GoalCard key={goal.id} goal={goal} idx={idx} isDark={isDark} onComplete={onComplete} />
+          <GoalCard
+            key={goal.id}
+            goal={goal}
+            idx={idx}
+            isDark={isDark}
+            onComplete={onComplete}
+            onCatchUp={onCatchUp}
+          />
         ))}
       </View>
     );
@@ -591,6 +639,10 @@ const ShardDetail = () => {
     refetch: refetchAnalytics,
   } = useQuery(GET_SHARD_ANALYTICS, { variables: { shardId: id }, skip: !id });
 
+  const [catchUpToTask, { loading: catchingUp }] = useMutation(CATCH_UP_TO_TASK);
+  const [undoCatchUp] = useMutation(UNDO_CATCH_UP);
+  const [catchUpTarget, setCatchUpTarget] = useState<CatchUpTarget | null>(null);
+
   const [completeTask] = useMutation(COMPLETE_TASK);
   const [uncompleteTask] = useMutation(UNCOMPLETE_TASK);
   const [completeShard, { loading: completing }] = useMutation(COMPLETE_SHARD);
@@ -736,6 +788,159 @@ const ShardDetail = () => {
   const canComplete =
     !!shard && shard.status !== 'completed' && totalTasks > 0 && completedTasks >= totalTasks;
 
+  /**
+   * The plan flattened into display order, so "everything before this task"
+   * means the same thing here as it does on the server.
+   *
+   * The server resolves the prefix itself from `MiniGoal.order`; this list only
+   * has to agree with it well enough to preview a count honestly, and it does
+   * because `getShard` now returns mini-goals sorted by that same field.
+   */
+  const flatTasks = useMemo(() => {
+    const out: {
+      miniGoalId: string;
+      taskIndex: number;
+      title: string;
+      completed: boolean;
+      dueDate?: string | null;
+      xpReward?: number | null;
+    }[] = [];
+    for (const goal of shard?.minigoals ?? []) {
+      (goal.tasks ?? []).forEach((task: any, taskIndex: number) => {
+        out.push({
+          miniGoalId: goal.id,
+          taskIndex,
+          title: task.title,
+          completed: !!task.completed,
+          dueDate: task.dueDate,
+          xpReward: task.xpReward,
+        });
+      });
+    }
+    return out;
+  }, [shard?.minigoals]);
+
+  /** Build the confirmation payload for catching up to a given task. */
+  const buildCatchUpTarget = useCallback(
+    (miniGoalId: string, taskIndex: number): CatchUpTarget | null => {
+      const end = flatTasks.findIndex(
+        (t) => t.miniGoalId === miniGoalId && t.taskIndex === taskIndex
+      );
+      if (end < 0) return null;
+
+      // Already-complete tasks in the prefix are skipped by the server, so they
+      // must not be counted here either — promising "12 tasks" and completing 5
+      // is worse than not showing a number.
+      const pending = flatTasks.slice(0, end + 1).filter((t) => !t.completed);
+      if (pending.length === 0) return null;
+
+      return {
+        miniGoalId,
+        taskIndex,
+        taskTitle: flatTasks[end].title,
+        count: pending.length,
+        xp: pending.reduce((sum, t) => sum + (t.xpReward ?? 20), 0),
+      };
+    },
+    [flatTasks]
+  );
+
+  /**
+   * How far behind the user is: incomplete tasks up to and including the last
+   * one that is past due.
+   *
+   * Null when nothing is overdue, or when catching up would complete fewer than
+   * three tasks — at one or two, ticking them off individually is the honest
+   * action and a bulk-complete banner is just pressure.
+   */
+  const behind = useMemo(() => {
+    const now = Date.now();
+    let lastOverdue = -1;
+    flatTasks.forEach((t, i) => {
+      if (!t.completed && t.dueDate && new Date(t.dueDate).getTime() < now) lastOverdue = i;
+    });
+    if (lastOverdue < 0) return null;
+
+    const target = buildCatchUpTarget(
+      flatTasks[lastOverdue].miniGoalId,
+      flatTasks[lastOverdue].taskIndex
+    );
+    return target && target.count >= 3 ? target : null;
+  }, [flatTasks, buildCatchUpTarget]);
+
+  const openCatchUp = useCallback(
+    (miniGoalId: string, taskIndex: number) => {
+      const target = buildCatchUpTarget(miniGoalId, taskIndex);
+      // Nothing pending before it — the plain tap already does the right thing.
+      if (!target) return;
+      // No haptic: the vocabulary in helpers/motion has no light "selected"
+      // buzz, and `complete` would be claiming something finished when all that
+      // happened is a sheet opened. The sheet appearing is the feedback.
+      setCatchUpTarget(target);
+    },
+    [buildCatchUpTarget]
+  );
+
+  const confirmCatchUp = useCallback(async () => {
+    if (!catchUpTarget) return;
+    try {
+      const { data } = await catchUpToTask({
+        variables: {
+          shardId: id,
+          miniGoalId: catchUpTarget.miniGoalId,
+          taskIndex: catchUpTarget.taskIndex,
+        },
+      });
+      const res = data?.catchUpToTask;
+      setCatchUpTarget(null);
+
+      if (!res?.success) {
+        addAlert({ str: res?.message || 'Could not catch up', type: 'error' });
+        return;
+      }
+
+      haptic.complete();
+      refetchAll();
+
+      // No celebration overlay here. That animation is tuned for one task
+      // finished on purpose; firing it for a bulk correction would overstate
+      // what just happened. The undo affordance is the more useful thing to
+      // show, and it's the only one — once this toast goes, so does the undo.
+      Toast.show({
+        type: 'undo',
+        text1: `Caught up ${res.tasksCompleted} task${res.tasksCompleted === 1 ? '' : 's'}`,
+        text2: undefined,
+        visibilityTime: 8000,
+        props: {
+          icon: 'checkmark-done',
+          tint: '#8B5CF6',
+          subtitle: `+${res.xpAwarded} XP · tap undo to reverse`,
+          onUndo: async () => {
+            try {
+              const { data: undone } = await undoCatchUp({
+                variables: { batchId: res.batchId },
+              });
+              if (undone?.undoCatchUp?.success) {
+                haptic.undo();
+                refetchAll();
+              } else {
+                addAlert({
+                  str: undone?.undoCatchUp?.message || 'Could not undo that catch-up',
+                  type: 'error',
+                });
+              }
+            } catch {
+              addAlert({ str: 'Could not undo that catch-up', type: 'error' });
+            }
+          },
+        },
+      });
+    } catch (e: any) {
+      setCatchUpTarget(null);
+      addAlert({ str: e?.message || 'Could not catch up', type: 'error' });
+    }
+  }, [catchUpTarget, catchUpToTask, id, refetchAll, addAlert, undoCatchUp]);
+
   const handleCompleteShard = useCallback(async () => {
     try {
       const { data } = await completeShard({ variables: { shardId: id } });
@@ -834,6 +1039,15 @@ const ShardDetail = () => {
         leveledUp={celebrationData.leveledUp}
         newLevel={celebrationData.newLevel}
         onClose={handleCloseCelebration}
+      />
+
+      <CatchUpSheet
+        target={catchUpTarget}
+        visible={!!catchUpTarget}
+        isDark={isDark}
+        busy={catchingUp}
+        onConfirm={confirmCatchUp}
+        onClose={() => setCatchUpTarget(null)}
       />
 
       <ScrollView
@@ -954,6 +1168,10 @@ const ShardDetail = () => {
             Module-level memo components — inactive panels bail out
             completely when activeTab changes, no diff work done.
             ═══════════════════════════════════════════════════════════ */}
+        {/* onCatchUp is passed unconditionally, like onComplete: the server
+            allows owners and collaborators and refuses anyone else with a
+            message this screen surfaces. A stricter client-side rule would
+            hide it from collaborators who are allowed to use it. */}
         <OverviewTab
           visible={activeTab === 'overview'}
           shard={shard}
@@ -962,6 +1180,8 @@ const ShardDetail = () => {
           setExpandedSummary={setExpandedSummary}
           onComplete={handleCompleteTask}
           onEditBrief={isShardOwner ? () => setEditingBrief(true) : undefined}
+          onCatchUp={openCatchUp}
+          behind={behind}
         />
         {isShardOwner && (
           <BriefEditor

@@ -12,7 +12,6 @@ import {
 import { useColorScheme } from '~/hooks/useColorScheme';
 import AnimatedPressable from '@/components/AnimatedPressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import { LinearGradient } from 'expo-linear-gradient';
 import ShardCard from '@/components/ShardCard';
@@ -36,6 +35,9 @@ import { ACCENT } from '~/components/shard/constants';
 import { hud, FONT, HudLabel, Mono, ShardBar, RADIUS } from '~/components/hud';
 import TodayCard from '~/components/home/TodayCard';
 import RankCard from '~/components/home/RankCard';
+import NextAchievementRow from '~/components/home/NextAchievementRow';
+import EarnedBadgeStrip from '~/components/home/EarnedBadgeStrip';
+import NotificationBell from '~/components/home/NotificationBell';
 import WidgetPromptCard from '~/components/home/WidgetPromptCard';
 import * as syncService from '~/services/syncService';
 import { useUnlocks } from '~/helpers/unlocks';
@@ -114,8 +116,11 @@ const Home = () => {
       refetchUser(),
       refetchChats(),
       // Home isn't just shards any more — pull-to-refresh has to refresh the
-      // Today and Rank cards too, which own their own queries.
-      client.refetchQueries({ include: ['GetMySchedule', 'GetLeaderboard'] }),
+      // Today and Rank cards too, which own their own queries, plus the bell's
+      // unread count and the achievement progress under the level.
+      client.refetchQueries({
+        include: ['GetMySchedule', 'GetLeaderboard', 'GetUnreadNotificationCount', 'GetAchievements'],
+      }),
     ]);
     setRefreshing(false);
   }, [refetch, refetchUser, refetchChats, client]);
@@ -148,6 +153,17 @@ const Home = () => {
    * strip and the user's text-size setting, so no constant would be right.
    */
   const [headerHeight, setHeaderHeight] = useState(0);
+
+  // The badge strip changes the header's natural height, and the measurement
+  // below is deliberately one-shot — once a height is latched the header is
+  // driven at that height, so anything that appears afterwards is clipped
+  // rather than given room. Dropping back to 0 releases the driven height for
+  // exactly one frame so the next onLayout reads the real thing. Keyed on
+  // presence, not count: five badges and one occupy the same row.
+  const hasBadges = (user?.achievements?.length ?? 0) > 0;
+  React.useEffect(() => {
+    setHeaderHeight(0);
+  }, [hasBadges]);
 
   const paddingAnimatedStyle = useAnimatedStyle(() => {
     if (!headerHeight) return {};
@@ -205,10 +221,20 @@ const Home = () => {
             came for is an ad. It renders nothing unless the device can pin a
             widget, hasn't already, and the user hasn't waved it away. */}
         {unlocks.widgetPrompt && <WidgetPromptCard isDark={isDark} />}
+        {/* A row, not a card — see the note in the component. Gated on the same
+            rule as the achievements screen itself: nothing to be close to until
+            you've earned one or finished a quest. */}
+        {unlocks.achievements && <NextAchievementRow isDark={isDark} />}
         <QuestLogHeader count={shards.length} isDark={isDark} />
       </>
     ),
-    [isDark, shards.length, unlocks.leaderboard, unlocks.widgetPrompt]
+    [
+      isDark,
+      shards.length,
+      unlocks.leaderboard,
+      unlocks.widgetPrompt,
+      unlocks.achievements,
+    ]
   );
 
   return (
@@ -279,6 +305,7 @@ const Home = () => {
                     <Mono color={c.textFaint} size={10}>{xpToGo.toLocaleString()}</Mono>
                     {` to Lv ${level + 1}`}
                   </Text>
+                  <EarnedBadgeStrip isDark={isDark} />
                 </View>
               </>
             )}
@@ -290,12 +317,7 @@ const Home = () => {
                 <Mono color={c.ember} size={12}>{user?.currentStreak}</Mono>
               </View>
             )}
-            <AnimatedPressable
-              onPress={() => router.push('/notifications')}
-              hitSlop={20}
-              scaleDown={0.9}>
-              <FontAwesome name="bell-o" size={20} color={subColor} />
-            </AnimatedPressable>
+            <NotificationBell color={subColor} />
           </View>
         </Animated.View>
 

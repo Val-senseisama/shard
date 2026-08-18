@@ -875,6 +875,7 @@ export const REPAIR_STREAK = gql`
       success
       message
       restored
+      needsUpgrade
     }
   }
 `;

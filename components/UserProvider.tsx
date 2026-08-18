@@ -8,6 +8,7 @@ import Toast from 'react-native-toast-message';
 import { purchasesService } from '@/services/purchasesService';
 import { inEntitlementGrace, endEntitlementGrace } from '@/helpers/entitlementGrace';
 import Purchases from 'react-native-purchases';
+import { router } from 'expo-router';
 
 const UserProvider = () => {
   const { user: storeUser, setUser, updateUser } = useUserStore();
@@ -45,6 +46,39 @@ const UserProvider = () => {
   useEffect(() => () => {
     if (graceRetry.current) clearTimeout(graceRetry.current);
   }, []);
+
+  /**
+   * Replace the thin user the login screen wrote with the real one.
+   *
+   * `login` returns a hand-built five-field object — id, email, username, role,
+   * emailVerified — and `login.tsx` sets THAT as the whole user. So straight
+   * after signing in the store has no `xp`, `level`, `achievements`,
+   * `currentStreak` or `profilePic`, and the app renders a real account as
+   * "Total XP 0 · Level 1 · Badges 0" with a placeholder avatar.
+   *
+   * This provider lives in the root layout, so its `CURRENT_USER` already fired
+   * once before a token existed and won't re-run on its own just because one
+   * appeared. Watching for the id to show up is what closes that gap.
+   *
+   * Keyed on `xp === undefined` rather than on the id alone: that is precisely
+   * the "came from login" signature, so a normal cold start with a fully
+   * hydrated store doesn't pay for an extra round-trip.
+   */
+  const needsFullUser = !!storeUser?.id && storeUser?.xp === undefined;
+  useEffect(() => {
+    if (!needsFullUser) return;
+    refetchCurrentUser()
+      .then(({ data }) => {
+        const fresh = data?.currentUser?.user;
+        // `onCompleted` is not guaranteed to fire for a refetch, so write the
+        // result here rather than relying on the callback above.
+        if (fresh) setUser(fresh);
+      })
+      .catch(() => {
+        // Offline right after login. The AppState listener below retries on the
+        // next foreground.
+      });
+  }, [needsFullUser, refetchCurrentUser, setUser]);
 
   // The listener below is registered once per user id, but needs to compare
   // against the CURRENT tier. Reading storeUser directly would close over the
@@ -155,14 +189,40 @@ const UserProvider = () => {
       }
       if (cancelled) return;
 
-      for (const achId of pending) {
-        const meta = byId[achId];
+      // Toasts don't queue — each `show` replaces the one on screen. Looping
+      // over the list therefore rendered only the LAST unlock, for a moment,
+      // and then the list was cleared server-side for good. Finishing a first
+      // quest unlocks four at once, so the most rewarding moment in the app was
+      // also the one that threw the most away.
+      if (pending.length === 1) {
+        const meta = byId[pending[0]];
         Toast.show({
           type: 'success',
           text1: meta?.icon ? `${meta.icon}  Achievement unlocked!` : 'Achievement unlocked!',
           // Fall back to the ID only if the lookup genuinely failed.
-          text2: meta ? `${meta.name} — ${meta.description ?? ''}`.trim().replace(/—\s*$/, '') : achId,
-          onPress: () => Toast.hide(),
+          text2: meta
+            ? `${meta.name} — ${meta.description ?? ''}`.trim().replace(/—\s*$/, '')
+            : pending[0],
+          onPress: () => {
+            Toast.hide();
+            router.push('/(screens)/achievements');
+          },
+        });
+      } else {
+        const names = pending.map((id) => byId[id]?.name).filter(Boolean);
+        const icons = pending
+          .map((id) => byId[id]?.icon)
+          .filter(Boolean)
+          .slice(0, 3)
+          .join('');
+        Toast.show({
+          type: 'success',
+          text1: `${icons || '🏆'}  ${pending.length} achievements unlocked!`,
+          text2: names.length > 0 ? `${names.join(', ')} — tap to see them` : 'Tap to see them',
+          onPress: () => {
+            Toast.hide();
+            router.push('/(screens)/achievements');
+          },
         });
       }
 
