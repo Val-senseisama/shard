@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -26,6 +26,7 @@ import AnimatedPressable from '~/components/AnimatedPressable';
 import icons from '@/constants/icons';
 import { brand, hud, FONT, HudField, HudLabel, WordMark, RADIUS } from '~/components/hud';
 import { deviceTimeZone } from '~/helpers/dateKeys';
+import { consumeInstallReferralCode } from '~/helpers/installReferrer';
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -45,6 +46,35 @@ const Register = () => {
   // Prefilled from an invite deep-link (?ref=CODE); still editable.
   const { ref } = useLocalSearchParams<{ ref?: string }>();
   const [referralCode, setReferralCode] = useState((ref || '').toUpperCase());
+
+  /**
+   * Recover a code that came in through the install itself.
+   *
+   * A friend who taps an invite has no deep link waiting for them on the other
+   * side of the Play Store, so without this the code they were sent has to be
+   * retyped from memory. Play hands it back once, on first launch.
+   *
+   * A deep-linked code wins — it is the more specific signal, and this read is
+   * one-shot, so it must not overwrite something the user is already looking at.
+   */
+  useEffect(() => {
+    let active = true;
+
+    if (ref) return;
+
+    consumeInstallReferralCode()
+      .then((code) => {
+        if (!active || !code) return;
+        setReferralCode((current) => (current ? current : code));
+      })
+      .catch(() => {
+        // An invite is never worth an error on the signup screen.
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [ref]);
 
 
   // ─── Auto-login after registration ────────────────────────────────────────

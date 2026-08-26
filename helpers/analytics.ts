@@ -17,7 +17,11 @@ export type AnalyticsEventName =
   | 'purchase_cancelled'
   // Growth loop: a completion card was handed to the OS share sheet. Paired with
   // the server's `share_completed` so share rate per finished quest is measurable.
-  | 'share_tapped';
+  | 'share_tapped'
+  // The native rating sheet was requested. Neither store reports whether it was
+  // shown or acted on, so this counts asks, not ratings — pair it with the
+  // ratings count in Play Console to see which trigger is worth keeping.
+  | 'review_prompted';
 
 const ANON_ID_KEY = 'analytics_anon_id';
 let cachedAnonId: string | null = null;

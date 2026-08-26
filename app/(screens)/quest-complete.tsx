@@ -16,6 +16,7 @@ import { hud, FONT, RADIUS, HudLabel, HudButton, Num } from '~/components/hud';
 import { track } from '~/helpers/analytics';
 import { openPaywall } from '~/helpers/paywall';
 import { haptic } from '~/helpers/motion';
+import { maybeAskForReview } from '~/helpers/review';
 
 /**
  * The moment after finishing a quest.
@@ -42,6 +43,9 @@ export default function QuestComplete() {
   const c = hud(isDark);
   const cardRef = useRef<View>(null);
   const [sharing, setSharing] = useState(false);
+  // The exit awaits the rating sheet, so it needs the same re-entrancy guard as
+  // the share button — a second tap while it's open would replace() twice.
+  const [leaving, setLeaving] = useState(false);
 
   const isFirstCompletion = firstCompletion === '1';
 
@@ -99,14 +103,25 @@ export default function QuestComplete() {
     }
   }, [card, sharing, recordShare]);
 
-  const handleDone = useCallback(() => {
+  const handleDone = useCallback(async () => {
+    if (leaving) return;
+
     if (isFirstCompletion) {
-      // The trial has just ended on a high note. Make the case here.
+      // The trial has just ended on a high note. Make the case here — and don't
+      // stack a rating request on top of the one ask that's worth money.
       openPaywall('first_completion');
       return;
     }
+
+    setLeaving(true);
+
+    // Second completion or later: someone who has finished twice is the best
+    // rating we will ever get, and the listing has none. Awaited so the sheet
+    // isn't torn down by the navigation, but it can never block the exit.
+    await maybeAskForReview('quest_complete');
+
     router.replace('/(screens)/Home');
-  }, [isFirstCompletion]);
+  }, [isFirstCompletion, leaving]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: c.bg }}>

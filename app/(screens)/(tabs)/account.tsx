@@ -19,6 +19,7 @@ import RevenueCatUI from 'react-native-purchases-ui';
 import { purchasesService } from '~/services/purchasesService';
 import { openPaywall } from '~/helpers/paywall';
 import StreakCard from '~/components/StreakCard';
+import { inviteMessage } from '~/constants/links';
 
 // ─── Radar Chart ─────────────────────────────────────────────────────
 
@@ -794,7 +795,7 @@ const Account = () => {
             <AnimatedPressable
               onPress={() => {
                 Share.share({
-                  message: `Join me on Shard — turn your goals into quests. Use my code ${user.referralCode} when you sign up and we both get bonus AI credits!`,
+                  message: inviteMessage(user.referralCode!),
                 }).catch(() => {});
               }}
               scaleDown={0.97}>
